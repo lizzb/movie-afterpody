@@ -41,9 +41,9 @@ interface ScoreInputEpisode {
   episodeId: string;
   podcast: Podcast;
   preference: PodcastPreference;
-  rating?: EpisodeRating;
-  listening?: ListeningStatus;
-  quality?: ProductionQuality;
+  rating?: EpisodeRating | undefined;
+  listening?: ListeningStatus | undefined;
+  quality?: ProductionQuality | undefined;
   externalRating: number | null;
   ratingCount: number | null;
 }
