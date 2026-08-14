@@ -14,6 +14,7 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as MoviesIndexRouteImport } from './routes/movies.index'
 import { Route as MoviesSlugRouteImport } from './routes/movies.$slug'
 import { Route as PodcastsIndexRouteImport } from './routes/podcasts.index'
+import { Route as PodcastsSlugRouteImport } from './routes/podcasts.$slug'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -40,11 +41,17 @@ const PodcastsIndexRoute = PodcastsIndexRouteImport.update({
   path: '/podcasts/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PodcastsSlugRoute = PodcastsSlugRouteImport.update({
+  id: '/podcasts/$slug',
+  path: '/podcasts/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/settings': typeof SettingsRoute
   '/movies/$slug': typeof MoviesSlugRoute
+  '/podcasts/$slug': typeof PodcastsSlugRoute
   '/movies/': typeof MoviesIndexRoute
   '/podcasts/': typeof PodcastsIndexRoute
 }
@@ -52,6 +59,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/settings': typeof SettingsRoute
   '/movies/$slug': typeof MoviesSlugRoute
+  '/podcasts/$slug': typeof PodcastsSlugRoute
   '/movies': typeof MoviesIndexRoute
   '/podcasts': typeof PodcastsIndexRoute
 }
@@ -60,22 +68,42 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/settings': typeof SettingsRoute
   '/movies/$slug': typeof MoviesSlugRoute
+  '/podcasts/$slug': typeof PodcastsSlugRoute
   '/movies/': typeof MoviesIndexRoute
   '/podcasts/': typeof PodcastsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/settings' | '/movies/$slug' | '/movies/' | '/podcasts/'
+  fullPaths:
+    | '/'
+    | '/settings'
+    | '/movies/$slug'
+    | '/podcasts/$slug'
+    | '/movies/'
+    | '/podcasts/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/settings' | '/movies/$slug' | '/movies' | '/podcasts'
+  to:
+    | '/'
+    | '/settings'
+    | '/movies/$slug'
+    | '/podcasts/$slug'
+    | '/movies'
+    | '/podcasts'
   id:
-    '__root__' | '/' | '/settings' | '/movies/$slug' | '/movies/' | '/podcasts/'
+    | '__root__'
+    | '/'
+    | '/settings'
+    | '/movies/$slug'
+    | '/podcasts/$slug'
+    | '/movies/'
+    | '/podcasts/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SettingsRoute: typeof SettingsRoute
   MoviesSlugRoute: typeof MoviesSlugRoute
+  PodcastsSlugRoute: typeof PodcastsSlugRoute
   MoviesIndexRoute: typeof MoviesIndexRoute
   PodcastsIndexRoute: typeof PodcastsIndexRoute
 }
@@ -117,6 +145,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PodcastsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/podcasts/$slug': {
+      id: '/podcasts/$slug'
+      path: '/podcasts/$slug'
+      fullPath: '/podcasts/$slug'
+      preLoaderRoute: typeof PodcastsSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -124,6 +159,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SettingsRoute: SettingsRoute,
   MoviesSlugRoute: MoviesSlugRoute,
+  PodcastsSlugRoute: PodcastsSlugRoute,
   MoviesIndexRoute: MoviesIndexRoute,
   PodcastsIndexRoute: PodcastsIndexRoute,
 }
