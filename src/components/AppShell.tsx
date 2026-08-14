@@ -1,12 +1,14 @@
 import { Link } from "@tanstack/react-router";
-import { Clapperboard, Settings, Sparkles } from "lucide-react";
+import { Clapperboard, Mic, Settings, Sparkles } from "lucide-react";
 import type { ReactNode } from "react";
 
 const TABS = [
   { to: "/", label: "Tonight", icon: Sparkles },
   { to: "/movies", label: "Movies", icon: Clapperboard },
+  { to: "/podcasts", label: "Shows", icon: Mic },
   { to: "/settings", label: "Setup", icon: Settings },
 ] as const;
+
 
 export function AppShell({ children }: { children: ReactNode }) {
   return (
