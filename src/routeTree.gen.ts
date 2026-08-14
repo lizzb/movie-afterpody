@@ -10,33 +10,63 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as MoviesIndexRouteImport } from './routes/movies.index'
+import { Route as MoviesSlugRouteImport } from './routes/movies.$slug'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MoviesIndexRoute = MoviesIndexRouteImport.update({
+  id: '/movies/',
+  path: '/movies/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MoviesSlugRoute = MoviesSlugRouteImport.update({
+  id: '/movies/$slug',
+  path: '/movies/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/settings': typeof SettingsRoute
+  '/movies/$slug': typeof MoviesSlugRoute
+  '/movies/': typeof MoviesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/settings': typeof SettingsRoute
+  '/movies/$slug': typeof MoviesSlugRoute
+  '/movies': typeof MoviesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/settings': typeof SettingsRoute
+  '/movies/$slug': typeof MoviesSlugRoute
+  '/movies/': typeof MoviesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths: '/' | '/settings' | '/movies/$slug' | '/movies/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to: '/' | '/settings' | '/movies/$slug' | '/movies'
+  id: '__root__' | '/' | '/settings' | '/movies/$slug' | '/movies/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  SettingsRoute: typeof SettingsRoute
+  MoviesSlugRoute: typeof MoviesSlugRoute
+  MoviesIndexRoute: typeof MoviesIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -48,11 +78,35 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/movies/': {
+      id: '/movies/'
+      path: '/movies'
+      fullPath: '/movies/'
+      preLoaderRoute: typeof MoviesIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/movies/$slug': {
+      id: '/movies/$slug'
+      path: '/movies/$slug'
+      fullPath: '/movies/$slug'
+      preLoaderRoute: typeof MoviesSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  SettingsRoute: SettingsRoute,
+  MoviesSlugRoute: MoviesSlugRoute,
+  MoviesIndexRoute: MoviesIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
