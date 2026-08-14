@@ -213,7 +213,14 @@ function EpisodeRow({
         </div>
         <div className="min-w-0 flex-1">
           <p className="flex flex-wrap items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            {podcast.name}
+            <Link
+              to="/podcasts/$slug"
+              params={{ slug: podcast.slug }}
+              className="hover:text-foreground"
+            >
+              {podcast.name}
+            </Link>
+
             {preferred ? (
               <span className={`rounded-full px-2 py-0.5 text-[10px] normal-case ${accentSoft(accent)}`}>
                 Preferred
