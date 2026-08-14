@@ -1,0 +1,414 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import {
+  EMPTY_USER_DATA,
+  type Catalog,
+  type Episode,
+  type EpisodeMovie,
+  type EpisodeRating,
+  type EpisodeSource,
+  type Genre,
+  type ListeningStatus,
+  type Movie,
+  type MovieAvailability,
+  type MovieGenre,
+  type MovieWatch,
+  type Podcast,
+  type PodcastMetric,
+  type PodcastPreference,
+  type ProductionQuality,
+  type StreamingService,
+  type UserData,
+  type Watchlist,
+  type WatchlistMovie,
+} from "./types";
+
+const sel = (s: string): string => s;
+
+async function fetchCatalog(): Promise<Catalog> {
+  const [genres, services, movies, movieGenres, availability, podcasts, metrics, episodes, sources, links] =
+    await Promise.all([
+      supabase.from("genres").select(sel("id, slug, name")).order("name").returns<Genre[]>(),
+      supabase
+        .from("streaming_services")
+        .select(sel("id, slug, name, short_name, accent, sort_order"))
+        .order("sort_order")
+        .returns<StreamingService[]>(),
+      supabase
+        .from("movies")
+        .select(
+          sel("id, media_type, slug, title, release_year, runtime_minutes, synopsis, poster_url, accent"),
+        )
+        .order("title")
+        .returns<Movie[]>(),
+      supabase.from("movie_genres").select(sel("movie_id, genre_id")).returns<MovieGenre[]>(),
+      supabase
+        .from("movie_availability")
+        .select(sel("id, movie_id, service_id, offer_type, deep_link"))
+        .returns<MovieAvailability[]>(),
+      supabase
+        .from("podcasts")
+        .select(
+          sel(
+            "id, slug, name, description, artwork_url, accent, episode_count, latest_episode_at, activity_status, website_url",
+          ),
+        )
+        .order("name")
+        .returns<Podcast[]>(),
+      supabase
+        .from("podcast_external_metrics")
+        .select(sel("podcast_id, platform, rating, rating_count, external_url"))
+        .returns<PodcastMetric[]>(),
+      supabase
+        .from("podcast_episodes")
+        .select(sel("id, podcast_id, slug, title, description, released_at, duration_seconds"))
+        .order("released_at", { ascending: false })
+        .returns<Episode[]>(),
+      supabase
+        .from("episode_sources")
+        .select(sel("id, episode_id, platform, url, is_primary, embeddable"))
+        .returns<EpisodeSource[]>(),
+      supabase
+        .from("episode_movies")
+        .select(sel("episode_id, movie_id, is_primary_subject, match_confidence"))
+        .returns<EpisodeMovie[]>(),
+    ]);
+
+  const first = [genres, services, movies, movieGenres, availability, podcasts, metrics, episodes, sources, links].find(
+    (r) => r.error,
+  );
+  if (first?.error) throw new Error(first.error.message);
+
+  return {
+    genres: genres.data ?? [],
+    services: services.data ?? [],
+    movies: movies.data ?? [],
+    movieGenres: movieGenres.data ?? [],
+    availability: availability.data ?? [],
+    podcasts: podcasts.data ?? [],
+    metrics: metrics.data ?? [],
+    episodes: episodes.data ?? [],
+    episodeSources: sources.data ?? [],
+    episodeMovies: links.data ?? [],
+  };
+}
+
+export function useCatalog() {
+  return useQuery({
+    queryKey: ["catalog"],
+    queryFn: fetchCatalog,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+interface PreferenceRow {
+  podcast_id: string;
+  preference: PodcastPreference;
+}
+interface RatingRow {
+  episode_id: string;
+  rating: EpisodeRating;
+}
+interface ListeningRow {
+  episode_id: string;
+  status: ListeningStatus;
+}
+interface QualityRow {
+  episode_id: string;
+  quality: ProductionQuality;
+}
+
+async function fetchUserData(userId: string): Promise<UserData> {
+  const [services, prefs, ratings, listening, quality, watchlists, watchlistMovies, watches] =
+    await Promise.all([
+      supabase
+        .from("user_streaming_services")
+        .select(sel("service_id"))
+        .returns<{ service_id: string }[]>(),
+      supabase
+        .from("user_podcast_preferences")
+        .select(sel("podcast_id, preference"))
+        .returns<PreferenceRow[]>(),
+      supabase.from("user_episode_ratings").select(sel("episode_id, rating")).returns<RatingRow[]>(),
+      supabase
+        .from("user_episode_listening")
+        .select(sel("episode_id, status"))
+        .returns<ListeningRow[]>(),
+      supabase
+        .from("user_production_quality")
+        .select(sel("episode_id, quality"))
+        .returns<QualityRow[]>(),
+      supabase
+        .from("watchlists")
+        .select(sel("id, user_id, name, description, accent, created_at"))
+        .order("created_at")
+        .returns<Watchlist[]>(),
+      supabase.from("watchlist_movies").select(sel("watchlist_id, movie_id")).returns<WatchlistMovie[]>(),
+      supabase
+        .from("user_movie_watches")
+        .select(sel("id, movie_id, watched_on"))
+        .order("watched_on", { ascending: false })
+        .returns<MovieWatch[]>(),
+    ]);
+
+  void userId;
+
+  const toMap = <T extends string>(rows: { key: string; value: T }[]) => {
+    const out: Record<string, T> = {};
+    for (const row of rows) out[row.key] = row.value;
+    return out;
+  };
+
+  return {
+    serviceIds: (services.data ?? []).map((r) => r.service_id),
+    preferences: toMap((prefs.data ?? []).map((r) => ({ key: r.podcast_id, value: r.preference }))),
+    ratings: toMap((ratings.data ?? []).map((r) => ({ key: r.episode_id, value: r.rating }))),
+    listening: toMap((listening.data ?? []).map((r) => ({ key: r.episode_id, value: r.status }))),
+    quality: toMap((quality.data ?? []).map((r) => ({ key: r.episode_id, value: r.quality }))),
+    watchlists: watchlists.data ?? [],
+    watchlistMovies: watchlistMovies.data ?? [],
+    watches: watches.data ?? [],
+  };
+}
+
+export function useUserData() {
+  const { userId } = useAuth();
+  const query = useQuery({
+    queryKey: ["user-data", userId],
+    queryFn: () => fetchUserData(userId!),
+    enabled: Boolean(userId),
+    staleTime: 30 * 1000,
+  });
+  return { ...query, data: query.data ?? EMPTY_USER_DATA, hasUser: Boolean(userId) };
+}
+
+function useInvalidateUser() {
+  const client = useQueryClient();
+  const { userId } = useAuth();
+  return () => client.invalidateQueries({ queryKey: ["user-data", userId] });
+}
+
+export function useToggleService() {
+  const { userId } = useAuth();
+  const invalidate = useInvalidateUser();
+  return useMutation({
+    mutationFn: async ({ serviceId, on }: { serviceId: string; on: boolean }) => {
+      if (!userId) throw new Error("Sign in to pick your streaming services.");
+      if (on) {
+        const { error } = await supabase
+          .from("user_streaming_services")
+          .upsert({ user_id: userId, service_id: serviceId });
+        if (error) throw new Error(error.message);
+      } else {
+        const { error } = await supabase
+          .from("user_streaming_services")
+          .delete()
+          .eq("user_id", userId)
+          .eq("service_id", serviceId);
+        if (error) throw new Error(error.message);
+      }
+    },
+    onSuccess: invalidate,
+  });
+}
+
+export function useSetPodcastPreference() {
+  const { userId } = useAuth();
+  const invalidate = useInvalidateUser();
+  return useMutation({
+    mutationFn: async ({
+      podcastId,
+      preference,
+    }: {
+      podcastId: string;
+      preference: PodcastPreference;
+    }) => {
+      if (!userId) throw new Error("Sign in to save podcast preferences.");
+      const { error } = await supabase
+        .from("user_podcast_preferences")
+        .upsert({ user_id: userId, podcast_id: podcastId, preference, updated_at: new Date().toISOString() });
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: invalidate,
+  });
+}
+
+export function useRateEpisode() {
+  const { userId } = useAuth();
+  const invalidate = useInvalidateUser();
+  return useMutation({
+    mutationFn: async ({ episodeId, rating }: { episodeId: string; rating: EpisodeRating | null }) => {
+      if (!userId) throw new Error("Sign in to rate episodes.");
+      if (rating === null) {
+        const { error } = await supabase
+          .from("user_episode_ratings")
+          .delete()
+          .eq("user_id", userId)
+          .eq("episode_id", episodeId);
+        if (error) throw new Error(error.message);
+        return;
+      }
+      const { error } = await supabase
+        .from("user_episode_ratings")
+        .upsert({ user_id: userId, episode_id: episodeId, rating, updated_at: new Date().toISOString() });
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: invalidate,
+  });
+}
+
+export function useSetListeningStatus() {
+  const { userId } = useAuth();
+  const invalidate = useInvalidateUser();
+  return useMutation({
+    mutationFn: async ({ episodeId, status }: { episodeId: string; status: ListeningStatus }) => {
+      if (!userId) throw new Error("Sign in to track listening.");
+      const { error } = await supabase.from("user_episode_listening").upsert({
+        user_id: userId,
+        episode_id: episodeId,
+        status,
+        completed_at: status === "finished" ? new Date().toISOString() : null,
+        updated_at: new Date().toISOString(),
+      });
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: invalidate,
+  });
+}
+
+export function useSetProductionQuality() {
+  const { userId } = useAuth();
+  const invalidate = useInvalidateUser();
+  return useMutation({
+    mutationFn: async ({
+      episodeId,
+      quality,
+    }: {
+      episodeId: string;
+      quality: ProductionQuality | null;
+    }) => {
+      if (!userId) throw new Error("Sign in to note audio quality.");
+      if (quality === null) {
+        const { error } = await supabase
+          .from("user_production_quality")
+          .delete()
+          .eq("user_id", userId)
+          .eq("episode_id", episodeId);
+        if (error) throw new Error(error.message);
+        return;
+      }
+      const { error } = await supabase
+        .from("user_production_quality")
+        .upsert({ user_id: userId, episode_id: episodeId, quality, updated_at: new Date().toISOString() });
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: invalidate,
+  });
+}
+
+export function useToggleWatched() {
+  const { userId } = useAuth();
+  const invalidate = useInvalidateUser();
+  return useMutation({
+    mutationFn: async ({ movieId, watched }: { movieId: string; watched: boolean }) => {
+      if (!userId) throw new Error("Sign in to track what you've watched.");
+      if (watched) {
+        const { error } = await supabase
+          .from("user_movie_watches")
+          .upsert({ user_id: userId, movie_id: movieId, watched_on: new Date().toISOString().slice(0, 10) });
+        if (error) throw new Error(error.message);
+      } else {
+        const { error } = await supabase
+          .from("user_movie_watches")
+          .delete()
+          .eq("user_id", userId)
+          .eq("movie_id", movieId);
+        if (error) throw new Error(error.message);
+      }
+    },
+    onSuccess: invalidate,
+  });
+}
+
+export function useCreateWatchlist() {
+  const { userId } = useAuth();
+  const invalidate = useInvalidateUser();
+  return useMutation({
+    mutationFn: async ({ name, accent }: { name: string; accent: string }) => {
+      if (!userId) throw new Error("Sign in to make watchlists.");
+      const { error } = await supabase.from("watchlists").insert({ user_id: userId, name, accent });
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: invalidate,
+  });
+}
+
+export function useDeleteWatchlist() {
+  const invalidate = useInvalidateUser();
+  return useMutation({
+    mutationFn: async (watchlistId: string) => {
+      const { error } = await supabase.from("watchlists").delete().eq("id", watchlistId);
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: invalidate,
+  });
+}
+
+export function useToggleWatchlistMovie() {
+  const invalidate = useInvalidateUser();
+  return useMutation({
+    mutationFn: async ({
+      watchlistId,
+      movieId,
+      on,
+    }: {
+      watchlistId: string;
+      movieId: string;
+      on: boolean;
+    }) => {
+      if (on) {
+        const { error } = await supabase
+          .from("watchlist_movies")
+          .upsert({ watchlist_id: watchlistId, movie_id: movieId });
+        if (error) throw new Error(error.message);
+      } else {
+        const { error } = await supabase
+          .from("watchlist_movies")
+          .delete()
+          .eq("watchlist_id", watchlistId)
+          .eq("movie_id", movieId);
+        if (error) throw new Error(error.message);
+      }
+    },
+    onSuccess: invalidate,
+  });
+}
+
+const DEFAULT_SERVICES = ["netflix", "max", "hulu", "prime-video"];
+const DEFAULT_LISTS: { name: string; accent: string }[] = [
+  { name: "Date Night", accent: "coral" },
+  { name: "Bad Movies That Are Actually Good", accent: "gold" },
+  { name: "Halloween", accent: "purple" },
+];
+
+/** First sign-in convenience: give a new account services and starter lists. */
+export function useEnsureDefaults() {
+  const { userId } = useAuth();
+  const invalidate = useInvalidateUser();
+  return useMutation({
+    mutationFn: async (catalog: Catalog) => {
+      if (!userId) return;
+      const ids = catalog.services.filter((s) => DEFAULT_SERVICES.includes(s.slug)).map((s) => s.id);
+      if (ids.length > 0) {
+        await supabase
+          .from("user_streaming_services")
+          .upsert(ids.map((service_id) => ({ user_id: userId, service_id })));
+      }
+      await supabase
+        .from("watchlists")
+        .insert(DEFAULT_LISTS.map((l) => ({ user_id: userId, name: l.name, accent: l.accent })));
+    },
+    onSuccess: invalidate,
+  });
+}
