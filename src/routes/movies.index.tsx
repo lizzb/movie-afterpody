@@ -5,7 +5,7 @@ import { AppShell } from "@/components/AppShell";
 import { MovieCard } from "@/components/MovieCard";
 import { useDiscovery } from "@/lib/discovery";
 
-export const Route = createFileRoute("/movies")({
+export const Route = createFileRoute("/movies/")({
   head: () => ({
     meta: [
       { title: "Browse movies — Movie Afterparty" },
