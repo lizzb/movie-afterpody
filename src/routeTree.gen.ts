@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as MoviesIndexRouteImport } from './routes/movies.index'
 import { Route as MoviesSlugRouteImport } from './routes/movies.$slug'
+import { Route as PodcastsIndexRouteImport } from './routes/podcasts.index'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -34,18 +35,25 @@ const MoviesSlugRoute = MoviesSlugRouteImport.update({
   path: '/movies/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PodcastsIndexRoute = PodcastsIndexRouteImport.update({
+  id: '/podcasts/',
+  path: '/podcasts/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/settings': typeof SettingsRoute
   '/movies/$slug': typeof MoviesSlugRoute
   '/movies/': typeof MoviesIndexRoute
+  '/podcasts/': typeof PodcastsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/settings': typeof SettingsRoute
   '/movies/$slug': typeof MoviesSlugRoute
   '/movies': typeof MoviesIndexRoute
+  '/podcasts': typeof PodcastsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -53,13 +61,15 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/movies/$slug': typeof MoviesSlugRoute
   '/movies/': typeof MoviesIndexRoute
+  '/podcasts/': typeof PodcastsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/settings' | '/movies/$slug' | '/movies/'
+  fullPaths: '/' | '/settings' | '/movies/$slug' | '/movies/' | '/podcasts/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/settings' | '/movies/$slug' | '/movies'
-  id: '__root__' | '/' | '/settings' | '/movies/$slug' | '/movies/'
+  to: '/' | '/settings' | '/movies/$slug' | '/movies' | '/podcasts'
+  id:
+    '__root__' | '/' | '/settings' | '/movies/$slug' | '/movies/' | '/podcasts/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -67,6 +77,7 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   MoviesSlugRoute: typeof MoviesSlugRoute
   MoviesIndexRoute: typeof MoviesIndexRoute
+  PodcastsIndexRoute: typeof PodcastsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -99,6 +110,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MoviesSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/podcasts/': {
+      id: '/podcasts/'
+      path: '/podcasts'
+      fullPath: '/podcasts/'
+      preLoaderRoute: typeof PodcastsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -107,6 +125,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   MoviesSlugRoute: MoviesSlugRoute,
   MoviesIndexRoute: MoviesIndexRoute,
+  PodcastsIndexRoute: PodcastsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
