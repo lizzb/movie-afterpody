@@ -1,0 +1,149 @@
+export type MediaType = "movie" | "tv";
+export type OfferType = "subscription" | "free_ads" | "rent" | "buy";
+export type PodcastActivity = "active" | "slow" | "dormant" | "ended";
+export type PodcastPreference = "preferred" | "neutral" | "blocked";
+export type EpisodeRating = "disliked" | "meh" | "loved";
+export type ListeningStatus = "not_started" | "started" | "finished";
+export type ProductionQuality = "poor" | "okay" | "good";
+
+export interface Genre {
+  id: string;
+  slug: string;
+  name: string;
+}
+
+export interface StreamingService {
+  id: string;
+  slug: string;
+  name: string;
+  short_name: string;
+  accent: string;
+  sort_order: number;
+}
+
+export interface Movie {
+  id: string;
+  media_type: MediaType;
+  slug: string;
+  title: string;
+  release_year: number | null;
+  runtime_minutes: number | null;
+  synopsis: string | null;
+  poster_url: string | null;
+  accent: string;
+}
+
+export interface MovieGenre {
+  movie_id: string;
+  genre_id: string;
+}
+
+export interface MovieAvailability {
+  id: string;
+  movie_id: string;
+  service_id: string;
+  offer_type: OfferType;
+  deep_link: string | null;
+}
+
+export interface Podcast {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  artwork_url: string | null;
+  accent: string;
+  episode_count: number;
+  latest_episode_at: string | null;
+  activity_status: PodcastActivity;
+  website_url: string | null;
+}
+
+export interface PodcastMetric {
+  podcast_id: string;
+  platform: string;
+  rating: number | null;
+  rating_count: number | null;
+  external_url: string | null;
+}
+
+export interface Episode {
+  id: string;
+  podcast_id: string;
+  slug: string;
+  title: string;
+  description: string | null;
+  released_at: string | null;
+  duration_seconds: number | null;
+}
+
+export interface EpisodeSource {
+  id: string;
+  episode_id: string;
+  platform: string;
+  url: string;
+  is_primary: boolean;
+  embeddable: boolean;
+}
+
+export interface EpisodeMovie {
+  episode_id: string;
+  movie_id: string;
+  is_primary_subject: boolean;
+  match_confidence: number;
+}
+
+export interface Watchlist {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string | null;
+  accent: string;
+  created_at: string;
+}
+
+export interface WatchlistMovie {
+  watchlist_id: string;
+  movie_id: string;
+}
+
+export interface MovieWatch {
+  id: string;
+  movie_id: string;
+  watched_on: string;
+}
+
+export interface Catalog {
+  genres: Genre[];
+  services: StreamingService[];
+  movies: Movie[];
+  movieGenres: MovieGenre[];
+  availability: MovieAvailability[];
+  podcasts: Podcast[];
+  metrics: PodcastMetric[];
+  episodes: Episode[];
+  episodeSources: EpisodeSource[];
+  episodeMovies: EpisodeMovie[];
+}
+
+export interface UserData {
+  serviceIds: string[];
+  preferences: Record<string, PodcastPreference>;
+  ratings: Record<string, EpisodeRating>;
+  listening: Record<string, ListeningStatus>;
+  quality: Record<string, ProductionQuality>;
+  watchlists: Watchlist[];
+  watchlistMovies: WatchlistMovie[];
+  watches: MovieWatch[];
+}
+
+export const EMPTY_USER_DATA: UserData = {
+  serviceIds: [],
+  preferences: {},
+  ratings: {},
+  listening: {},
+  quality: {},
+  watchlists: [],
+  watchlistMovies: [],
+  watches: [],
+};
