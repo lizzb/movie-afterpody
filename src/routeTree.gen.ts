@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as AdminIngestRouteImport } from './routes/admin.ingest'
 import { Route as ListsIndexRouteImport } from './routes/lists.index'
 import { Route as MoviesIndexRouteImport } from './routes/movies.index'
 import { Route as MoviesSlugRouteImport } from './routes/movies.$slug'
@@ -25,6 +26,11 @@ const IndexRoute = IndexRouteImport.update({
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminIngestRoute = AdminIngestRouteImport.update({
+  id: '/admin/ingest',
+  path: '/admin/ingest',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ListsIndexRoute = ListsIndexRouteImport.update({
@@ -56,6 +62,7 @@ const PodcastsSlugRoute = PodcastsSlugRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/settings': typeof SettingsRoute
+  '/admin/ingest': typeof AdminIngestRoute
   '/movies/$slug': typeof MoviesSlugRoute
   '/podcasts/$slug': typeof PodcastsSlugRoute
   '/lists/': typeof ListsIndexRoute
@@ -65,6 +72,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/settings': typeof SettingsRoute
+  '/admin/ingest': typeof AdminIngestRoute
   '/movies/$slug': typeof MoviesSlugRoute
   '/podcasts/$slug': typeof PodcastsSlugRoute
   '/lists': typeof ListsIndexRoute
@@ -75,6 +83,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/settings': typeof SettingsRoute
+  '/admin/ingest': typeof AdminIngestRoute
   '/movies/$slug': typeof MoviesSlugRoute
   '/podcasts/$slug': typeof PodcastsSlugRoute
   '/lists/': typeof ListsIndexRoute
@@ -86,6 +95,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/settings'
+    | '/admin/ingest'
     | '/movies/$slug'
     | '/podcasts/$slug'
     | '/lists/'
@@ -95,6 +105,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/settings'
+    | '/admin/ingest'
     | '/movies/$slug'
     | '/podcasts/$slug'
     | '/lists'
@@ -104,6 +115,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/settings'
+    | '/admin/ingest'
     | '/movies/$slug'
     | '/podcasts/$slug'
     | '/lists/'
@@ -114,6 +126,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SettingsRoute: typeof SettingsRoute
+  AdminIngestRoute: typeof AdminIngestRoute
   MoviesSlugRoute: typeof MoviesSlugRoute
   PodcastsSlugRoute: typeof PodcastsSlugRoute
   ListsIndexRoute: typeof ListsIndexRoute
@@ -135,6 +148,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/ingest': {
+      id: '/admin/ingest'
+      path: '/admin/ingest'
+      fullPath: '/admin/ingest'
+      preLoaderRoute: typeof AdminIngestRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/lists/': {
@@ -178,6 +198,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SettingsRoute: SettingsRoute,
+  AdminIngestRoute: AdminIngestRoute,
   MoviesSlugRoute: MoviesSlugRoute,
   PodcastsSlugRoute: PodcastsSlugRoute,
   ListsIndexRoute: ListsIndexRoute,

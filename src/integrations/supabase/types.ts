@@ -605,6 +605,24 @@ export type Database = {
           },
         ]
       }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_streaming_services: {
         Row: {
           created_at: string
@@ -696,9 +714,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
+      app_role: "admin" | "moderator" | "user"
       episode_rating: "disliked" | "meh" | "loved"
       listening_status: "not_started" | "started" | "finished"
       match_method: "seed" | "deterministic" | "heuristic" | "ai" | "manual"
@@ -835,6 +860,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_role: ["admin", "moderator", "user"],
       episode_rating: ["disliked", "meh", "loved"],
       listening_status: ["not_started", "started", "finished"],
       match_method: ["seed", "deterministic", "heuristic", "ai", "manual"],
