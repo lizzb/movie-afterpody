@@ -55,7 +55,7 @@ function IngestPage() {
             <p className="text-sm text-muted-foreground">You are not an admin yet.</p>
             <button
               type="button"
-              onClick={() => bootstrapMutation.mutate()}
+              onClick={() => bootstrapMutation.mutate({})}
               disabled={bootstrapMutation.isPending}
               className="mt-4 inline-flex items-center rounded-full bg-coral px-5 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
             >
