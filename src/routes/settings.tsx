@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { Check, Heart } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { accentFor, accentSoft, toAccent } from "@/lib/accents";
