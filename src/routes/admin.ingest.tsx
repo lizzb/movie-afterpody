@@ -31,7 +31,7 @@ export const Route = createFileRoute("/admin/ingest")({
 function useAdminStatus() {
   return useQuery({
     queryKey: ["ingestion-stats"],
-    queryFn: () => listIngestionStats(),
+    queryFn: () => listIngestionStats({}),
     retry: false,
     refetchOnWindowFocus: false,
   });
