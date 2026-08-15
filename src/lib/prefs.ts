@@ -32,6 +32,14 @@ export interface Filters {
   preferredOnly: boolean;
 }
 
+export interface LocalList {
+  id: string;
+  name: string;
+  accent: string;
+  movieSlugs: string[];
+  createdAt: string;
+}
+
 export interface Prefs {
   serviceSlugs: string[];
   preferredPodcastSlugs: string[];
@@ -39,6 +47,9 @@ export interface Prefs {
   listening: Record<string, ListeningStatus>;
   quality: Record<string, ProductionQuality>;
   watchedMovieSlugs: string[];
+  /** slug -> ISO date (yyyy-mm-dd) the movie was marked watched. */
+  watchedDates: Record<string, string>;
+  lists: LocalList[];
   filters: Filters;
 }
 
@@ -87,6 +98,35 @@ export const DEFAULT_PREFS: Prefs = {
     "a80-clue": "good",
   },
   watchedMovieSlugs: ["clueless", "scream", "heathers", "the-princess-bride"],
+  watchedDates: {
+    clueless: "2026-08-09",
+    scream: "2026-07-28",
+    heathers: "2026-07-14",
+    "the-princess-bride": "2026-06-30",
+  },
+  lists: [
+    {
+      id: "list-date-night",
+      name: "Date Night",
+      accent: "coral",
+      movieSlugs: ["legally-blonde", "the-princess-bride"],
+      createdAt: "2026-06-01",
+    },
+    {
+      id: "list-good-bad",
+      name: "Good-Bad Movies",
+      accent: "gold",
+      movieSlugs: ["the-craft", "wild-things"],
+      createdAt: "2026-06-02",
+    },
+    {
+      id: "list-spooky",
+      name: "Spooky Season",
+      accent: "purple",
+      movieSlugs: [],
+      createdAt: "2026-06-03",
+    },
+  ],
   filters: {
     onlyMyServices: true,
     serviceSlugs: [],
@@ -116,6 +156,8 @@ function hydrate() {
       current = {
         ...DEFAULT_PREFS,
         ...parsed,
+        watchedDates: { ...(parsed.watchedDates ?? {}) },
+        lists: parsed.lists ?? DEFAULT_PREFS.lists,
         filters: { ...DEFAULT_PREFS.filters, ...(parsed.filters ?? {}) },
       };
     }
@@ -191,7 +233,36 @@ export const prefsActions = {
     write({ ...current, quality: next });
   },
   toggleWatched(slug: string, on?: boolean) {
-    write({ ...current, watchedMovieSlugs: toggle(current.watchedMovieSlugs, slug, on) });
+    const next = toggle(current.watchedMovieSlugs, slug, on);
+    const watchedDates = { ...current.watchedDates };
+    if (next.includes(slug)) watchedDates[slug] ??= new Date().toISOString().slice(0, 10);
+    else delete watchedDates[slug];
+    write({ ...current, watchedMovieSlugs: next, watchedDates });
+  },
+  createList(name: string, accent: string) {
+    const list: LocalList = {
+      id: `list-${Date.now().toString(36)}`,
+      name,
+      accent,
+      movieSlugs: [],
+      createdAt: new Date().toISOString().slice(0, 10),
+    };
+    write({ ...current, lists: [...current.lists, list] });
+    return list.id;
+  },
+  renameList(id: string, name: string) {
+    write({ ...current, lists: current.lists.map((l) => (l.id === id ? { ...l, name } : l)) });
+  },
+  deleteList(id: string) {
+    write({ ...current, lists: current.lists.filter((l) => l.id !== id) });
+  },
+  toggleListMovie(id: string, movieSlug: string, on?: boolean) {
+    write({
+      ...current,
+      lists: current.lists.map((l) =>
+        l.id === id ? { ...l, movieSlugs: toggle(l.movieSlugs, movieSlug, on) } : l,
+      ),
+    });
   },
   setFilters(patch: Partial<Filters>) {
     write({ ...current, filters: { ...current.filters, ...patch } });
