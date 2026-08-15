@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { accentFor } from "./accents";
@@ -31,8 +32,7 @@ const SuggestMatchesInput = z.object({
   episodeId: z.string().uuid().optional(),
 });
 
-async function requireAdmin(context: { supabase: ReturnType<typeof import("@/integrations/supabase/client.server")["supabaseAdmin"]>; userId: string }) {
-  // context.supabase here is the authenticated user client
+async function requireAdmin(context: { supabase: SupabaseClient<Database>; userId: string }) {
   const { data: isAdmin } = await context.supabase.rpc("has_role", {
     _user_id: context.userId,
     _role: "admin",
@@ -41,13 +41,36 @@ async function requireAdmin(context: { supabase: ReturnType<typeof import("@/int
 }
 
 async function loadAdminClients() {
-  const [{ supabaseAdmin }, { searchPodcastsByTitle, getPodcastByFeedUrl, getEpisodesByFeedUrl, podcastSlug, episodeSlug, bestArtwork }, { matchEpisodeToMovies }, { findBestTmdbMatch, getTmdbWatchProviders, tmdbPosterUrl }] = await Promise.all([
+  const [
+    { supabaseAdmin },
+    {
+      searchPodcastsByTitle,
+      getPodcastByFeedUrl,
+      getEpisodesByFeedUrl,
+      podcastSlug,
+      episodeSlug,
+      bestArtwork,
+    },
+    { matchEpisodeToMovies },
+    { findBestTmdbMatch, getTmdbWatchProviders },
+  ] = await Promise.all([
     import("@/integrations/supabase/client.server"),
     import("./providers/podcastindex.server"),
     import("./providers/matching.server"),
     import("./providers/tmdb.server"),
   ]);
-  return { supabaseAdmin, searchPodcastsByTitle, getPodcastByFeedUrl, getEpisodesByFeedUrl, podcastSlug, episodeSlug, bestArtwork, matchEpisodeToMovies, findBestTmdbMatch, getTmdbWatchProviders, tmdbPosterUrl };
+  return {
+    supabaseAdmin,
+    searchPodcastsByTitle,
+    getPodcastByFeedUrl,
+    getEpisodesByFeedUrl,
+    podcastSlug,
+    episodeSlug,
+    bestArtwork,
+    matchEpisodeToMovies,
+    findBestTmdbMatch,
+    getTmdbWatchProviders,
+  };
 }
 
 const TMDB_PROVIDER_TO_SLUG: Record<number, string> = {
@@ -64,24 +87,6 @@ const TMDB_PROVIDER_TO_SLUG: Record<number, string> = {
   99: "shudder",
   73: "tubi",
   584: "prime-video",
-};
-
-const TMDB_GENRE_TO_SLUG: Record<number, string> = {
-  28: "action",
-  12: "adventure",
-  35: "comedy",
-  80: "crime",
-  99: "documentary",
-  18: "drama",
-  10751: "family",
-  14: "fantasy",
-  27: "horror",
-  10402: "musical",
-  9648: "mystery",
-  10749: "romance",
-  878: "scifi",
-  53: "thriller",
-  37: "western",
 };
 
 export const bootstrapAdmin = createServerFn({ method: "POST" })
@@ -105,7 +110,7 @@ export const ingestPodcast = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data) => IngestPodcastInput.parse(data))
   .handler(async ({ data, context }) => {
-    await requireAdmin(context as unknown as Parameters<typeof requireAdmin>[0]);
+    await requireAdmin(context);
     const clients = await loadAdminClients();
 
     const apiKey = process.env["PODCAST_INDEX_API_KEY"];
@@ -141,20 +146,25 @@ export const ingestPodcast = createServerFn({ method: "POST" })
 
     const { data: upsertedPodcast, error: podcastError } = await clients.supabaseAdmin
       .from("podcasts")
-      .upsert({
-        slug,
-        name: feed.title,
-        description: feed.description || null,
-        artwork_url: artwork,
-        accent: accentFor(slug),
-        episode_count: feed.episodeCount ?? 0,
-        latest_episode_at: feed.lastUpdateTime ? new Date(feed.lastUpdateTime * 1000).toISOString().slice(0, 10) : null,
-        activity_status: "active",
-        feed_url: feed.url,
-        website_url: feed.link || null,
-        external_ids: { podcastIndexId: feed.id },
-        provider_source: "podcastindex",
-      }, { onConflict: "slug" })
+      .upsert(
+        {
+          slug,
+          name: feed.title,
+          description: feed.description || null,
+          artwork_url: artwork,
+          accent: accentFor(slug),
+          episode_count: feed.episodeCount ?? 0,
+          latest_episode_at: feed.lastUpdateTime
+            ? new Date(feed.lastUpdateTime * 1000).toISOString().slice(0, 10)
+            : null,
+          activity_status: "active",
+          feed_url: feed.url,
+          website_url: feed.link || null,
+          external_ids: { podcastIndexId: feed.id },
+          provider_source: "podcastindex",
+        },
+        { onConflict: "slug" },
+      )
       .select("id, slug, name")
       .single();
 
@@ -195,21 +205,23 @@ export const ingestPodcast = createServerFn({ method: "POST" })
       }
       insertedEpisodes += 1;
 
-      // Insert a public source link (Apple search fallback)
-      await clients.supabaseAdmin
-        .from("episode_sources")
-        .upsert(
+      try {
+        await clients.supabaseAdmin.from("episode_sources").upsert(
           {
             episode_id: upsertedEp.id,
             platform: "podcast_index",
-            url: ep.enclosureUrl || `https://podcasts.apple.com/search?term=${encodeURIComponent(feed.title + " " + ep.title)}`,
+            url:
+              ep.enclosureUrl ||
+              `https://podcasts.apple.com/search?term=${encodeURIComponent(feed.title + " " + ep.title)}`,
             access_tier: "public",
             is_primary: true,
             embeddable: false,
           },
           { onConflict: "episode_id, platform" },
-        )
-        .catch(() => null);
+        );
+      } catch {
+        /* source insert is best-effort */
+      }
 
       const candidates = clients.matchEpisodeToMovies(ep.title, movieList);
       const top = candidates[0];
@@ -259,7 +271,7 @@ export const suggestEpisodeMatches = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data) => SuggestMatchesInput.parse(data))
   .handler(async ({ data, context }) => {
-    await requireAdmin(context as unknown as Parameters<typeof requireAdmin>[0]);
+    await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { matchEpisodeToMovies } = await import("./providers/matching.server");
 
@@ -275,7 +287,13 @@ export const suggestEpisodeMatches = createServerFn({ method: "POST" })
     }
 
     const { data: episodes, error } = await episodeQuery.returns<
-      { id: string; slug: string; title: string; podcast_id: string; podcasts: { id: string; slug: string; name: string } }[]
+      {
+        id: string;
+        slug: string;
+        title: string;
+        podcast_id: string;
+        podcasts: { id: string; slug: string; name: string };
+      }[]
     >();
     if (error) throw error;
 
@@ -319,20 +337,18 @@ export const approveEpisodeMatch = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data) => EpisodeMatchInput.parse(data))
   .handler(async ({ data, context }) => {
-    await requireAdmin(context as unknown as Parameters<typeof requireAdmin>[0]);
+    await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin
-      .from("episode_movies")
-      .upsert(
-        {
-          episode_id: data.episodeId,
-          movie_id: data.movieId,
-          match_method: "manual",
-          match_confidence: 0.95,
-          is_primary_subject: true,
-        },
-        { onConflict: "episode_id, movie_id" },
-      );
+    const { error } = await supabaseAdmin.from("episode_movies").upsert(
+      {
+        episode_id: data.episodeId,
+        movie_id: data.movieId,
+        match_method: "manual",
+        match_confidence: 0.95,
+        is_primary_subject: true,
+      },
+      { onConflict: "episode_id, movie_id" },
+    );
     if (error) throw error;
     return { ok: true };
   });
@@ -341,7 +357,7 @@ export const rejectEpisodeMatch = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data) => EpisodeMatchInput.parse(data))
   .handler(async ({ data, context }) => {
-    await requireAdmin(context as unknown as Parameters<typeof requireAdmin>[0]);
+    await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin
       .from("episode_movies")
@@ -356,7 +372,7 @@ export const enrichMovie = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data) => EnrichMovieInput.parse(data))
   .handler(async ({ data, context }) => {
-    await requireAdmin(context as unknown as Parameters<typeof requireAdmin>[0]);
+    await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { findBestTmdbMatch } = await import("./providers/tmdb.server");
 
@@ -365,7 +381,7 @@ export const enrichMovie = createServerFn({ method: "POST" })
 
     let title = data.title;
     let year = data.year;
-    let movieId = data.movieId;
+    const movieId = data.movieId;
 
     if (movieId && !title) {
       const { data: movie } = await supabaseAdmin
@@ -384,10 +400,7 @@ export const enrichMovie = createServerFn({ method: "POST" })
     const match = await findBestTmdbMatch(apiKey, title, year);
     if (!match) throw new Error(`No TMDB match found for "${title}"`);
 
-    const { data: genreRows } = await supabaseAdmin.from("genres").select("id, slug");
-    const genreBySlug = new Map((genreRows ?? []).map((g) => [g.slug, g.id]));
-
-    const update: Database["public"]["Tables"]["movies"]["Update"] = {
+    const baseUpdate = {
       title: match.title,
       release_year: match.releaseYear,
       release_date: match.releaseDate,
@@ -400,20 +413,23 @@ export const enrichMovie = createServerFn({ method: "POST" })
       tmdb_id: match.tmdbId,
     };
 
+    if (movieId) {
+      const { error } = await supabaseAdmin.from("movies").update(baseUpdate).eq("id", movieId);
+      if (error) throw error;
+      return { movieId, match };
+    }
+
+    const slug = match.title
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
     const { data: upsertedMovie, error } = await supabaseAdmin
       .from("movies")
-      .upsert(
-        movieId
-          ? { id: movieId, ...update }
-          : { slug: match.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""), accent: accentFor(match.title), ...update },
-        { onConflict: movieId ? "id" : "slug" },
-      )
+      .insert({ slug, accent: accentFor(slug), ...baseUpdate })
       .select("id, slug, title")
       .single();
+    if (error || !upsertedMovie) throw error || new Error("Failed to insert movie");
 
-    if (error || !upsertedMovie) throw error || new Error("Failed to upsert movie");
-
-    // We don't fetch genre details here; enrichMovie focuses on metadata.
     return { movie: upsertedMovie, match };
   });
 
@@ -421,7 +437,7 @@ export const refreshAvailability = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data) => RefreshAvailabilityInput.parse(data))
   .handler(async ({ data, context }) => {
-    await requireAdmin(context as unknown as Parameters<typeof requireAdmin>[0]);
+    await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { getTmdbWatchProviders } = await import("./providers/tmdb.server");
 
@@ -436,7 +452,7 @@ export const refreshAvailability = createServerFn({ method: "POST" })
     const serviceBySlug = new Map((services ?? []).map((s) => [s.slug, s.id]));
 
     let updated = 0;
-    let failed: string[] = [];
+    const failed: string[] = [];
 
     for (const movie of movies ?? []) {
       if (!movie.tmdb_id) continue;
@@ -456,20 +472,18 @@ export const refreshAvailability = createServerFn({ method: "POST" })
           const serviceId = serviceBySlug.get(slug);
           if (!serviceId) continue;
 
-          await supabaseAdmin
-            .from("movie_availability")
-            .upsert(
-              {
-                movie_id: movie.id,
-                service_id: serviceId,
-                offer_type: offer.offer_type,
-                region: data.region,
-                deep_link: region?.link || null,
-                provider_source: "tmdb",
-                last_checked_at: new Date().toISOString(),
-              },
-              { onConflict: "movie_id, service_id, offer_type, region" },
-            );
+          await supabaseAdmin.from("movie_availability").upsert(
+            {
+              movie_id: movie.id,
+              service_id: serviceId,
+              offer_type: offer.offer_type,
+              region: data.region,
+              deep_link: region?.link || null,
+              provider_source: "tmdb",
+              last_checked_at: new Date().toISOString(),
+            },
+            { onConflict: "movie_id, service_id, offer_type, region" },
+          );
         }
         updated += 1;
       } catch (err) {
@@ -483,7 +497,7 @@ export const refreshAvailability = createServerFn({ method: "POST" })
 export const listIngestionStats = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await requireAdmin(context as unknown as Parameters<typeof requireAdmin>[0]);
+    await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
     const [
