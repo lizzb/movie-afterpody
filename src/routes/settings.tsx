@@ -123,6 +123,19 @@ function SettingsPage() {
             </ul>
           )}
         </section>
+
+        <section className="mt-10 rounded-2xl border border-dashed border-border bg-card p-5">
+          <h2 className="font-display text-xl">Data sources</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Pull real movie metadata, streaming availability, and podcast episodes from TMDB and Podcast Index.
+          </p>
+          <Link
+            to="/admin/ingest"
+            className="mt-4 inline-flex items-center rounded-full bg-navy px-5 py-2.5 text-sm font-semibold text-primary-foreground"
+          >
+            Open ingestion tools
+          </Link>
+        </section>
       </main>
     </AppShell>
   );
