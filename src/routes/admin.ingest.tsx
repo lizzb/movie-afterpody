@@ -39,6 +39,7 @@ function useAdminStatus() {
 }
 
 function IngestPage() {
+  const { user, userId, loading: authLoading } = useAuth();
   const stats = useAdminStatus();
   const bootstrap = useServerFn(bootstrapAdmin);
   const bootstrapMutation = useMutation({
@@ -46,7 +47,32 @@ function IngestPage() {
     onSuccess: () => stats.refetch(),
   });
 
-  if (stats.error && (stats.error as Error).message.includes("Forbidden")) {
+  if (authLoading) {
+    return (
+      <AppShell>
+        <main className="mx-auto w-full max-w-3xl px-5 pb-16 pt-8">
+          <div className="h-40 animate-pulse rounded-2xl bg-muted" />
+        </main>
+      </AppShell>
+    );
+  }
+
+  if (!userId) {
+    return (
+      <AppShell>
+        <main className="mx-auto w-full max-w-3xl px-5 pb-16 pt-8">
+          <h1 className="font-display text-3xl">Data ingestion</h1>
+          <p className="mt-2 text-muted-foreground">Admin tools for pulling real movie and podcast data.</p>
+          <div className="mt-8 rounded-2xl border border-border bg-card p-6 text-center">
+            <p className="text-sm text-muted-foreground">Sign in to access ingestion tools.</p>
+          </div>
+        </main>
+      </AppShell>
+    );
+  }
+
+  const isForbidden = stats.error && (stats.error as Error).message.toLowerCase().includes("forbidden");
+  if (isForbidden) {
     return (
       <AppShell>
         <main className="mx-auto w-full max-w-3xl px-5 pb-16 pt-8">
