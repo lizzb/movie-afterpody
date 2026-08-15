@@ -1,11 +1,12 @@
 import { Link } from "@tanstack/react-router";
-import { Clapperboard, Mic, Settings, Sparkles } from "lucide-react";
+import { Bookmark, Clapperboard, Mic, Settings, Sparkles } from "lucide-react";
 import type { ReactNode } from "react";
 
 const TABS = [
   { to: "/", label: "Tonight", icon: Sparkles },
   { to: "/movies", label: "Movies", icon: Clapperboard },
   { to: "/podcasts", label: "Shows", icon: Mic },
+  { to: "/lists", label: "Lists", icon: Bookmark },
   { to: "/settings", label: "Setup", icon: Settings },
 ] as const;
 

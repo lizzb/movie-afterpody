@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, Check, ExternalLink, Heart, Popcorn, Timer } from "lucide-react";
+import { AddToListButton } from "@/components/AddToListButton";
 import { AppShell } from "@/components/AppShell";
 import { accentFor, accentSoft, accentSolid, toAccent } from "@/lib/accents";
 import { useDiscovery, type EpisodeEntry } from "@/lib/discovery";
@@ -158,6 +159,7 @@ function MovieDetailPage() {
             <Check className="size-4" aria-hidden />
             {watched ? "Watched" : "Mark watched"}
           </button>
+          <AddToListButton movieSlug={movie.slug} variant="button" />
         </section>
 
         <section className="mt-8">

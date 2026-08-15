@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { Check, Mic, Popcorn, Timer } from "lucide-react";
+import { AddToListButton } from "@/components/AddToListButton";
 import { accentFor, accentSoft, accentSolid, toAccent } from "@/lib/accents";
 import type { MovieEntry } from "@/lib/discovery";
 
@@ -9,7 +10,10 @@ export function MovieCard({ entry }: { entry: MovieEntry }) {
   const preferredCount = episodes.filter((e) => e.preferred).length;
 
   return (
-    <li className="overflow-hidden rounded-2xl border border-border bg-card shadow-card transition-shadow hover:shadow-lg">
+    <li className="relative overflow-visible rounded-2xl border border-border bg-card shadow-card transition-shadow hover:shadow-lg">
+      <div className="absolute right-3 top-3 z-10">
+        <AddToListButton movieSlug={movie.slug} />
+      </div>
       <Link
         to="/movies/$slug"
         params={{ slug: movie.slug }}
@@ -22,7 +26,7 @@ export function MovieCard({ entry }: { entry: MovieEntry }) {
           {movie.title.slice(0, 1)}
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="font-display text-xl leading-snug">
+          <h3 className="pr-11 font-display text-xl leading-snug">
             {movie.title}
             {movie.release_year ? (
               <span className="text-muted-foreground"> ({movie.release_year})</span>
