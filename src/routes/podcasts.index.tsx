@@ -236,13 +236,11 @@ function PodcastCard({ entry, view }: { entry: PodcastEntry; view: ViewMode }) {
           onClick={() => prefsActions.togglePreferredPodcast(podcast.slug, !preferred)}
           aria-pressed={preferred}
           aria-label={preferred ? `Unfollow ${podcast.name}` : `Prefer ${podcast.name}`}
-          className={`shrink-0 rounded-full border p-2 transition-colors ${
-            preferred
-              ? "border-transparent bg-berry text-primary-foreground"
-              : "border-border text-muted-foreground hover:text-foreground"
+          className={`-m-1 shrink-0 p-2 transition-colors ${
+            preferred ? "text-berry" : "text-muted-foreground hover:text-foreground"
           }`}
         >
-          <Heart className="size-4" aria-hidden />
+          <Heart className="size-5" fill={preferred ? "currentColor" : "none"} aria-hidden />
         </button>
       </div>
     </li>
