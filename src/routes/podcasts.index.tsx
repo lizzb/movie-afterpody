@@ -43,7 +43,7 @@ function PodcastsPage() {
   const [mode, setMode] = useState<Mode>("all");
   const view = prefs.viewModes["podcasts"] ?? "rows";
 
-  const results = useMemo(() => {
+  const filtered = useMemo(() => {
     const needle = term.trim().toLowerCase();
     return podcastEntries.filter((e) => {
       if (needle && !e.podcast.name.toLowerCase().includes(needle)) return false;
@@ -52,6 +52,21 @@ function PodcastsPage() {
       return true;
     });
   }, [podcastEntries, term, mode]);
+
+  // Snapshot the order when the query/filter changes so following a show does not
+  // make its card jump (or appear to vanish) mid-tap. Re-ranking applies next load.
+  const orderKey = `${term.trim().toLowerCase()}|${mode}|${isLoading}`;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const order = useMemo(() => filtered.map((e) => e.podcast.slug), [orderKey]);
+
+  const results = useMemo(() => {
+    const index = new Map(order.map((slug, i) => [slug, i]));
+    return [...filtered].sort(
+      (a, b) =>
+        (index.get(a.podcast.slug) ?? Number.MAX_SAFE_INTEGER) -
+        (index.get(b.podcast.slug) ?? Number.MAX_SAFE_INTEGER),
+    );
+  }, [filtered, order]);
 
   return (
     <AppShell>
