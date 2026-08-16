@@ -61,7 +61,7 @@ function SettingsPage() {
 
         <section className="mt-6">
           <h2 className="font-display text-xl font-bold">Streaming services</h2>
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-3 flex flex-wrap gap-1.5">
             {(catalog?.services ?? []).map((service) => {
               const on = prefs.serviceSlugs.includes(service.slug);
               return (
@@ -70,18 +70,18 @@ function SettingsPage() {
                   type="button"
                   aria-pressed={on}
                   onClick={() => prefsActions.toggleService(service.slug, !on)}
-                  className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-sm font-semibold transition-colors ${
+                  className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors ${
                     on
-                      ? "border-transparent bg-coral-soft text-coral neon"
+                      ? "border-coral bg-coral-soft text-coral"
                       : "border-border bg-card text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  {on ? <Check className="size-3.5" aria-hidden /> : null}
+                  {on ? <Check className="size-3" aria-hidden /> : null}
                   <BrandBadge
                     slug={service.slug}
-                    label={service.name}
+                    label={service.short_name ?? service.name}
                     active={on}
-                    className="border-none bg-transparent px-0 py-0 text-sm"
+                    className="border-none bg-transparent px-0 py-0 text-xs"
                   />
                 </button>
               );

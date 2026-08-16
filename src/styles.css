@@ -64,8 +64,8 @@
 /* Light: cool off-white canvas, same cyan accent, hairline borders, no glow. */
 :root {
   --radius: 1rem;
-  --font-body: "DM Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-heading: "Space Grotesk", "DM Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Hind", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-heading: "Outfit", "Hind", ui-sans-serif, system-ui, sans-serif;
 
   --background: oklch(0.978 0.005 250);
   --foreground: oklch(0.255 0.028 258);

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Check, RotateCcw, Search, SlidersHorizontal, X } from "lucide-react";
 import { BrandBadge } from "@/components/BrandBadge";
+import { YearRange } from "@/components/YearRange";
 import { prefsActions, RUNTIME_CEILING, YEAR_CEILING, YEAR_FLOOR, type Filters } from "@/lib/prefs";
 import type { Genre, StreamingService } from "@/lib/types";
 
@@ -102,7 +103,7 @@ export function FilterBar({ filters, genres, services, mySlugs, resultCount }: P
         </button>
       </div>
 
-      <div className="mt-2.5 grid gap-2.5 sm:grid-cols-2">
+      <div className="mt-2 grid gap-x-4 gap-y-2 sm:grid-cols-2">
         <label className="block">
           <span className="flex items-baseline justify-between text-[11px] font-semibold text-muted-foreground">
             Max runtime
@@ -117,7 +118,7 @@ export function FilterBar({ filters, genres, services, mySlugs, resultCount }: P
             step={5}
             value={filters.maxRuntime}
             onChange={(e) => prefsActions.setFilters({ maxRuntime: Number(e.target.value) })}
-            className="mt-1 h-1.5 w-full accent-coral"
+            className="mt-0.5 h-1 w-full accent-coral"
           />
         </label>
 
@@ -128,34 +129,13 @@ export function FilterBar({ filters, genres, services, mySlugs, resultCount }: P
               {filters.yearMin}&ndash;{filters.yearMax}
             </span>
           </span>
-          <div className="mt-1 flex items-center gap-1.5">
-            <input
-              type="range"
-              min={YEAR_FLOOR}
-              max={YEAR_CEILING}
-              value={filters.yearMin}
-              aria-label="Earliest year"
-              onChange={(e) =>
-                prefsActions.setFilters({
-                  yearMin: Math.min(Number(e.target.value), filters.yearMax),
-                })
-              }
-              className="h-1.5 w-full accent-coral"
-            />
-            <input
-              type="range"
-              min={YEAR_FLOOR}
-              max={YEAR_CEILING}
-              value={filters.yearMax}
-              aria-label="Latest year"
-              onChange={(e) =>
-                prefsActions.setFilters({
-                  yearMax: Math.max(Number(e.target.value), filters.yearMin),
-                })
-              }
-              className="h-1.5 w-full accent-coral"
-            />
-          </div>
+          <YearRange
+            min={YEAR_FLOOR}
+            max={YEAR_CEILING}
+            from={filters.yearMin}
+            to={filters.yearMax}
+            onChange={({ from, to }) => prefsActions.setFilters({ yearMin: from, yearMax: to })}
+          />
         </div>
       </div>
 

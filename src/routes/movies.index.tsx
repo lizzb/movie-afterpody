@@ -1,6 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { Mic, Search } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { MovieCard } from "@/components/MovieCard";
 import { ViewToggle } from "@/components/ViewToggle";
@@ -28,7 +28,7 @@ export const Route = createFileRoute("/movies/")({
 });
 
 function MoviesPage() {
-  const { entries, prefs, isLoading } = useDiscovery();
+  const { entries, catalog, prefs, isLoading } = useDiscovery();
   const view = prefs.viewModes["movies"] ?? "rows";
   const [term, setTerm] = useState("");
 
@@ -38,6 +38,14 @@ function MoviesPage() {
       .filter((e) => !needle || e.movie.title.toLowerCase().includes(needle))
       .sort((a, b) => a.movie.title.localeCompare(b.movie.title));
   }, [entries, term]);
+
+  const showMatches = useMemo(() => {
+    const needle = term.trim().toLowerCase();
+    if (!needle) return [];
+    return (catalog?.podcasts ?? [])
+      .filter((p) => p.name.toLowerCase().includes(needle))
+      .slice(0, 6);
+  }, [catalog, term]);
 
   return (
     <AppShell>
@@ -64,12 +72,38 @@ function MoviesPage() {
           <ViewToggle surface="movies" value={view} />
         </div>
 
+        {showMatches.length > 0 ? (
+          <section className="mt-5 rounded-2xl border border-border bg-card p-3 shadow-card">
+            <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+              Shows matching &ldquo;{term.trim()}&rdquo;
+            </h2>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {showMatches.map((p) => (
+                <Link
+                  key={p.id}
+                  to="/podcasts/$slug"
+                  params={{ slug: p.slug }}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-xs font-semibold text-muted-foreground hover:text-foreground"
+                >
+                  <Mic className="size-3" aria-hidden />
+                  {p.name}
+                </Link>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
         {isLoading ? (
           <ul className="mt-6 space-y-3">
             {Array.from({ length: 5 }).map((_, i) => (
               <li key={i} className="h-28 animate-pulse rounded-2xl bg-muted" />
             ))}
           </ul>
+        ) : results.length === 0 ? (
+          <p className="mt-8 rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+            No movies match &ldquo;{term.trim()}&rdquo;.
+            {showMatches.length > 0 ? " It looks like a podcast — pick it above." : ""}
+          </p>
         ) : (
           <ul
             className={
