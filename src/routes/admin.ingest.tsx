@@ -29,10 +29,12 @@ export const Route = createFileRoute("/admin/ingest")({
   component: IngestPage,
 });
 
-function useAdminStatus() {
+function useAdminStatus(enabled: boolean) {
+  const fetchStats = useServerFn(listIngestionStats);
   return useQuery({
     queryKey: ["ingestion-stats"],
-    queryFn: () => listIngestionStats({}),
+    queryFn: () => fetchStats({}),
+    enabled,
     retry: false,
     refetchOnWindowFocus: false,
   });
@@ -40,7 +42,7 @@ function useAdminStatus() {
 
 function IngestPage() {
   const { user, userId, loading: authLoading } = useAuth();
-  const stats = useAdminStatus();
+  const stats = useAdminStatus(Boolean(userId));
   const bootstrap = useServerFn(bootstrapAdmin);
   const bootstrapMutation = useMutation({
     mutationFn: bootstrap,
