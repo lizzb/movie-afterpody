@@ -1,6 +1,8 @@
 import { Link } from "@tanstack/react-router";
-import { Bookmark, Clapperboard, Mic, Settings, Sparkles } from "lucide-react";
+import { Bookmark, Clapperboard, Mic, Settings, Sparkles, UserRound } from "lucide-react";
 import type { ReactNode } from "react";
+import { ThemeToggle, useThemeClass } from "@/components/ThemeToggle";
+import { useAuth } from "@/hooks/useAuth";
 
 const TABS = [
   { to: "/", label: "Tonight", icon: Sparkles },
@@ -10,28 +12,42 @@ const TABS = [
   { to: "/settings", label: "Setup", icon: Settings },
 ] as const;
 
-
 export function AppShell({ children }: { children: ReactNode }) {
+  useThemeClass();
+  const { userId } = useAuth();
+
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-0">
-      <header className="sticky top-0 z-20 border-b border-border/70 bg-background/85 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-5 py-3">
-          <Link to="/" className="font-display text-lg tracking-tight">
+      {/* Desktop only: mobile relies on each page's own H1 plus the bottom nav. */}
+      <header className="sticky top-0 z-20 hidden border-b border-border/70 bg-background/85 backdrop-blur md:block">
+        <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-5 py-2.5">
+          <Link to="/" className="font-display text-base font-bold tracking-tight">
             Movie&nbsp;Afterparty
           </Link>
-          <nav className="hidden items-center gap-1 md:flex">
+          <nav className="flex items-center gap-1">
             {TABS.map((tab) => (
               <Link
                 key={tab.to}
                 to={tab.to}
                 activeOptions={{ exact: tab.to === "/" }}
                 className="rounded-full px-3 py-1.5 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
-                activeProps={{ className: "bg-secondary text-foreground" }}
+                activeProps={{ className: "bg-coral-soft text-coral" }}
               >
                 {tab.label}
               </Link>
             ))}
           </nav>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <Link
+              to="/auth"
+              aria-label={userId ? "Account" : "Sign in"}
+              title={userId ? "Account" : "Sign in"}
+              className="rounded-full border border-border bg-card p-1.5 text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <UserRound className="size-4" aria-hidden />
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -44,11 +60,25 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Link
                 to={tab.to}
                 activeOptions={{ exact: tab.to === "/" }}
-                className="flex flex-col items-center gap-1 py-2.5 text-[11px] font-semibold text-muted-foreground"
+                className="group flex flex-col items-center gap-1 py-2 text-[11px] font-semibold text-muted-foreground"
                 activeProps={{ className: "text-coral" }}
               >
-                <tab.icon className="size-5" aria-hidden />
-                {tab.label}
+                {({ isActive }: { isActive: boolean }) => (
+                  <>
+                    <span
+                      className={`grid place-items-center rounded-full px-3.5 py-1 transition-colors ${
+                        isActive ? "bg-coral-soft neon" : ""
+                      }`}
+                    >
+                      <tab.icon
+                        className="size-5"
+                        strokeWidth={isActive ? 2.6 : 2}
+                        aria-hidden
+                      />
+                    </span>
+                    {tab.label}
+                  </>
+                )}
               </Link>
             </li>
           ))}

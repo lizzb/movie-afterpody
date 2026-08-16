@@ -2,7 +2,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { CalendarCheck, Plus, Trash2 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
-import { accentFor, accentSoft, accentSolid, toAccent } from "@/lib/accents";
+import { Artwork } from "@/components/Artwork";
+import { BrandBadge } from "@/components/BrandBadge";
+import { accentFor, accentSoft, toAccent } from "@/lib/accents";
 import { formatWatchedOn, useLists } from "@/lib/lists";
 import { prefsActions } from "@/lib/prefs";
 
@@ -136,22 +138,35 @@ function ListsPage() {
                               params={{ slug: movie.slug }}
                               className="flex items-center gap-3 rounded-xl border border-border/70 p-2.5 transition-colors hover:bg-secondary"
                             >
-                              <span
-                                className={`flex size-10 shrink-0 items-center justify-center rounded-lg font-display ${accentSolid(
-                                  toAccent(movie.accent ?? accentFor(movie.slug)),
-                                )}`}
-                                aria-hidden
-                              >
-                                {movie.title.slice(0, 1)}
-                              </span>
+                              <Artwork
+                                src={movie.poster_url}
+                                title={movie.title}
+                                seed={movie.slug}
+                                accent={movie.accent}
+                                className="w-10 text-sm"
+                              />
                               <span className="min-w-0 flex-1">
                                 <span className="block truncate text-sm font-semibold">
                                   {movie.title}
                                   {watched ? " · watched" : ""}
                                 </span>
-                                <span className="block truncate text-xs text-muted-foreground">
-                                  {episodes.length} episode{episodes.length === 1 ? "" : "s"} ·{" "}
-                                  {services.map((s) => s.short_name).join(", ") || "Not on your services"}
+                                <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                                  <span>
+                                    {episodes.length} episode{episodes.length === 1 ? "" : "s"}
+                                  </span>
+                                  {services.length > 0 ? (
+                                    services.map((s) => (
+                                      <BrandBadge
+                                        key={s.id}
+                                        slug={s.slug}
+                                        label={s.short_name}
+                                        active
+                                        showLabel={false}
+                                      />
+                                    ))
+                                  ) : (
+                                    <span>Not on your services</span>
+                                  )}
                                 </span>
                               </span>
                               <span
@@ -183,14 +198,13 @@ function ListsPage() {
                   params={{ slug: entry.movie.slug }}
                   className="flex items-center gap-3 p-3"
                 >
-                  <span
-                    className={`flex size-12 shrink-0 items-center justify-center rounded-xl font-display text-lg ${accentSolid(
-                      toAccent(entry.movie.accent ?? accentFor(entry.movie.slug)),
-                    )}`}
-                    aria-hidden
-                  >
-                    {entry.movie.title.slice(0, 1)}
-                  </span>
+                  <Artwork
+                    src={entry.movie.poster_url}
+                    title={entry.movie.title}
+                    seed={entry.movie.slug}
+                    accent={entry.movie.accent}
+                    className="w-12 text-lg"
+                  />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-display text-lg">
                       {entry.movie.title}

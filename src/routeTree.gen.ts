@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthRouteImport } from './routes/auth'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as AdminIngestRouteImport } from './routes/admin.ingest'
 import { Route as ListsIndexRouteImport } from './routes/lists.index'
@@ -21,6 +22,11 @@ import { Route as PodcastsSlugRouteImport } from './routes/podcasts.$slug'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsRoute = SettingsRouteImport.update({
@@ -61,6 +67,7 @@ const PodcastsSlugRoute = PodcastsSlugRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/settings': typeof SettingsRoute
   '/admin/ingest': typeof AdminIngestRoute
   '/movies/$slug': typeof MoviesSlugRoute
@@ -71,6 +78,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/settings': typeof SettingsRoute
   '/admin/ingest': typeof AdminIngestRoute
   '/movies/$slug': typeof MoviesSlugRoute
@@ -82,6 +90,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/settings': typeof SettingsRoute
   '/admin/ingest': typeof AdminIngestRoute
   '/movies/$slug': typeof MoviesSlugRoute
@@ -94,6 +103,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/auth'
     | '/settings'
     | '/admin/ingest'
     | '/movies/$slug'
@@ -104,6 +114,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/auth'
     | '/settings'
     | '/admin/ingest'
     | '/movies/$slug'
@@ -114,6 +125,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/auth'
     | '/settings'
     | '/admin/ingest'
     | '/movies/$slug'
@@ -125,6 +137,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthRoute: typeof AuthRoute
   SettingsRoute: typeof SettingsRoute
   AdminIngestRoute: typeof AdminIngestRoute
   MoviesSlugRoute: typeof MoviesSlugRoute
@@ -141,6 +154,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings': {
@@ -197,6 +217,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthRoute: AuthRoute,
   SettingsRoute: SettingsRoute,
   AdminIngestRoute: AdminIngestRoute,
   MoviesSlugRoute: MoviesSlugRoute,

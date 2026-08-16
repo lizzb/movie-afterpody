@@ -2,9 +2,11 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { Heart, Mic, Search, Star } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
-import { accentFor, accentSoft, accentSolid, toAccent } from "@/lib/accents";
+import { Artwork } from "@/components/Artwork";
+import { BrandBadge } from "@/components/BrandBadge";
+import { ViewToggle } from "@/components/ViewToggle";
 import { usePodcasts, type PodcastEntry } from "@/lib/podcasts";
-import { prefsActions } from "@/lib/prefs";
+import { prefsActions, type ViewMode } from "@/lib/prefs";
 
 export const Route = createFileRoute("/podcasts/")({
   head: () => ({
@@ -36,9 +38,10 @@ const MODES: { value: Mode; label: string }[] = [
 ];
 
 function PodcastsPage() {
-  const { podcastEntries, isLoading } = usePodcasts();
+  const { podcastEntries, prefs, isLoading } = usePodcasts();
   const [term, setTerm] = useState("");
   const [mode, setMode] = useState<Mode>("all");
+  const view = prefs.viewModes["podcasts"] ?? "rows";
 
   const results = useMemo(() => {
     const needle = term.trim().toLowerCase();
@@ -52,43 +55,45 @@ function PodcastsPage() {
 
   return (
     <AppShell>
-      <main className="mx-auto w-full max-w-3xl px-5 pb-16 pt-8">
-        <header className="mb-6">
-          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-            <Mic className="size-3.5" aria-hidden />
+      <main className="mx-auto w-full max-w-3xl px-4 pb-16 pt-4">
+        <header className="mb-3">
+          <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+            <Mic className="size-3" aria-hidden />
             Discover
           </p>
-          <h1 className="mt-3 font-display text-4xl leading-tight">Shows worth subscribing to.</h1>
-          <p className="mt-3 text-muted-foreground">
-            Ranked by how many movies each show covers that are on your services and still unwatched.
-          </p>
+          <h1 className="mt-1 font-display text-2xl font-bold leading-tight sm:text-3xl">
+            Shows worth subscribing to.
+          </h1>
         </header>
 
-        <label className="relative block">
-          <Search
-            className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-            aria-hidden
-          />
-          <input
-            value={term}
-            onChange={(e) => setTerm(e.target.value)}
-            placeholder="Search podcasts"
-            aria-label="Search podcasts"
-            className="w-full rounded-full border border-border bg-card py-2.5 pl-9 pr-4 text-sm shadow-card"
-          />
-        </label>
+        <div className="flex items-center gap-2">
+          <label className="relative block flex-1">
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden
+            />
+            <input
+              value={term}
+              onChange={(e) => setTerm(e.target.value)}
+              placeholder="Search podcasts"
+              aria-label="Search podcasts"
+              className="w-full rounded-full border border-border bg-card py-2.5 pl-9 pr-4 text-sm shadow-card"
+            />
+          </label>
+          <ViewToggle surface="podcasts" value={view} />
+        </div>
 
-        <div className="mt-3 flex flex-wrap gap-1.5" role="group" aria-label="Filter podcasts">
+        <div className="mt-2.5 flex flex-wrap gap-1.5" role="group" aria-label="Filter podcasts">
           {MODES.map((m) => (
             <button
               key={m.value}
               type="button"
               aria-pressed={mode === m.value}
               onClick={() => setMode(m.value)}
-              className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+              className={`rounded-full border px-3 py-1 text-[11px] font-semibold transition-colors ${
                 mode === m.value
-                  ? "bg-navy text-primary-foreground"
-                  : "border border-border bg-card text-muted-foreground hover:text-foreground"
+                  ? "border-transparent bg-coral-soft text-coral neon"
+                  : "border-border bg-card text-muted-foreground hover:text-foreground"
               }`}
             >
               {m.label}
@@ -97,9 +102,9 @@ function PodcastsPage() {
         </div>
 
         {isLoading ? (
-          <ul className="mt-6 space-y-3">
+          <ul className="mt-4 space-y-2.5">
             {Array.from({ length: 5 }).map((_, i) => (
-              <li key={i} className="h-28 animate-pulse rounded-2xl bg-muted" />
+              <li key={i} className="h-24 animate-pulse rounded-2xl bg-muted" />
             ))}
           </ul>
         ) : results.length === 0 ? (
@@ -111,9 +116,15 @@ function PodcastsPage() {
             .
           </p>
         ) : (
-          <ul className="mt-6 space-y-3">
+          <ul
+            className={
+              view === "tiles"
+                ? "mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"
+                : "mt-4 space-y-2.5"
+            }
+          >
             {results.map((entry) => (
-              <PodcastCard key={entry.podcast.id} entry={entry} />
+              <PodcastCard key={entry.podcast.id} entry={entry} view={view} />
             ))}
           </ul>
         )}
@@ -122,56 +133,85 @@ function PodcastsPage() {
   );
 }
 
-function PodcastCard({ entry }: { entry: PodcastEntry }) {
-  const { podcast, preferred, matchScore, streamableUnwatched, movies, metric, episodeCount } = entry;
-  const accent = toAccent(podcast.accent ?? accentFor(podcast.slug));
+function PodcastCard({ entry, view }: { entry: PodcastEntry; view: ViewMode }) {
+  const { podcast, preferred, matchScore, streamableUnwatched, movies, metric, episodeCount, links } =
+    entry;
+
+  if (view === "tiles") {
+    return (
+      <li>
+        <Link to="/podcasts/$slug" params={{ slug: podcast.slug }} className="block">
+          <Artwork
+            src={podcast.artwork_url}
+            title={podcast.name}
+            seed={podcast.slug}
+            accent={podcast.accent}
+            shape="cover"
+            className="w-full text-3xl shadow-poster"
+          />
+          <h2 className="mt-2 line-clamp-2 text-sm font-semibold leading-snug">{podcast.name}</h2>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">
+            Match {matchScore} · {streamableUnwatched.length} tonight
+          </p>
+        </Link>
+      </li>
+    );
+  }
 
   return (
     <li className="rounded-2xl border border-border bg-card shadow-card transition-shadow hover:shadow-lg">
-      <div className="flex items-start gap-4 p-4">
+      <div className="flex items-start gap-3 p-3">
         <Link
           to="/podcasts/$slug"
           params={{ slug: podcast.slug }}
-          className="flex min-w-0 flex-1 items-start gap-4"
+          className="flex min-w-0 flex-1 items-start gap-3"
         >
-          <div
-            className={`flex size-16 shrink-0 items-center justify-center rounded-xl font-display text-2xl ${accentSolid(accent)}`}
-            aria-hidden
-          >
-            {podcast.name.slice(0, 1)}
-          </div>
+          <Artwork
+            src={podcast.artwork_url}
+            title={podcast.name}
+            seed={podcast.slug}
+            accent={podcast.accent}
+            shape="cover"
+            className="w-14 text-lg"
+          />
           <div className="min-w-0 flex-1">
-            <h2 className="font-display text-xl leading-snug">{podcast.name}</h2>
-            {podcast.description ? (
-              <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{podcast.description}</p>
-            ) : null}
+            <h2 className="font-display text-base font-bold leading-snug">{podcast.name}</h2>
 
-            <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs font-semibold">
-              <span className={`rounded-full px-2.5 py-1 ${accentSoft(accent)}`}>
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] font-semibold">
+              <span className="rounded-full bg-coral-soft px-2 py-1 text-coral">
                 Match {matchScore}
               </span>
-              <span className="rounded-full bg-secondary px-2.5 py-1 text-secondary-foreground">
-                {streamableUnwatched.length} to watch tonight
+              <span className="rounded-full bg-secondary px-2 py-1 text-secondary-foreground">
+                {streamableUnwatched.length} tonight
               </span>
-              <span className="rounded-full bg-secondary px-2.5 py-1 text-secondary-foreground">
-                {movies.length} movie{movies.length === 1 ? "" : "s"} · {episodeCount} episode
-                {episodeCount === 1 ? "" : "s"}
+              <span className="rounded-full bg-secondary px-2 py-1 text-secondary-foreground">
+                {movies.length} movie{movies.length === 1 ? "" : "s"} · {episodeCount} ep
               </span>
               {metric?.rating != null ? (
-                <span className="rounded-full bg-gold-soft px-2.5 py-1 text-navy">
-                  <Star className="mr-1 inline size-3" aria-hidden />
+                <span className="inline-flex items-center gap-1 rounded-full bg-gold-soft px-2 py-1 text-gold">
+                  <Star className="size-3" aria-hidden />
                   {metric.rating.toFixed(1)}
                 </span>
               ) : null}
             </div>
 
-            {streamableUnwatched.length > 0 ? (
-              <p className="mt-2 line-clamp-1 text-xs text-muted-foreground">
-                {streamableUnwatched
-                  .slice(0, 3)
-                  .map((m) => m.entry.movie.title)
-                  .join(" · ")}
+            {podcast.description ? (
+              <p className="mt-1.5 line-clamp-2 text-xs text-muted-foreground">
+                {podcast.description}
               </p>
+            ) : null}
+
+            {links.length > 0 ? (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {links.map((l) => (
+                  <BrandBadge
+                    key={`${l.podcast_id}-${l.platform}`}
+                    slug={l.platform}
+                    label={l.platform}
+                    showLabel={false}
+                  />
+                ))}
+              </div>
             ) : null}
           </div>
         </Link>

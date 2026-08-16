@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { MovieCard } from "@/components/MovieCard";
+import { ViewToggle } from "@/components/ViewToggle";
 import { useDiscovery } from "@/lib/discovery";
 
 export const Route = createFileRoute("/movies/")({
@@ -27,7 +28,8 @@ export const Route = createFileRoute("/movies/")({
 });
 
 function MoviesPage() {
-  const { entries, isLoading } = useDiscovery();
+  const { entries, prefs, isLoading } = useDiscovery();
+  const view = prefs.viewModes["movies"] ?? "rows";
   const [term, setTerm] = useState("");
 
   const results = useMemo(() => {
@@ -40,12 +42,13 @@ function MoviesPage() {
   return (
     <AppShell>
       <main className="mx-auto w-full max-w-3xl px-5 pb-16 pt-8">
-        <h1 className="font-display text-3xl">All movies</h1>
+        <h1 className="font-display text-3xl font-bold">All movies</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           The full catalogue — including movies nobody has made a commentary episode about yet.
         </p>
 
-        <label className="relative mt-5 block">
+        <div className="mt-4 flex items-center gap-2">
+          <label className="relative block flex-1">
           <Search
             className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
             aria-hidden
@@ -57,7 +60,9 @@ function MoviesPage() {
             aria-label="Search movies"
             className="w-full rounded-full border border-border bg-card py-2.5 pl-9 pr-4 text-sm shadow-card"
           />
-        </label>
+          </label>
+          <ViewToggle surface="movies" value={view} />
+        </div>
 
         {isLoading ? (
           <ul className="mt-6 space-y-3">
@@ -66,9 +71,15 @@ function MoviesPage() {
             ))}
           </ul>
         ) : (
-          <ul className="mt-6 space-y-3">
+          <ul
+            className={
+              view === "tiles"
+                ? "mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"
+                : "mt-5 space-y-2.5"
+            }
+          >
             {results.map((entry) => (
-              <MovieCard key={entry.movie.id} entry={entry} />
+              <MovieCard key={entry.movie.id} entry={entry} view={view} />
             ))}
           </ul>
         )}

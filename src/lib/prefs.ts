@@ -40,7 +40,13 @@ export interface LocalList {
   createdAt: string;
 }
 
+export type ThemeMode = "system" | "light" | "dark";
+export type ViewMode = "rows" | "tiles";
+
 export interface Prefs {
+  theme: ThemeMode;
+  /** surface key -> layout, e.g. { tonight: "tiles" } */
+  viewModes: Record<string, ViewMode>;
   serviceSlugs: string[];
   preferredPodcastSlugs: string[];
   ratings: Record<string, EpisodeRating>;
@@ -58,6 +64,8 @@ export const YEAR_CEILING = 2026;
 export const RUNTIME_CEILING = 180;
 
 export const DEFAULT_PREFS: Prefs = {
+  theme: "dark",
+  viewModes: {},
   serviceSlugs: ["netflix", "prime-video", "disney-plus"],
   preferredPodcastSlugs: [
     "how-did-this-get-made",
@@ -157,6 +165,7 @@ function hydrate() {
         ...DEFAULT_PREFS,
         ...parsed,
         watchedDates: { ...(parsed.watchedDates ?? {}) },
+        viewModes: { ...(parsed.viewModes ?? {}) },
         lists: parsed.lists ?? DEFAULT_PREFS.lists,
         filters: { ...DEFAULT_PREFS.filters, ...(parsed.filters ?? {}) },
       };
@@ -205,6 +214,12 @@ const toggle = (list: string[], value: string, on?: boolean) => {
 };
 
 export const prefsActions = {
+  setTheme(theme: ThemeMode) {
+    write({ ...current, theme });
+  },
+  setViewMode(surface: string, mode: ViewMode) {
+    write({ ...current, viewModes: { ...current.viewModes, [surface]: mode } });
+  },
   toggleService(slug: string, on?: boolean) {
     write({ ...current, serviceSlugs: toggle(current.serviceSlugs, slug, on) });
   },
