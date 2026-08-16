@@ -1,9 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, ExternalLink, Heart, Popcorn, Star } from "lucide-react";
+import { ArrowLeft, ExternalLink, Heart, Star } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
-import { accentFor, accentSoft, accentSolid, toAccent } from "@/lib/accents";
+import { Artwork } from "@/components/Artwork";
+import { BrandBadge } from "@/components/BrandBadge";
+import { ViewToggle } from "@/components/ViewToggle";
 import { usePodcasts, type PodcastMovie } from "@/lib/podcasts";
-import { prefsActions } from "@/lib/prefs";
+import { prefsActions, type ViewMode } from "@/lib/prefs";
 
 export const Route = createFileRoute("/podcasts/$slug")({
   head: ({ params }) => {
@@ -31,15 +33,22 @@ export const Route = createFileRoute("/podcasts/$slug")({
   component: PodcastDetailPage,
 });
 
+const prettyPlatform = (slug: string) =>
+  slug
+    .split(/[-_]/)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+
 function PodcastDetailPage() {
   const { slug } = Route.useParams();
-  const { podcastEntries, isLoading } = usePodcasts();
+  const { podcastEntries, prefs, isLoading } = usePodcasts();
   const entry = podcastEntries.find((e) => e.podcast.slug === slug);
+  const view = prefs.viewModes["podcast-detail"] ?? "rows";
 
   if (isLoading) {
     return (
       <AppShell>
-        <main className="mx-auto w-full max-w-3xl px-5 py-10">
+        <main className="mx-auto w-full max-w-3xl px-4 py-10">
           <div className="h-40 animate-pulse rounded-2xl bg-muted" />
         </main>
       </AppShell>
@@ -49,8 +58,8 @@ function PodcastDetailPage() {
   if (!entry) {
     return (
       <AppShell>
-        <main className="mx-auto w-full max-w-3xl px-5 py-16 text-center">
-          <h1 className="font-display text-2xl">We don&rsquo;t have that podcast yet</h1>
+        <main className="mx-auto w-full max-w-3xl px-4 py-16 text-center">
+          <h1 className="font-display text-2xl font-bold">We don&rsquo;t have that podcast yet</h1>
           <Link to="/podcasts" className="mt-4 inline-block text-sm font-semibold text-coral">
             Back to discover
           </Link>
@@ -59,62 +68,118 @@ function PodcastDetailPage() {
     );
   }
 
-  const { podcast, preferred, matchScore, movies, streamableUnwatched, metric, episodeCount, reasons } =
-    entry;
-  const accent = toAccent(podcast.accent ?? accentFor(podcast.slug));
+  const {
+    podcast,
+    preferred,
+    matchScore,
+    movies,
+    streamableUnwatched,
+    metric,
+    episodeCount,
+    reasons,
+    links,
+  } = entry;
   const rest = movies.filter((m) => !streamableUnwatched.includes(m));
 
   return (
     <AppShell>
-      <main className="mx-auto w-full max-w-3xl px-5 pb-16 pt-6">
+      <main className="mx-auto w-full max-w-3xl px-4 pb-16 pt-4">
         <Link
           to="/podcasts"
-          className="inline-flex items-center gap-1 text-sm font-semibold text-muted-foreground hover:text-foreground"
+          className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="size-4" aria-hidden />
           Discover
         </Link>
 
-        <header className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start">
-          <div
-            className={`flex size-24 shrink-0 items-center justify-center rounded-2xl font-display text-4xl ${accentSolid(accent)}`}
-            aria-hidden
-          >
-            {podcast.name.slice(0, 1)}
-          </div>
+        <header className="mt-3 flex items-start gap-4">
+          <Artwork
+            src={podcast.artwork_url}
+            title={podcast.name}
+            seed={podcast.slug}
+            accent={podcast.accent}
+            shape="cover"
+            className="w-24 text-3xl shadow-poster sm:w-32"
+          />
           <div className="min-w-0 flex-1">
-            <h1 className="font-display text-3xl leading-tight">{podcast.name}</h1>
-            <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs font-semibold">
-              <span className={`rounded-full px-2.5 py-1 ${accentSoft(accent)}`}>
-                <Popcorn className="mr-1 inline size-3" aria-hidden />
-                Match {matchScore}
+            <div className="flex items-start justify-between gap-3">
+              <h1 className="min-w-0 font-display text-xl font-bold leading-tight sm:text-2xl">
+                {podcast.name}
+              </h1>
+              <span className="shrink-0 rounded-xl bg-primary px-2.5 py-1.5 text-center text-primary-foreground neon">
+                <span className="block font-display text-lg font-bold leading-none">
+                  {matchScore}
+                </span>
+                <span className="mt-0.5 block text-[9px] font-bold uppercase tracking-[0.14em]">
+                  Match
+                </span>
               </span>
-              <span className="rounded-full bg-secondary px-2.5 py-1 text-secondary-foreground">
-                {episodeCount} episode{episodeCount === 1 ? "" : "s"} · {movies.length} movie
-                {movies.length === 1 ? "" : "s"}
+            </div>
+            <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+              <span>
+                {episodeCount} episode{episodeCount === 1 ? "" : "s"}
+              </span>
+              <span aria-hidden>·</span>
+              <span>
+                {movies.length} movie{movies.length === 1 ? "" : "s"}
               </span>
               {metric?.rating != null ? (
-                <span className="rounded-full bg-gold-soft px-2.5 py-1 text-navy">
-                  <Star className="mr-1 inline size-3" aria-hidden />
-                  {metric.rating.toFixed(1)}
-                  {metric.rating_count ? ` (${metric.rating_count.toLocaleString()})` : ""}
-                </span>
+                <>
+                  <span aria-hidden>·</span>
+                  <span className="inline-flex items-center gap-1 font-semibold text-gold">
+                    <Star className="size-3" aria-hidden />
+                    {metric.rating.toFixed(1)}
+                    {metric.rating_count ? ` (${metric.rating_count.toLocaleString()})` : ""}
+                  </span>
+                </>
               ) : null}
-            </div>
+              <span aria-hidden>·</span>
+              <span className="capitalize">{podcast.activity_status}</span>
+            </p>
             {reasons.length > 0 ? (
-              <p className="mt-3 text-sm text-muted-foreground">{reasons.join(" · ")}</p>
+              <p className="mt-2 text-xs text-muted-foreground">{reasons.slice(0, 2).join(" · ")}</p>
             ) : null}
           </div>
         </header>
 
-        {podcast.description ? <p className="mt-5 leading-relaxed">{podcast.description}</p> : null}
+        {podcast.description ? (
+          <p className="mt-4 text-sm leading-relaxed">{podcast.description}</p>
+        ) : null}
 
-        <div className="mt-5 flex flex-wrap items-center gap-2">
+        <section className="mt-4 flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+              Listen on
+            </span>
+            {links.length > 0 ? (
+              links.map((l) => (
+                <BrandBadge
+                  key={`${l.podcast_id}-${l.platform}`}
+                  slug={l.platform}
+                  label={prettyPlatform(l.platform)}
+                  href={l.external_url}
+                />
+              ))
+            ) : (
+              <span className="text-[11px] text-muted-foreground">No listings catalogued</span>
+            )}
+            {podcast.website_url ? (
+              <a
+                href={podcast.website_url}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary px-2.5 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-foreground"
+              >
+                <ExternalLink className="size-3" aria-hidden />
+                Website
+              </a>
+            ) : null}
+          </div>
           <button
             type="button"
             onClick={() => prefsActions.togglePreferredPodcast(podcast.slug, !preferred)}
             aria-pressed={preferred}
-            className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-semibold transition-colors ${
+            className={`ml-auto inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-semibold transition-colors ${
               preferred
                 ? "bg-berry text-primary-foreground"
                 : "border border-border bg-card text-foreground hover:bg-secondary"
@@ -123,23 +188,16 @@ function PodcastDetailPage() {
             <Heart className="size-4" aria-hidden />
             {preferred ? "Preferred show" : "Prefer this show"}
           </button>
-          {podcast.website_url ? (
-            <a
-              href={podcast.website_url}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-full bg-navy px-3.5 py-2 text-sm font-semibold text-primary-foreground"
-            >
-              <ExternalLink className="size-4" aria-hidden />
-              Website
-            </a>
-          ) : null}
-        </div>
+        </section>
 
-        <section className="mt-8">
-          <h2 className="font-display text-2xl">
-            Watchable tonight <span className="text-muted-foreground">({streamableUnwatched.length})</span>
-          </h2>
+        <section className="mt-7">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="font-display text-lg font-bold">
+              Watchable tonight{" "}
+              <span className="text-muted-foreground">({streamableUnwatched.length})</span>
+            </h2>
+            <ViewToggle surface="podcast-detail" value={view} />
+          </div>
           {streamableUnwatched.length === 0 ? (
             <p className="mt-3 rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
               Nothing this show covers is unwatched on your services.{" "}
@@ -149,24 +207,16 @@ function PodcastDetailPage() {
               .
             </p>
           ) : (
-            <ul className="mt-4 space-y-3">
-              {streamableUnwatched.map((m) => (
-                <CoveredMovie key={m.entry.movie.id} item={m} />
-              ))}
-            </ul>
+            <CoveredList items={streamableUnwatched} view={view} />
           )}
         </section>
 
         {rest.length > 0 ? (
-          <section className="mt-8">
-            <h2 className="font-display text-2xl">
+          <section className="mt-7">
+            <h2 className="font-display text-lg font-bold">
               Also covered <span className="text-muted-foreground">({rest.length})</span>
             </h2>
-            <ul className="mt-4 space-y-3">
-              {rest.map((m) => (
-                <CoveredMovie key={m.entry.movie.id} item={m} />
-              ))}
-            </ul>
+            <CoveredList items={rest} view={view} />
           </section>
         ) : null}
       </main>
@@ -174,47 +224,95 @@ function PodcastDetailPage() {
   );
 }
 
-function CoveredMovie({ item }: { item: PodcastMovie }) {
+function CoveredList({ items, view }: { items: PodcastMovie[]; view: ViewMode }) {
+  return (
+    <ul
+      className={
+        view === "tiles"
+          ? "mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"
+          : "mt-3 space-y-2.5"
+      }
+    >
+      {items.map((m) => (
+        <CoveredMovie key={m.entry.movie.id} item={m} view={view} />
+      ))}
+    </ul>
+  );
+}
+
+function CoveredMovie({ item, view }: { item: PodcastMovie; view: ViewMode }) {
   const { movie, services, watched, onMyServices } = item.entry;
-  const accent = toAccent(movie.accent ?? accentFor(movie.slug));
+
+  if (view === "tiles") {
+    return (
+      <li>
+        <Link to="/movies/$slug" params={{ slug: movie.slug }} className="block">
+          <Artwork
+            src={movie.poster_url}
+            title={movie.title}
+            seed={movie.slug}
+            accent={movie.accent}
+            className="w-full text-3xl shadow-poster"
+          />
+          <h3 className="mt-2 line-clamp-2 text-sm font-semibold leading-snug">{movie.title}</h3>
+          <div className="mt-1 flex flex-wrap gap-1">
+            {services.map((s) => (
+              <BrandBadge
+                key={s.id}
+                slug={s.slug}
+                label={s.short_name}
+                active={onMyServices}
+                showLabel={false}
+              />
+            ))}
+          </div>
+        </Link>
+      </li>
+    );
+  }
 
   return (
     <li className="rounded-2xl border border-border bg-card shadow-card">
-      <Link
-        to="/movies/$slug"
-        params={{ slug: movie.slug }}
-        className="flex items-start gap-4 p-4"
-      >
-        <div
-          className={`flex size-14 shrink-0 items-center justify-center rounded-xl font-display text-xl ${accentSolid(accent)}`}
-          aria-hidden
-        >
-          {movie.title.slice(0, 1)}
-        </div>
+      <Link to="/movies/$slug" params={{ slug: movie.slug }} className="flex items-start gap-3 p-3">
+        <Artwork
+          src={movie.poster_url}
+          title={movie.title}
+          seed={movie.slug}
+          accent={movie.accent}
+          className="w-14 text-base"
+        />
         <div className="min-w-0 flex-1">
-          <h3 className="font-display text-lg leading-snug">
+          <h3 className="font-display text-base font-bold leading-snug">
             {movie.title}
             {movie.release_year ? (
-              <span className="text-muted-foreground"> ({movie.release_year})</span>
+              <span className="font-normal text-muted-foreground"> {movie.release_year}</span>
             ) : null}
           </h3>
-          <ul className="mt-1 space-y-0.5 text-sm text-muted-foreground">
+          <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
             {item.episodes.map((ep) => (
               <li key={ep.id} className="line-clamp-1">
                 {ep.title}
               </li>
             ))}
           </ul>
-          <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-semibold">
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
             {services.length > 0 ? (
-              <span className={onMyServices ? "text-teal" : "text-muted-foreground"}>
-                {services.map((s) => s.short_name).join(", ")}
-              </span>
+              services.map((s) => (
+                <BrandBadge
+                  key={s.id}
+                  slug={s.slug}
+                  label={s.short_name}
+                  active={onMyServices}
+                  showLabel={false}
+                />
+              ))
             ) : (
-              <span className="text-muted-foreground">No streaming availability</span>
+              <span className="text-[11px] text-muted-foreground">No streaming availability</span>
             )}
-            {watched ? <span className="text-muted-foreground">· Watched</span> : null}
-          </p>
+            {watched ? (
+              <span className="text-[11px] font-semibold text-teal">Watched</span>
+            ) : null}
+          </div>
         </div>
       </Link>
     </li>

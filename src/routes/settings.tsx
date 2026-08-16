@@ -1,6 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Check, Heart } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
+import { Artwork } from "@/components/Artwork";
+import { BrandBadge } from "@/components/BrandBadge";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { accentFor, accentSoft, toAccent } from "@/lib/accents";
 import { useDiscovery } from "@/lib/discovery";
 import { prefsActions } from "@/lib/prefs";
@@ -46,13 +49,18 @@ function SettingsPage() {
   return (
     <AppShell>
       <main className="mx-auto w-full max-w-3xl px-5 pb-16 pt-8">
-        <h1 className="font-display text-3xl">Your setup</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Everything here is yours to change — recommendations update immediately.
-        </p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h1 className="font-display text-3xl font-bold">Your setup</h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Everything here is yours to change — recommendations update immediately.
+            </p>
+          </div>
+          <ThemeToggle className="mt-1 shrink-0" />
+        </div>
 
         <section className="mt-6">
-          <h2 className="font-display text-xl">Streaming services</h2>
+          <h2 className="font-display text-xl font-bold">Streaming services</h2>
           <div className="mt-3 flex flex-wrap gap-2">
             {(catalog?.services ?? []).map((service) => {
               const on = prefs.serviceSlugs.includes(service.slug);
@@ -64,12 +72,17 @@ function SettingsPage() {
                   onClick={() => prefsActions.toggleService(service.slug, !on)}
                   className={`inline-flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-sm font-semibold transition-colors ${
                     on
-                      ? "border-transparent bg-navy text-primary-foreground"
+                      ? "border-transparent bg-coral-soft text-coral neon"
                       : "border-border bg-card text-muted-foreground hover:text-foreground"
                   }`}
                 >
                   {on ? <Check className="size-3.5" aria-hidden /> : null}
-                  {service.name}
+                  <BrandBadge
+                    slug={service.slug}
+                    label={service.name}
+                    active={on}
+                    className="border-none bg-transparent px-0 py-0 text-sm"
+                  />
                 </button>
               );
             })}
@@ -77,7 +90,7 @@ function SettingsPage() {
         </section>
 
         <section className="mt-10">
-          <h2 className="font-display text-xl">Podcasts</h2>
+          <h2 className="font-display text-xl font-bold">Podcasts</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Preferred podcasts push the movies they cover up your Tonight list.
           </p>
@@ -96,6 +109,14 @@ function SettingsPage() {
                     key={podcast.id}
                     className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3 shadow-card"
                   >
+                    <Artwork
+                      src={podcast.artwork_url}
+                      title={podcast.name}
+                      seed={podcast.slug}
+                      accent={podcast.accent}
+                      shape="cover"
+                      className="w-10 text-sm"
+                    />
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-semibold">{podcast.name}</p>
                       <p className="truncate text-xs text-muted-foreground">
@@ -125,13 +146,13 @@ function SettingsPage() {
         </section>
 
         <section className="mt-10 rounded-2xl border border-dashed border-border bg-card p-5">
-          <h2 className="font-display text-xl">Data sources</h2>
+          <h2 className="font-display text-xl font-bold">Data sources</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Pull real movie metadata, streaming availability, and podcast episodes from TMDB and Podcast Index.
           </p>
           <Link
             to="/admin/ingest"
-            className="mt-4 inline-flex items-center rounded-full bg-navy px-5 py-2.5 text-sm font-semibold text-primary-foreground"
+            className="mt-4 inline-flex items-center rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground neon"
           >
             Open ingestion tools
           </Link>

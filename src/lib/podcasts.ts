@@ -11,6 +11,8 @@ export interface PodcastEntry {
   podcast: Podcast;
   preferred: boolean;
   metric: PodcastMetric | null;
+  /** Every platform listing with a URL — used for "Listen on" badges. */
+  links: PodcastMetric[];
   episodeCount: number;
   movies: PodcastMovie[];
   /** Covered movies that are on the services you picked and you haven't watched. */
@@ -101,6 +103,7 @@ export function usePodcasts() {
         podcast,
         preferred,
         metric,
+        links: catalog.metrics.filter((m) => m.podcast_id === podcast.id && m.external_url),
         episodeCount: catalog.episodes.filter((e) => e.podcast_id === podcast.id).length,
         movies,
         streamableUnwatched,
