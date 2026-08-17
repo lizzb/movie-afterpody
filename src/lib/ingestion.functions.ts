@@ -27,6 +27,10 @@ const RefreshAvailabilityInput = z.object({
   region: z.string().default("US"),
 });
 
+const BulkInput = z.object({
+  limit: z.number().int().min(1).max(60).default(25),
+});
+
 const SuggestMatchesInput = z.object({
   podcastId: z.string().uuid().optional(),
   episodeId: z.string().uuid().optional(),
@@ -523,5 +527,145 @@ export const listIngestionStats = createServerFn({ method: "GET" })
       matchedEpisodes: matchedEpisodeCount ?? 0,
       pendingMatches: pendingMatchCount ?? 0,
       tmdbLinked: tmdbLinkedCount ?? 0,
+    };
+  });
+
+export const enrichAllMovies = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) => BulkInput.parse(data))
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { findBestTmdbMatch } = await import("./providers/tmdb.server");
+
+    const apiKey = process.env["TMDB_API_KEY"];
+    if (!apiKey) throw new Error("TMDB API key not configured");
+
+    const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    const { data: movies, error: listError } = await supabaseAdmin
+      .from("movies")
+      .select("id, title, release_year, tmdb_id, poster_url")
+      .order("title", { ascending: true });
+    if (listError) throw listError;
+
+    const todo = (movies ?? []).filter((m) => !m.tmdb_id || !m.poster_url).slice(0, data.limit);
+
+    let updated = 0;
+    const lowConfidence: string[] = [];
+    const failed: string[] = [];
+
+    for (const movie of todo) {
+      try {
+        const match = await findBestTmdbMatch(apiKey, movie.title, movie.release_year ?? undefined);
+        if (!match) {
+          failed.push(`${movie.title}: no TMDB match`);
+        } else if (match.confidence < 60) {
+          lowConfidence.push(`${movie.title} → ${match.title} (${match.confidence}%)`);
+        } else {
+          const { error } = await supabaseAdmin
+            .from("movies")
+            .update({
+              title: match.title,
+              release_year: match.releaseYear,
+              release_date: match.releaseDate,
+              runtime_minutes: match.runtime,
+              synopsis: match.overview,
+              tagline: match.tagline,
+              poster_url: match.posterUrl,
+              backdrop_url: match.backdropUrl,
+              imdb_id: match.imdbId,
+              tmdb_id: match.tmdbId,
+            })
+            .eq("id", movie.id);
+          if (error) failed.push(`${movie.title}: ${error.message}`);
+          else updated += 1;
+        }
+      } catch (err) {
+        failed.push(`${movie.title}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+      await sleep(120);
+    }
+
+    const remaining = Math.max(
+      0,
+      (movies ?? []).filter((m) => !m.tmdb_id || !m.poster_url).length - todo.length,
+    );
+
+    return {
+      attempted: todo.length,
+      updated,
+      remaining,
+      lowConfidence: lowConfidence.slice(0, 20),
+      failed: failed.slice(0, 20),
+    };
+  });
+
+export const backfillPodcastArtwork = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) => BulkInput.parse(data))
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { searchPodcastsByTitle, getPodcastByFeedUrl, bestArtwork } = await import(
+      "./providers/podcastindex.server"
+    );
+
+    const apiKey = process.env["PODCAST_INDEX_API_KEY"];
+    const apiSecret = process.env["PODCAST_INDEX_API_SECRET"];
+    if (!apiKey || !apiSecret) throw new Error("Podcast Index credentials not configured");
+
+    const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    const { data: podcasts, error: listError } = await supabaseAdmin
+      .from("podcasts")
+      .select("id, name, feed_url, artwork_url")
+      .order("name", { ascending: true });
+    if (listError) throw listError;
+
+    const pending = (podcasts ?? []).filter((p) => !p.artwork_url);
+    const todo = pending.slice(0, data.limit);
+
+    let updated = 0;
+    const failed: string[] = [];
+
+    for (const podcast of todo) {
+      try {
+        let feed = podcast.feed_url
+          ? await getPodcastByFeedUrl(apiKey, apiSecret, podcast.feed_url)
+          : null;
+        if (!feed) feed = await searchPodcastsByTitle(apiKey, apiSecret, podcast.name);
+        if (!feed) {
+          failed.push(`${podcast.name}: not found on Podcast Index`);
+        } else {
+          const { error } = await supabaseAdmin
+            .from("podcasts")
+            .update({
+              artwork_url: bestArtwork(feed),
+              description: feed.description || null,
+              feed_url: feed.url,
+              website_url: feed.link || null,
+              episode_count: feed.episodeCount ?? 0,
+              latest_episode_at: feed.lastUpdateTime
+                ? new Date(feed.lastUpdateTime * 1000).toISOString().slice(0, 10)
+                : null,
+              external_ids: { podcastIndexId: feed.id },
+              provider_source: "podcastindex",
+            })
+            .eq("id", podcast.id);
+          if (error) failed.push(`${podcast.name}: ${error.message}`);
+          else updated += 1;
+        }
+      } catch (err) {
+        failed.push(`${podcast.name}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+      await sleep(150);
+    }
+
+    return {
+      attempted: todo.length,
+      updated,
+      remaining: Math.max(0, pending.length - todo.length),
+      failed: failed.slice(0, 20),
     };
   });

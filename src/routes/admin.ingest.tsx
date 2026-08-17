@@ -5,7 +5,9 @@ import { AppShell } from "@/components/AppShell";
 import { useAuth } from "@/hooks/useAuth";
 import {
   approveEpisodeMatch,
+  backfillPodcastArtwork,
   bootstrapAdmin,
+  enrichAllMovies,
   enrichMovie,
   ingestPodcast,
   listIngestionStats,
@@ -128,6 +130,8 @@ function IngestPage() {
         ) : null}
 
         <section className="mt-10 space-y-8">
+          <BulkEnrichCard onSuccess={() => stats.refetch()} />
+          <BackfillArtworkCard onSuccess={() => stats.refetch()} />
           <IngestPodcastForm onSuccess={() => stats.refetch()} />
           <EnrichMovieForm onSuccess={() => stats.refetch()} />
           <RefreshAvailabilityForm onSuccess={() => stats.refetch()} />
@@ -143,6 +147,85 @@ function Stat({ label, value }: { label: string; value: number }) {
     <div className="rounded-2xl border border-border bg-card p-4 text-center">
       <p className="font-display text-2xl">{value}</p>
       <p className="text-xs text-muted-foreground">{label}</p>
+    </div>
+  );
+}
+
+function BulkEnrichCard({ onSuccess }: { onSuccess: () => void }) {
+  const fn = useServerFn(enrichAllMovies);
+  const mutation = useMutation({ mutationFn: fn, onSuccess });
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-5">
+      <h2 className="font-display text-xl">Enrich all movies (posters + metadata)</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Runs TMDB lookups for every movie still missing a poster or TMDB id, up to 25 per run. Press
+        again to continue where it left off.
+      </p>
+      <button
+        type="button"
+        onClick={() => mutation.mutate({ data: { limit: 25 } })}
+        disabled={mutation.isPending}
+        className="mt-4 inline-flex items-center rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+      >
+        {mutation.isPending ? "Enriching…" : "Enrich next 25 movies"}
+      </button>
+      {mutation.isSuccess ? (
+        <div className="mt-3 space-y-1 text-sm">
+          <p className="text-teal">
+            Updated {mutation.data.updated} of {mutation.data.attempted} attempted.{" "}
+            {mutation.data.remaining} still pending.
+          </p>
+          {mutation.data.lowConfidence.length > 0 ? (
+            <p className="text-xs text-muted-foreground">
+              Needs a manual check: {mutation.data.lowConfidence.join("; ")}
+            </p>
+          ) : null}
+          {mutation.data.failed.length > 0 ? (
+            <p className="text-xs text-destructive">{mutation.data.failed.join("; ")}</p>
+          ) : null}
+        </div>
+      ) : null}
+      {mutation.isError ? (
+        <p className="mt-3 text-sm text-destructive">{(mutation.error as Error).message}</p>
+      ) : null}
+    </div>
+  );
+}
+
+function BackfillArtworkCard({ onSuccess }: { onSuccess: () => void }) {
+  const fn = useServerFn(backfillPodcastArtwork);
+  const mutation = useMutation({ mutationFn: fn, onSuccess });
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-5">
+      <h2 className="font-display text-xl">Backfill podcast cover art</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Looks up each show without artwork on Podcast Index and fills cover art, feed URL, site and
+        episode counts.
+      </p>
+      <button
+        type="button"
+        onClick={() => mutation.mutate({ data: { limit: 25 } })}
+        disabled={mutation.isPending}
+        className="mt-4 inline-flex items-center rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+      >
+        {mutation.isPending ? "Fetching…" : "Backfill next 25 shows"}
+      </button>
+      {mutation.isSuccess ? (
+        <div className="mt-3 space-y-1 text-sm">
+          <p className="text-teal">
+            Updated {mutation.data.updated} of {mutation.data.attempted} attempted.{" "}
+            {mutation.data.remaining} still pending.
+          </p>
+          {mutation.data.failed.length > 0 ? (
+            <p className="text-xs text-destructive">{mutation.data.failed.join("; ")}</p>
+          ) : null}
+        </div>
+      ) : null}
+      {mutation.isError ? (
+        <p className="mt-3 text-sm text-destructive">{(mutation.error as Error).message}</p>
+      ) : null}
     </div>
   );
 }
