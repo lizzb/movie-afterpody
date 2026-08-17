@@ -740,8 +740,9 @@ export const backfillPodcastArtwork = createServerFn({ method: "POST" })
 
 const ResolveInput = z.object({
   podcastId: z.string().uuid().optional(),
-  limit: z.number().int().min(1).max(40).default(15),
+  limit: z.number().int().min(1).max(150).default(100),
 });
+
 
 /**
  * Podcast-first pipeline: unmatched episode title -> extracted movie title ->
