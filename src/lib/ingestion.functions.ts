@@ -10,7 +10,7 @@ const IngestPodcastInput = z.object({
   query: z.string().min(1).optional(),
   feedUrl: z.string().url().optional(),
   podcastId: z.string().uuid().optional(),
-  maxEpisodes: z.number().int().min(1).max(200).default(100),
+  maxEpisodes: z.number().int().min(1).max(1000).default(100),
 });
 
 const EpisodeMatchInput = z.object({
