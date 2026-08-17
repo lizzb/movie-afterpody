@@ -407,7 +407,7 @@ export const enrichMovie = createServerFn({ method: "POST" })
     const baseUpdate = {
       title: match.title,
       release_year: match.releaseYear,
-      release_date: match.releaseDate,
+      release_date: nullIfBlank(match.releaseDate),
       runtime_minutes: match.runtime,
       synopsis: match.overview,
       tagline: match.tagline,
