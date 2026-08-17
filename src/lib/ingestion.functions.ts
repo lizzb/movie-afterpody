@@ -382,6 +382,12 @@ export const approveEpisodeMatch = createServerFn({ method: "POST" })
       { onConflict: "episode_id, movie_id" },
     );
     if (error) throw error;
+    // An approval undoes any earlier rejection of the same pair.
+    await supabaseAdmin
+      .from("episode_match_rejections")
+      .delete()
+      .eq("episode_id", data.episodeId)
+      .eq("movie_id", data.movieId);
     return { ok: true };
   });
 
@@ -397,7 +403,17 @@ export const rejectEpisodeMatch = createServerFn({ method: "POST" })
       .eq("episode_id", data.episodeId)
       .eq("movie_id", data.movieId);
     if (error) throw error;
+    const { error: rejectError } = await supabaseAdmin.from("episode_match_rejections").upsert(
+      {
+        episode_id: data.episodeId,
+        movie_id: data.movieId,
+        rejected_by: context.userId,
+      },
+      { onConflict: "episode_id, movie_id" },
+    );
+    if (rejectError) throw rejectError;
     return { ok: true };
+
   });
 
 export const enrichMovie = createServerFn({ method: "POST" })
