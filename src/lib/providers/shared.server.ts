@@ -27,7 +27,7 @@ export function looksLikeJwt(value: string): boolean {
 
 export async function tmdbFetch(path: string, apiKey: string, init?: RequestInit): Promise<unknown> {
   const isJwt = looksLikeJwt(apiKey);
-  const url = new URL(path, TMDB_BASE);
+  const url = new URL(`${TMDB_BASE}${path.startsWith("/") ? path : `/${path}`}`);
   if (!isJwt) url.searchParams.set("api_key", apiKey);
 
   const headers = new Headers(init?.headers);
@@ -60,7 +60,7 @@ export async function podcastIndexFetch(
   apiSecret: string,
   init?: RequestInit,
 ): Promise<unknown> {
-  const url = new URL(path, PODCAST_INDEX_BASE);
+  const url = new URL(`${PODCAST_INDEX_BASE}${path.startsWith("/") ? path : `/${path}`}`);
   const headers = podcastIndexHeaders(apiKey, apiSecret);
   if (init?.headers) {
     const extra = new Headers(init.headers);
