@@ -573,6 +573,7 @@ export const listIngestionStats = createServerFn({ method: "GET" })
       { count: matchedEpisodeCount },
       { count: pendingMatchCount },
       { count: tmdbLinkedCount },
+      { data: links },
     ] = await Promise.all([
       supabaseAdmin.from("movies").select("*", { count: "exact", head: true }),
       supabaseAdmin.from("podcasts").select("*", { count: "exact", head: true }),
@@ -580,7 +581,10 @@ export const listIngestionStats = createServerFn({ method: "GET" })
       supabaseAdmin.from("episode_movies").select("*", { count: "exact", head: true }),
       supabaseAdmin.from("episode_movies").select("*", { count: "exact", head: true }).eq("match_method", "heuristic"),
       supabaseAdmin.from("movies").select("*", { count: "exact", head: true }).not("tmdb_id", "is", null),
+      supabaseAdmin.from("episode_movies").select("episode_id"),
     ]);
+
+    const linkedEpisodes = new Set((links ?? []).map((l) => l.episode_id)).size;
 
     return {
       movies: movieCount ?? 0,
@@ -589,8 +593,10 @@ export const listIngestionStats = createServerFn({ method: "GET" })
       matchedEpisodes: matchedEpisodeCount ?? 0,
       pendingMatches: pendingMatchCount ?? 0,
       tmdbLinked: tmdbLinkedCount ?? 0,
+      unmatchedEpisodes: Math.max(0, (episodeCount ?? 0) - linkedEpisodes),
     };
   });
+
 
 export const enrichAllMovies = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -729,5 +735,156 @@ export const backfillPodcastArtwork = createServerFn({ method: "POST" })
       updated,
       remaining: Math.max(0, pending.length - todo.length),
       failed: failed.slice(0, 20),
+    };
+  });
+
+const ResolveInput = z.object({
+  podcastId: z.string().uuid().optional(),
+  limit: z.number().int().min(1).max(40).default(15),
+});
+
+/**
+ * Podcast-first pipeline: unmatched episode title -> extracted movie title ->
+ * TMDB lookup -> create/refresh movie -> link episode to it.
+ */
+export const resolveEpisodesToMovies = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) => ResolveInput.parse(data))
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { fetchUnlinkedEpisodes, fetchRejectedPairs, upsertMovieFromTmdb } = await import(
+      "./ingestion-helpers.server"
+    );
+    const { extractMovieTitleCandidates, looksNonMovieEpisode } = await import(
+      "./providers/episode-title.server"
+    );
+    const { findBestTmdbMatch } = await import("./providers/tmdb.server");
+
+    const apiKey = process.env["TMDB_API_KEY"];
+    if (!apiKey) throw new Error("TMDB API key not configured");
+
+    const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+    const allUnlinked = await fetchUnlinkedEpisodes(supabaseAdmin, { podcastId: data.podcastId });
+    const rejected = await fetchRejectedPairs(supabaseAdmin);
+    const todo = allUnlinked.slice(0, data.limit);
+
+    let linked = 0;
+    let moviesCreated = 0;
+    const skipped: string[] = [];
+    const unresolved: string[] = [];
+
+    for (const ep of todo) {
+      if (looksNonMovieEpisode(ep.title)) {
+        skipped.push(ep.title);
+        continue;
+      }
+      const candidates = extractMovieTitleCandidates(ep.title);
+      let done = false;
+
+      for (const candidate of candidates) {
+        try {
+          const match = await findBestTmdbMatch(apiKey, candidate.title, candidate.year ?? undefined);
+          await sleep(120);
+          if (!match) continue;
+
+          const movie = await upsertMovieFromTmdb(supabaseAdmin, match, accentFor(match.title));
+          if (movie.created) moviesCreated += 1;
+          if (rejected.has(`${ep.id}:${movie.id}`)) continue;
+
+          const { error } = await supabaseAdmin.from("episode_movies").upsert(
+            {
+              episode_id: ep.id,
+              movie_id: movie.id,
+              match_method: match.confidence >= 85 ? "deterministic" : "heuristic",
+              match_confidence: Math.min(1, match.confidence / 100),
+              is_primary_subject: true,
+            },
+            { onConflict: "episode_id, movie_id" },
+          );
+          if (error) throw error;
+          linked += 1;
+          done = true;
+          break;
+        } catch (err) {
+          unresolved.push(`${ep.title}: ${err instanceof Error ? err.message : String(err)}`);
+          done = true;
+          break;
+        }
+      }
+
+      if (!done) unresolved.push(`${ep.title}: no TMDB match`);
+    }
+
+    return {
+      attempted: todo.length,
+      linked,
+      moviesCreated,
+      skipped: skipped.slice(0, 20),
+      unresolved: unresolved.slice(0, 20),
+      remaining: Math.max(0, allUnlinked.length - todo.length),
+    };
+  });
+
+/** Cheap backfill: re-match still-unlinked episodes against movies already in the catalogue. */
+export const rescanEpisodeMatches = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) => ResolveInput.parse(data))
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { fetchUnlinkedEpisodes, fetchRejectedPairs } = await import("./ingestion-helpers.server");
+    const { matchEpisodeToMovies } = await import("./providers/matching.server");
+
+    const unlinked = await fetchUnlinkedEpisodes(supabaseAdmin, { podcastId: data.podcastId });
+    const rejected = await fetchRejectedPairs(supabaseAdmin);
+    const { data: movies } = await supabaseAdmin.from("movies").select("id, title, release_year");
+    const movieList = movies ?? [];
+
+    let linked = 0;
+    let stillUnlinked = 0;
+
+    for (const ep of unlinked) {
+      const top = matchEpisodeToMovies(ep.title, movieList).filter(
+        (c) => !rejected.has(`${ep.id}:${c.movieId}`),
+      )[0];
+      if (!top || top.confidence < 50) {
+        stillUnlinked += 1;
+        continue;
+      }
+      const { error } = await supabaseAdmin.from("episode_movies").upsert(
+        {
+          episode_id: ep.id,
+          movie_id: top.movieId,
+          match_method: top.confidence >= 80 ? "deterministic" : "heuristic",
+          match_confidence: top.confidence / 100,
+          is_primary_subject: true,
+        },
+        { onConflict: "episode_id, movie_id" },
+      );
+      if (error) stillUnlinked += 1;
+      else linked += 1;
+    }
+
+    return { scanned: unlinked.length, linked, stillUnlinked };
+  });
+
+/** Safety net: nothing should be invisible, so expose every episode with no movie link. */
+export const listUnmatchedEpisodes = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) => ResolveInput.parse(data))
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { fetchUnlinkedEpisodes } = await import("./ingestion-helpers.server");
+    const all = await fetchUnlinkedEpisodes(supabaseAdmin, { podcastId: data.podcastId });
+    return {
+      total: all.length,
+      episodes: all.slice(0, data.limit).map((ep) => ({
+        episodeId: ep.id,
+        episodeTitle: ep.title,
+        podcastName: ep.podcastName,
+        releasedAt: ep.releasedAt,
+      })),
     };
   });
