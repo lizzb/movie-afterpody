@@ -130,10 +130,13 @@ function IngestPage() {
             <Stat label="Matched episodes" value={stats.data.matchedEpisodes} />
             <Stat label="Pending review" value={stats.data.pendingMatches} />
             <Stat label="TMDB linked" value={stats.data.tmdbLinked} />
+            <Stat label="Unmatched episodes" value={stats.data.unmatchedEpisodes} />
           </section>
         ) : null}
 
         <section className="mt-10 space-y-8">
+          <ResolveEpisodesCard onSuccess={() => stats.refetch()} />
+          <UnmatchedEpisodesCard />
           <BulkEnrichCard onSuccess={() => stats.refetch()} />
           <BackfillArtworkCard onSuccess={() => stats.refetch()} />
           <IngestPodcastForm onSuccess={() => stats.refetch()} />
@@ -141,6 +144,7 @@ function IngestPage() {
           <RefreshAvailabilityForm onSuccess={() => stats.refetch()} />
           <ReviewMatches onSuccess={() => stats.refetch()} />
         </section>
+
       </main>
     </AppShell>
   );
