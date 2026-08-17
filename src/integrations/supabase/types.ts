@@ -49,6 +49,42 @@ export type Database = {
           },
         ]
       }
+      episode_match_rejections: {
+        Row: {
+          created_at: string
+          episode_id: string
+          movie_id: string
+          rejected_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          episode_id: string
+          movie_id: string
+          rejected_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          episode_id?: string
+          movie_id?: string
+          rejected_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "episode_match_rejections_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "podcast_episodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "episode_match_rejections_movie_id_fkey"
+            columns: ["movie_id"]
+            isOneToOne: false
+            referencedRelation: "movies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       episode_movies: {
         Row: {
           episode_id: string
