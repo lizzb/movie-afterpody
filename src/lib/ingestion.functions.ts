@@ -305,10 +305,35 @@ export const suggestEpisodeMatches = createServerFn({ method: "POST" })
     const { data: movies } = await supabaseAdmin.from("movies").select("id, title, release_year");
     const movieList = movies ?? [];
 
+    const episodeIds = (episodes ?? []).map((ep) => ep.id);
+
+    // Already-decided pairs: confirmed links and admin rejections.
+    const [{ data: existingLinks }, { data: rejections }] = await Promise.all([
+      supabaseAdmin
+        .from("episode_movies")
+        .select("episode_id, movie_id, match_method")
+        .in("episode_id", episodeIds.length ? episodeIds : ["00000000-0000-0000-0000-000000000000"]),
+      supabaseAdmin
+        .from("episode_match_rejections")
+        .select("episode_id, movie_id")
+        .in("episode_id", episodeIds.length ? episodeIds : ["00000000-0000-0000-0000-000000000000"]),
+    ]);
+
+    const rejectedPairs = new Set((rejections ?? []).map((r) => `${r.episode_id}:${r.movie_id}`));
+    // Confirmed = anything an admin approved or a high-confidence deterministic link.
+    const confirmedEpisodes = new Set(
+      (existingLinks ?? [])
+        .filter((l) => l.match_method === "manual" || l.match_method === "deterministic" || l.match_method === "seed")
+        .map((l) => l.episode_id),
+    );
+
     const suggestions = (episodes ?? [])
       .filter((ep) => !ep.title.toLowerCase().includes("trailer"))
+      .filter((ep) => !confirmedEpisodes.has(ep.id))
       .map((ep) => {
-        const candidates = matchEpisodeToMovies(ep.title, movieList);
+        const candidates = matchEpisodeToMovies(ep.title, movieList).filter(
+          (c) => !rejectedPairs.has(`${ep.id}:${c.movieId}`),
+        );
         const top = candidates[0];
         return {
           episodeId: ep.id,
@@ -333,10 +358,12 @@ export const suggestEpisodeMatches = createServerFn({ method: "POST" })
             reason: c.reason,
           })),
         };
-      });
+      })
+      .filter((s) => s.topCandidate !== null);
 
     return { suggestions };
   });
+
 
 export const approveEpisodeMatch = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -355,6 +382,12 @@ export const approveEpisodeMatch = createServerFn({ method: "POST" })
       { onConflict: "episode_id, movie_id" },
     );
     if (error) throw error;
+    // An approval undoes any earlier rejection of the same pair.
+    await supabaseAdmin
+      .from("episode_match_rejections")
+      .delete()
+      .eq("episode_id", data.episodeId)
+      .eq("movie_id", data.movieId);
     return { ok: true };
   });
 
@@ -370,7 +403,17 @@ export const rejectEpisodeMatch = createServerFn({ method: "POST" })
       .eq("episode_id", data.episodeId)
       .eq("movie_id", data.movieId);
     if (error) throw error;
+    const { error: rejectError } = await supabaseAdmin.from("episode_match_rejections").upsert(
+      {
+        episode_id: data.episodeId,
+        movie_id: data.movieId,
+        rejected_by: context.userId,
+      },
+      { onConflict: "episode_id, movie_id" },
+    );
+    if (rejectError) throw rejectError;
     return { ok: true };
+
   });
 
 export const enrichMovie = createServerFn({ method: "POST" })

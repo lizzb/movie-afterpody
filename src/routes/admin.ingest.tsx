@@ -388,6 +388,9 @@ function ReviewMatches({ onSuccess }: { onSuccess: () => void }) {
   const approveFn = useServerFn(approveEpisodeMatch);
   const rejectFn = useServerFn(rejectEpisodeMatch);
   const [podcastId, setPodcastId] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [decided, setDecided] = useState<Record<string, "approved" | "rejected">>({});
+  const [error, setError] = useState<string | null>(null);
 
   const suggestions = useQuery({
     queryKey: ["match-suggestions", podcastId || "all"],
@@ -395,21 +398,29 @@ function ReviewMatches({ onSuccess }: { onSuccess: () => void }) {
     enabled: true,
   });
 
-  const handleApprove = (episodeId: string, movieId: string) => {
-    approveFn({ data: { episodeId, movieId } }).then(() => {
-      client.invalidateQueries({ queryKey: ["match-suggestions"] });
+  const decide = async (episodeId: string, movieId: string, action: "approved" | "rejected") => {
+    setError(null);
+    setBusy(episodeId);
+    try {
+      if (action === "approved") await approveFn({ data: { episodeId, movieId } });
+      else await rejectFn({ data: { episodeId, movieId } });
+      setDecided((prev) => ({ ...prev, [episodeId]: action }));
+      await client.invalidateQueries({ queryKey: ["match-suggestions"] });
       onSuccess();
-    });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not save that decision.");
+    } finally {
+      setBusy(null);
+    }
   };
 
-  const handleReject = (episodeId: string, movieId: string) => {
-    rejectFn({ data: { episodeId, movieId } }).then(() => {
-      client.invalidateQueries({ queryKey: ["match-suggestions"] });
-      onSuccess();
-    });
-  };
+  const handleApprove = (episodeId: string, movieId: string) => void decide(episodeId, movieId, "approved");
+  const handleReject = (episodeId: string, movieId: string) => void decide(episodeId, movieId, "rejected");
 
-  const items = (suggestions.data?.suggestions ?? []).filter((s) => s.topCandidate && s.topCandidate.confidence < 80);
+  const items = (suggestions.data?.suggestions ?? []).filter(
+    (s) => s.topCandidate && s.topCandidate.confidence < 80 && !decided[s.episodeId],
+  );
+
 
   return (
     <div className="rounded-2xl border border-border bg-card p-5">
@@ -424,6 +435,14 @@ function ReviewMatches({ onSuccess }: { onSuccess: () => void }) {
         placeholder="Filter by podcast UUID (optional)"
         className="mt-4 w-full rounded-xl border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring"
       />
+
+      {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
+      {Object.keys(decided).length ? (
+        <p className="mt-3 text-xs text-muted-foreground">
+          {Object.values(decided).filter((d) => d === "approved").length} approved ·{" "}
+          {Object.values(decided).filter((d) => d === "rejected").length} rejected this session
+        </p>
+      ) : null}
 
       {suggestions.isLoading ? (
         <div className="mt-4 h-32 animate-pulse rounded-2xl bg-muted" />
@@ -448,15 +467,17 @@ function ReviewMatches({ onSuccess }: { onSuccess: () => void }) {
                   <div className="flex gap-2">
                     <button
                       type="button"
+                      disabled={busy === item.episodeId}
                       onClick={() => handleApprove(item.episodeId, item.topCandidate!.movieId)}
-                      className="rounded-full bg-teal px-3 py-1.5 text-xs font-semibold text-primary-foreground"
+                      className="rounded-full bg-teal px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-50"
                     >
-                      Approve
+                      {busy === item.episodeId ? "Saving…" : "Approve"}
                     </button>
                     <button
                       type="button"
+                      disabled={busy === item.episodeId}
                       onClick={() => handleReject(item.episodeId, item.topCandidate!.movieId)}
-                      className="rounded-full bg-muted px-3 py-1.5 text-xs font-semibold text-muted-foreground"
+                      className="rounded-full bg-muted px-3 py-1.5 text-xs font-semibold text-muted-foreground disabled:opacity-50"
                     >
                       Reject
                     </button>
