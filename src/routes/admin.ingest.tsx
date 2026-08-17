@@ -11,6 +11,7 @@ import {
   enrichMovie,
   ingestPodcast,
   listIngestionStats,
+  listPodcastCoverage,
   listUnmatchedEpisodes,
   refreshAvailability,
   rejectEpisodeMatch,
@@ -136,6 +137,7 @@ function IngestPage() {
 
         <section className="mt-10 space-y-8">
           <ResolveEpisodesCard onSuccess={() => stats.refetch()} />
+          <PodcastCoverageCard onSuccess={() => stats.refetch()} />
           <UnmatchedEpisodesCard />
           <BulkEnrichCard onSuccess={() => stats.refetch()} />
           <BackfillArtworkCard onSuccess={() => stats.refetch()} />
@@ -609,6 +611,78 @@ function UnmatchedEpisodesCard() {
           </ul>
         </>
       )}
+    </div>
+  );
+}
+
+function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
+  const fetchCoverage = useServerFn(listPodcastCoverage);
+  const sync = useServerFn(ingestPodcast);
+  const queryClient = useQueryClient();
+  const coverage = useQuery({
+    queryKey: ["podcast-coverage"],
+    queryFn: () => fetchCoverage({}),
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const syncPodcast = async (podcastId: string) => {
+    setBusyId(podcastId);
+    setError(null);
+    try {
+      await sync({ data: { podcastId, maxEpisodes: 1000 } });
+      await queryClient.invalidateQueries({ queryKey: ["podcast-coverage"] });
+      onSuccess();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-5">
+      <h2 className="font-display text-xl">Episode coverage</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Stored episodes vs. what the feed reports. "Sync episodes" pulls up to 1000 in one pass —
+        press again if the stored count is still short.
+      </p>
+      {coverage.isLoading ? (
+        <div className="mt-4 h-24 animate-pulse rounded-xl bg-muted" />
+      ) : (coverage.data?.podcasts.length ?? 0) === 0 ? (
+        <p className="mt-4 text-sm text-muted-foreground">No podcasts ingested yet.</p>
+      ) : (
+        <ul className="mt-4 space-y-2">
+          {coverage.data?.podcasts.map((p) => {
+            const complete = p.feedTotal > 0 && p.stored >= p.feedTotal;
+            return (
+              <li
+                key={p.podcastId}
+                className="flex items-center justify-between gap-3 rounded-xl border border-border/60 px-3 py-2"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">{p.name}</p>
+                  <p className={`text-xs ${complete ? "text-teal" : "text-muted-foreground"}`}>
+                    {p.stored} stored{p.feedTotal ? ` / ${p.feedTotal} in feed` : ""}
+                    {complete ? " · complete" : ""}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => syncPodcast(p.podcastId)}
+                  disabled={busyId === p.podcastId}
+                  className="shrink-0 rounded-full border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
+                >
+                  {busyId === p.podcastId ? "Syncing…" : "Sync episodes"}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
     </div>
   );
 }
