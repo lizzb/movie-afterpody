@@ -27,6 +27,10 @@ const RefreshAvailabilityInput = z.object({
   region: z.string().default("US"),
 });
 
+const BulkInput = z.object({
+  limit: z.number().int().min(1).max(60).default(25),
+});
+
 const SuggestMatchesInput = z.object({
   podcastId: z.string().uuid().optional(),
   episodeId: z.string().uuid().optional(),
@@ -638,7 +642,7 @@ export const backfillPodcastArtwork = createServerFn({ method: "POST" })
             .from("podcasts")
             .update({
               artwork_url: bestArtwork(feed),
-              description: feed.description || undefined,
+              description: feed.description || null,
               feed_url: feed.url,
               website_url: feed.link || null,
               episode_count: feed.episodeCount ?? 0,
