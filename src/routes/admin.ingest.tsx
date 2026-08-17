@@ -436,6 +436,14 @@ function ReviewMatches({ onSuccess }: { onSuccess: () => void }) {
         className="mt-4 w-full rounded-xl border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring"
       />
 
+      {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
+      {Object.keys(decided).length ? (
+        <p className="mt-3 text-xs text-muted-foreground">
+          {Object.values(decided).filter((d) => d === "approved").length} approved ·{" "}
+          {Object.values(decided).filter((d) => d === "rejected").length} rejected this session
+        </p>
+      ) : null}
+
       {suggestions.isLoading ? (
         <div className="mt-4 h-32 animate-pulse rounded-2xl bg-muted" />
       ) : items.length === 0 ? (
@@ -459,19 +467,28 @@ function ReviewMatches({ onSuccess }: { onSuccess: () => void }) {
                   <div className="flex gap-2">
                     <button
                       type="button"
+                      disabled={busy === item.episodeId}
                       onClick={() => handleApprove(item.episodeId, item.topCandidate!.movieId)}
-                      className="rounded-full bg-teal px-3 py-1.5 text-xs font-semibold text-primary-foreground"
+                      className="rounded-full bg-teal px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-50"
                     >
-                      Approve
+                      {busy === item.episodeId ? "Saving…" : "Approve"}
                     </button>
                     <button
                       type="button"
+                      disabled={busy === item.episodeId}
                       onClick={() => handleReject(item.episodeId, item.topCandidate!.movieId)}
-                      className="rounded-full bg-muted px-3 py-1.5 text-xs font-semibold text-muted-foreground"
+                      className="rounded-full bg-muted px-3 py-1.5 text-xs font-semibold text-muted-foreground disabled:opacity-50"
                     >
                       Reject
                     </button>
                   </div>
+                </div>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )}
+
                 </div>
               ) : null}
             </li>
