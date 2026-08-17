@@ -66,3 +66,56 @@ export function slugifyTitle(title: string): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
 }
+
+export interface TmdbMatchLike {
+  tmdbId: number;
+  title: string;
+  releaseYear: number | null;
+  releaseDate: string | null;
+  runtime: number | null;
+  overview: string | null;
+  tagline: string | null;
+  posterUrl: string | null;
+  backdropUrl: string | null;
+  imdbId: string | null;
+  confidence: number;
+}
+
+/** Creates (or refreshes) a movie row from a TMDB match and returns its id. */
+export async function upsertMovieFromTmdb(
+  admin: Admin,
+  match: TmdbMatchLike,
+  accent: string,
+): Promise<{ id: string; title: string; created: boolean }> {
+  const fields = {
+    title: match.title,
+    release_year: match.releaseYear,
+    release_date: match.releaseDate && match.releaseDate.length ? match.releaseDate : null,
+    runtime_minutes: match.runtime,
+    synopsis: match.overview,
+    tagline: match.tagline,
+    poster_url: match.posterUrl,
+    backdrop_url: match.backdropUrl,
+    imdb_id: match.imdbId,
+    tmdb_id: match.tmdbId,
+  };
+
+  const { data: byTmdb } = await admin
+    .from("movies")
+    .select("id, title")
+    .eq("tmdb_id", match.tmdbId)
+    .maybeSingle();
+  if (byTmdb) {
+    await admin.from("movies").update(fields).eq("id", byTmdb.id);
+    return { id: byTmdb.id, title: byTmdb.title, created: false };
+  }
+
+  const slug = slugifyTitle(match.title) || `tmdb-${match.tmdbId}`;
+  const { data: inserted, error } = await admin
+    .from("movies")
+    .upsert({ slug, accent, ...fields }, { onConflict: "slug" })
+    .select("id, title")
+    .single();
+  if (error || !inserted) throw error || new Error("Failed to create movie");
+  return { id: inserted.id, title: inserted.title, created: true };
+}
