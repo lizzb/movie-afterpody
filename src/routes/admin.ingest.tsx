@@ -388,6 +388,9 @@ function ReviewMatches({ onSuccess }: { onSuccess: () => void }) {
   const approveFn = useServerFn(approveEpisodeMatch);
   const rejectFn = useServerFn(rejectEpisodeMatch);
   const [podcastId, setPodcastId] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [decided, setDecided] = useState<Record<string, "approved" | "rejected">>({});
+  const [error, setError] = useState<string | null>(null);
 
   const suggestions = useQuery({
     queryKey: ["match-suggestions", podcastId || "all"],
@@ -395,21 +398,29 @@ function ReviewMatches({ onSuccess }: { onSuccess: () => void }) {
     enabled: true,
   });
 
-  const handleApprove = (episodeId: string, movieId: string) => {
-    approveFn({ data: { episodeId, movieId } }).then(() => {
-      client.invalidateQueries({ queryKey: ["match-suggestions"] });
+  const decide = async (episodeId: string, movieId: string, action: "approved" | "rejected") => {
+    setError(null);
+    setBusy(episodeId);
+    try {
+      if (action === "approved") await approveFn({ data: { episodeId, movieId } });
+      else await rejectFn({ data: { episodeId, movieId } });
+      setDecided((prev) => ({ ...prev, [episodeId]: action }));
+      await client.invalidateQueries({ queryKey: ["match-suggestions"] });
       onSuccess();
-    });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not save that decision.");
+    } finally {
+      setBusy(null);
+    }
   };
 
-  const handleReject = (episodeId: string, movieId: string) => {
-    rejectFn({ data: { episodeId, movieId } }).then(() => {
-      client.invalidateQueries({ queryKey: ["match-suggestions"] });
-      onSuccess();
-    });
-  };
+  const handleApprove = (episodeId: string, movieId: string) => void decide(episodeId, movieId, "approved");
+  const handleReject = (episodeId: string, movieId: string) => void decide(episodeId, movieId, "rejected");
 
-  const items = (suggestions.data?.suggestions ?? []).filter((s) => s.topCandidate && s.topCandidate.confidence < 80);
+  const items = (suggestions.data?.suggestions ?? []).filter(
+    (s) => s.topCandidate && s.topCandidate.confidence < 80 && !decided[s.episodeId],
+  );
+
 
   return (
     <div className="rounded-2xl border border-border bg-card p-5">
