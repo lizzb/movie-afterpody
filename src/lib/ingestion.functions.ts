@@ -888,3 +888,33 @@ export const listUnmatchedEpisodes = createServerFn({ method: "POST" })
       })),
     };
   });
+
+// Lightweight episode-coverage report: stored episodes vs the feed's reported total.
+export const listPodcastCoverage = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await requireAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: podcasts, error } = await supabaseAdmin
+      .from("podcasts")
+      .select("id, name, episode_count")
+      .order("name");
+    if (error) throw error;
+
+    const rows = await Promise.all(
+      (podcasts ?? []).map(async (p) => {
+        const { count } = await supabaseAdmin
+          .from("podcast_episodes")
+          .select("id", { count: "exact", head: true })
+          .eq("podcast_id", p.id);
+        return {
+          podcastId: p.id,
+          name: p.name,
+          stored: count ?? 0,
+          feedTotal: p.episode_count ?? 0,
+        };
+      }),
+    );
+
+    return { podcasts: rows };
+  });
