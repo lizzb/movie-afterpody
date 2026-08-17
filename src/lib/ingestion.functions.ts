@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { accentFor } from "./accents";
+import { nullIfBlank } from "./utils";
 import type { Database } from "@/integrations/supabase/types";
 
 const IngestPodcastInput = z.object({
@@ -407,7 +408,7 @@ export const enrichMovie = createServerFn({ method: "POST" })
     const baseUpdate = {
       title: match.title,
       release_year: match.releaseYear,
-      release_date: match.releaseDate,
+      release_date: nullIfBlank(match.releaseDate),
       runtime_minutes: match.runtime,
       synopsis: match.overview,
       tagline: match.tagline,
@@ -427,6 +428,24 @@ export const enrichMovie = createServerFn({ method: "POST" })
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "");
+
+    // Another row may already own this TMDB id — update it instead of inserting a duplicate.
+    if (match.tmdbId) {
+      const { data: byTmdb } = await supabaseAdmin
+        .from("movies")
+        .select("id, slug, title")
+        .eq("tmdb_id", match.tmdbId)
+        .maybeSingle();
+      if (byTmdb) {
+        const { error: updateError } = await supabaseAdmin
+          .from("movies")
+          .update(baseUpdate)
+          .eq("id", byTmdb.id);
+        if (updateError) throw updateError;
+        return { movie: byTmdb, match };
+      }
+    }
+
     const { data: upsertedMovie, error } = await supabaseAdmin
       .from("movies")
       .upsert({ slug, accent: accentFor(slug), ...baseUpdate }, { onConflict: "slug" })
@@ -568,7 +587,7 @@ export const enrichAllMovies = createServerFn({ method: "POST" })
             .update({
               title: match.title,
               release_year: match.releaseYear,
-              release_date: match.releaseDate,
+              release_date: nullIfBlank(match.releaseDate),
               runtime_minutes: match.runtime,
               synopsis: match.overview,
               tagline: match.tagline,
