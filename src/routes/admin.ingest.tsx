@@ -519,26 +519,27 @@ function ResolveEpisodesCard({ onSuccess }: { onSuccess: () => void }) {
       <h2 className="font-display text-xl">Build movies from episodes</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Reads unmatched episode titles, extracts the movie name, looks it up on TMDB, creates the
-        movie with full metadata and links the episode. Runs 15 episodes at a time.
+        movie with full metadata and links the episode. Runs 100 episodes at a time.
       </p>
       <div className="mt-4 flex flex-wrap gap-3">
         <button
           type="button"
-          onClick={() => resolve.mutate({ data: { limit: 15 } })}
+          onClick={() => resolve.mutate({ data: { limit: 100 } })}
           disabled={resolve.isPending}
           className="inline-flex items-center rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
         >
-          {resolve.isPending ? "Resolving…" : "Resolve next 15 episodes"}
+          {resolve.isPending ? "Resolving…" : "Resolve next 100 episodes"}
         </button>
         <button
           type="button"
-          onClick={() => rescan.mutate({ data: { limit: 40 } })}
+          onClick={() => rescan.mutate({ data: { limit: 100 } })}
           disabled={rescan.isPending}
           className="inline-flex items-center rounded-full border border-border px-5 py-2.5 text-sm font-semibold disabled:opacity-50"
         >
           {rescan.isPending ? "Rescanning…" : "Rescan against existing movies"}
         </button>
       </div>
+
       {resolve.isSuccess ? (
         <div className="mt-3 space-y-1 text-sm">
           <p className="text-teal">
