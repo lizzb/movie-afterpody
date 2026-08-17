@@ -10,7 +10,7 @@ const IngestPodcastInput = z.object({
   query: z.string().min(1).optional(),
   feedUrl: z.string().url().optional(),
   podcastId: z.string().uuid().optional(),
-  maxEpisodes: z.number().int().min(1).max(200).default(100),
+  maxEpisodes: z.number().int().min(1).max(1000).default(100),
 });
 
 const EpisodeMatchInput = z.object({
@@ -887,4 +887,34 @@ export const listUnmatchedEpisodes = createServerFn({ method: "POST" })
         releasedAt: ep.releasedAt,
       })),
     };
+  });
+
+// Lightweight episode-coverage report: stored episodes vs the feed's reported total.
+export const listPodcastCoverage = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await requireAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: podcasts, error } = await supabaseAdmin
+      .from("podcasts")
+      .select("id, name, episode_count")
+      .order("name");
+    if (error) throw error;
+
+    const rows = await Promise.all(
+      (podcasts ?? []).map(async (p) => {
+        const { count } = await supabaseAdmin
+          .from("podcast_episodes")
+          .select("id", { count: "exact", head: true })
+          .eq("podcast_id", p.id);
+        return {
+          podcastId: p.id,
+          name: p.name,
+          stored: count ?? 0,
+          feedTotal: p.episode_count ?? 0,
+        };
+      }),
+    );
+
+    return { podcasts: rows };
   });
