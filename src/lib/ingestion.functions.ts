@@ -429,7 +429,7 @@ export const enrichMovie = createServerFn({ method: "POST" })
       .replace(/^-+|-+$/g, "");
     const { data: upsertedMovie, error } = await supabaseAdmin
       .from("movies")
-      .insert({ slug, accent: accentFor(slug), ...baseUpdate })
+      .upsert({ slug, accent: accentFor(slug), ...baseUpdate }, { onConflict: "slug" })
       .select("id, slug, title")
       .single();
     if (error || !upsertedMovie) throw error || new Error("Failed to insert movie");
