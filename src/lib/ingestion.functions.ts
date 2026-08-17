@@ -573,6 +573,7 @@ export const listIngestionStats = createServerFn({ method: "GET" })
       { count: matchedEpisodeCount },
       { count: pendingMatchCount },
       { count: tmdbLinkedCount },
+      { data: links },
     ] = await Promise.all([
       supabaseAdmin.from("movies").select("*", { count: "exact", head: true }),
       supabaseAdmin.from("podcasts").select("*", { count: "exact", head: true }),
@@ -580,7 +581,10 @@ export const listIngestionStats = createServerFn({ method: "GET" })
       supabaseAdmin.from("episode_movies").select("*", { count: "exact", head: true }),
       supabaseAdmin.from("episode_movies").select("*", { count: "exact", head: true }).eq("match_method", "heuristic"),
       supabaseAdmin.from("movies").select("*", { count: "exact", head: true }).not("tmdb_id", "is", null),
+      supabaseAdmin.from("episode_movies").select("episode_id"),
     ]);
+
+    const linkedEpisodes = new Set((links ?? []).map((l) => l.episode_id)).size;
 
     return {
       movies: movieCount ?? 0,
@@ -589,8 +593,10 @@ export const listIngestionStats = createServerFn({ method: "GET" })
       matchedEpisodes: matchedEpisodeCount ?? 0,
       pendingMatches: pendingMatchCount ?? 0,
       tmdbLinked: tmdbLinkedCount ?? 0,
+      unmatchedEpisodes: Math.max(0, (episodeCount ?? 0) - linkedEpisodes),
     };
   });
+
 
 export const enrichAllMovies = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
