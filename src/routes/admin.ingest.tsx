@@ -488,13 +488,6 @@ function ReviewMatches({ onSuccess }: { onSuccess: () => void }) {
           ))}
         </ul>
       )}
-
-                </div>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      )}
     </div>
   );
 }
