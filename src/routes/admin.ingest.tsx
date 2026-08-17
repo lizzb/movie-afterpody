@@ -499,3 +499,116 @@ function ReviewMatches({ onSuccess }: { onSuccess: () => void }) {
     </div>
   );
 }
+
+function ResolveEpisodesCard({ onSuccess }: { onSuccess: () => void }) {
+  const resolveFn = useServerFn(resolveEpisodesToMovies);
+  const rescanFn = useServerFn(rescanEpisodeMatches);
+  const client = useQueryClient();
+  const refresh = () => {
+    onSuccess();
+    void client.invalidateQueries({ queryKey: ["unmatched-episodes"] });
+    void client.invalidateQueries({ queryKey: ["match-suggestions"] });
+  };
+  const resolve = useMutation({ mutationFn: resolveFn, onSuccess: refresh });
+  const rescan = useMutation({ mutationFn: rescanFn, onSuccess: refresh });
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-5">
+      <h2 className="font-display text-xl">Build movies from episodes</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Reads unmatched episode titles, extracts the movie name, looks it up on TMDB, creates the
+        movie with full metadata and links the episode. Runs 15 episodes at a time.
+      </p>
+      <div className="mt-4 flex flex-wrap gap-3">
+        <button
+          type="button"
+          onClick={() => resolve.mutate({ data: { limit: 15 } })}
+          disabled={resolve.isPending}
+          className="inline-flex items-center rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+        >
+          {resolve.isPending ? "Resolving…" : "Resolve next 15 episodes"}
+        </button>
+        <button
+          type="button"
+          onClick={() => rescan.mutate({ data: { limit: 40 } })}
+          disabled={rescan.isPending}
+          className="inline-flex items-center rounded-full border border-border px-5 py-2.5 text-sm font-semibold disabled:opacity-50"
+        >
+          {rescan.isPending ? "Rescanning…" : "Rescan against existing movies"}
+        </button>
+      </div>
+      {resolve.isSuccess ? (
+        <div className="mt-3 space-y-1 text-sm">
+          <p className="text-teal">
+            Linked {resolve.data.linked} of {resolve.data.attempted} episodes ·{" "}
+            {resolve.data.moviesCreated} movies created · {resolve.data.remaining} still unmatched.
+          </p>
+          {resolve.data.skipped.length > 0 ? (
+            <p className="text-xs text-muted-foreground">
+              Skipped (not about a movie): {resolve.data.skipped.join("; ")}
+            </p>
+          ) : null}
+          {resolve.data.unresolved.length > 0 ? (
+            <p className="text-xs text-muted-foreground">
+              Needs a manual link: {resolve.data.unresolved.join("; ")}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+      {rescan.isSuccess ? (
+        <p className="mt-3 text-sm text-teal">
+          Rescanned {rescan.data.scanned} · linked {rescan.data.linked} · {rescan.data.stillUnlinked}{" "}
+          still unmatched.
+        </p>
+      ) : null}
+      {resolve.isError ? (
+        <p className="mt-3 text-sm text-destructive">{(resolve.error as Error).message}</p>
+      ) : null}
+      {rescan.isError ? (
+        <p className="mt-3 text-sm text-destructive">{(rescan.error as Error).message}</p>
+      ) : null}
+    </div>
+  );
+}
+
+function UnmatchedEpisodesCard() {
+  const fn = useServerFn(listUnmatchedEpisodes);
+  const query = useQuery({
+    queryKey: ["unmatched-episodes"],
+    queryFn: () => fn({ data: { limit: 40 } }),
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-5">
+      <h2 className="font-display text-xl">Unmatched episodes</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Every episode with no movie attached — including ones whose suggested match you rejected.
+        Nothing here is visible in the app yet.
+      </p>
+      {query.isLoading ? (
+        <div className="mt-4 h-24 animate-pulse rounded-2xl bg-muted" />
+      ) : query.isError ? (
+        <p className="mt-3 text-sm text-destructive">{(query.error as Error).message}</p>
+      ) : (query.data?.total ?? 0) === 0 ? (
+        <p className="mt-4 text-sm text-teal">Every episode is linked to at least one movie.</p>
+      ) : (
+        <>
+          <p className="mt-3 text-sm font-semibold">{query.data?.total} unmatched</p>
+          <ul className="mt-3 space-y-2">
+            {query.data?.episodes.map((ep) => (
+              <li key={ep.episodeId} className="rounded-xl border border-border/60 px-3 py-2 text-sm">
+                <p className="font-medium">{ep.episodeTitle}</p>
+                <p className="text-xs text-muted-foreground">
+                  {ep.podcastName}
+                  {ep.releasedAt ? ` · ${ep.releasedAt}` : ""}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </div>
+  );
+}
