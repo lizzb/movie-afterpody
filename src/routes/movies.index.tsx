@@ -101,7 +101,13 @@ function MoviesPage() {
             ))}
           </ul>
         ) : results.length === 0 ? (
-          <CatalogAddCard kind="movie" term={term.trim()} />
+          term.trim() ? (
+            <CatalogAddCard kind="movie" term={term.trim()} />
+          ) : (
+            <p className="mt-8 rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+              The catalogue is empty. Ingest a podcast to start building it.
+            </p>
+          )
         ) : (
           <ul
             className={
