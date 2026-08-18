@@ -101,10 +101,7 @@ function MoviesPage() {
             ))}
           </ul>
         ) : results.length === 0 ? (
-          <p className="mt-8 rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-            No movies match &ldquo;{term.trim()}&rdquo;.
-            {showMatches.length > 0 ? " It looks like a podcast — pick it above." : ""}
-          </p>
+          <CatalogAddCard kind="movie" term={term.trim()} />
         ) : (
           <ul
             className={
