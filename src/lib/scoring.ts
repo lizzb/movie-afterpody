@@ -223,7 +223,7 @@ export function scorePodcast(
 
   const reason =
     preference === "preferred"
-      ? "One of yours"
+      ? "A show you follow"
       : movieIds.size >= 4
         ? `Covers ${movieIds.size} movies you can stream`
         : podcast.activity_status === "active"

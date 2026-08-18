@@ -73,7 +73,15 @@ function IngestPage() {
           <h1 className="font-display text-3xl">Data ingestion</h1>
           <p className="mt-2 text-muted-foreground">Admin tools for pulling real movie and podcast data.</p>
           <div className="mt-8 rounded-2xl border border-border bg-card p-6 text-center">
-            <p className="text-sm text-muted-foreground">Sign in to access ingestion tools.</p>
+            <p className="text-sm text-muted-foreground">
+              You are not signed in. Ingestion tools need an admin account.
+            </p>
+            <Link
+              to="/auth"
+              className="mt-4 inline-flex items-center rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground neon"
+            >
+              Sign in
+            </Link>
           </div>
         </main>
       </AppShell>
@@ -360,28 +368,46 @@ function EnrichMovieForm({ onSuccess }: { onSuccess: () => void }) {
 
 function RefreshAvailabilityForm({ onSuccess }: { onSuccess: () => void }) {
   const fn = useServerFn(refreshAvailability);
+  const [offset, setOffset] = useState(0);
   const mutation = useMutation({
     mutationFn: fn,
-    onSuccess,
+    onSuccess: (result) => {
+      setOffset(result.nextOffset);
+      onSuccess();
+    },
   });
 
   return (
     <div className="rounded-2xl border border-border bg-card p-5">
-      <h2 className="font-display text-xl">Refresh streaming availability</h2>
+      <h2 className="font-display text-xl">Streaming availability + genres</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Query TMDB watch providers for every movie with a TMDB ID and update US availability.
+        Pulls TMDB watch providers (US) and genres, 40 movies per run so the request never times
+        out. Press again to continue from movie {offset + 1}.
       </p>
-      <button
-        type="button"
-        onClick={() => mutation.mutate({ data: { region: "US" } })}
-        disabled={mutation.isPending}
-        className="mt-4 inline-flex items-center rounded-full bg-navy px-5 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
-      >
-        {mutation.isPending ? "Refreshing…" : "Refresh US availability"}
-      </button>
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => mutation.mutate({ data: { region: "US", limit: 40, offset } })}
+          disabled={mutation.isPending}
+          className="inline-flex items-center rounded-full bg-navy px-5 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+        >
+          {mutation.isPending ? "Syncing…" : `Sync next 40 (from #${offset + 1})`}
+        </button>
+        {offset > 0 ? (
+          <button
+            type="button"
+            onClick={() => setOffset(0)}
+            className="rounded-full border border-border px-4 py-2 text-sm font-semibold"
+          >
+            Start over
+          </button>
+        ) : null}
+      </div>
       {mutation.isSuccess ? (
         <p className="mt-3 text-sm text-teal">
-          Updated {mutation.data.updated} of {mutation.data.total} movies.
+          Checked {mutation.data.updated} movies · {mutation.data.offersWritten} streaming offers ·{" "}
+          {mutation.data.genreLinks} genre links. {mutation.data.total} movies have a TMDB id.
+          {mutation.data.done ? " All movies processed." : ""}
           {mutation.data.failed.length > 0 ? ` ${mutation.data.failed.length} failed.` : ""}
         </p>
       ) : null}

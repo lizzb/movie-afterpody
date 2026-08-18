@@ -14,7 +14,8 @@ const TABS = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   useThemeClass();
-  const { userId } = useAuth();
+  const { userId, user } = useAuth();
+  const accountLabel = userId ? (user?.email ?? "Signed in") : "Sign in";
 
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-0">
@@ -41,15 +42,43 @@ export function AppShell({ children }: { children: ReactNode }) {
             <ThemeToggle />
             <Link
               to="/auth"
-              aria-label={userId ? "Account" : "Sign in"}
-              title={userId ? "Account" : "Sign in"}
-              className="rounded-full border border-border bg-card p-1.5 text-muted-foreground transition-colors hover:text-foreground"
+              aria-label={accountLabel}
+              title={accountLabel}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-semibold transition-colors ${
+                userId
+                  ? "border-transparent bg-teal-soft text-teal"
+                  : "border-border bg-card text-muted-foreground hover:text-foreground"
+              }`}
             >
               <UserRound className="size-4" aria-hidden />
+              <span className="max-w-32 truncate">{userId ? "Signed in" : "Sign in"}</span>
             </Link>
           </div>
         </div>
       </header>
+
+      {/* Mobile: slim account strip so sign-in state is always visible and reachable. */}
+      <div className="sticky top-0 z-20 flex items-center justify-between gap-2 border-b border-border/70 bg-background/90 px-4 py-2 backdrop-blur md:hidden">
+        <Link to="/" className="font-display text-sm font-bold tracking-tight">
+          Movie&nbsp;Afterparty
+        </Link>
+        <div className="flex items-center gap-1.5">
+          <ThemeToggle />
+          <Link
+            to="/auth"
+            aria-label={accountLabel}
+            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
+              userId
+                ? "border-transparent bg-teal-soft text-teal"
+                : "border-border bg-card text-muted-foreground"
+            }`}
+          >
+            <UserRound className="size-3.5" aria-hidden />
+            {userId ? "Signed in" : "Sign in"}
+          </Link>
+        </div>
+      </div>
+
 
       {children}
 
