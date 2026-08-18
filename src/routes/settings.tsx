@@ -4,7 +4,8 @@ import { AppShell } from "@/components/AppShell";
 import { Artwork } from "@/components/Artwork";
 import { BrandBadge } from "@/components/BrandBadge";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { accentFor, accentSoft, toAccent } from "@/lib/accents";
+import { useAuth } from "@/hooks/useAuth";
+
 import { useDiscovery } from "@/lib/discovery";
 import { prefsActions } from "@/lib/prefs";
 import { scorePodcast } from "@/lib/scoring";
@@ -32,6 +33,7 @@ export const Route = createFileRoute("/settings")({
 
 function SettingsPage() {
   const { catalog, prefs, user, isLoading } = useDiscovery();
+  const { userId: authUserId, user: authUser } = useAuth();
 
   const podcasts = (catalog?.podcasts ?? [])
     .map((podcast) => ({
@@ -58,6 +60,28 @@ function SettingsPage() {
           </div>
           <ThemeToggle className="mt-1 shrink-0" />
         </div>
+
+        <section className="mt-5 flex items-center justify-between gap-3 rounded-2xl border border-border bg-card p-4 shadow-card">
+          <div className="min-w-0">
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">
+              Account
+            </p>
+            <p className="mt-1 truncate text-sm font-semibold">
+              {authUserId ? (authUser?.email ?? "Signed in") : "Not signed in"}
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Sign-in is only needed for the data ingestion tools.
+            </p>
+          </div>
+          <Link
+            to="/auth"
+            className="shrink-0 rounded-full border border-border px-4 py-2 text-sm font-semibold hover:bg-secondary"
+          >
+            {authUserId ? "Manage" : "Sign in"}
+          </Link>
+        </section>
+
+
 
         <section className="mt-6">
           <h2 className="font-display text-xl font-bold">Streaming services</h2>
@@ -103,7 +127,6 @@ function SettingsPage() {
           ) : (
             <ul className="mt-4 space-y-2">
               {podcasts.map(({ podcast, preferred, rank }) => {
-                const accent = toAccent(podcast.accent ?? accentFor(podcast.slug));
                 return (
                   <li
                     key={podcast.id}
@@ -124,19 +147,26 @@ function SettingsPage() {
                         {podcast.episode_count} episodes · {rank.reason}
                       </p>
                     </div>
+                    {/* One consistent styling: filled = following, outline = not. */}
                     <button
                       type="button"
                       aria-pressed={preferred}
-                      aria-label={preferred ? `Unfollow ${podcast.name}` : `Prefer ${podcast.name}`}
+                      aria-label={
+                        preferred ? `Unfollow ${podcast.name}` : `Follow ${podcast.name}`
+                      }
                       onClick={() => prefsActions.togglePreferredPodcast(podcast.slug, !preferred)}
-                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ${
+                      className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
                         preferred
-                          ? "bg-berry text-primary-foreground"
-                          : `${accentSoft(accent)} opacity-80`
+                          ? "border-transparent bg-berry text-primary-foreground"
+                          : "border-border bg-card text-muted-foreground hover:text-foreground"
                       }`}
                     >
-                      <Heart className="size-3.5" aria-hidden />
-                      {preferred ? "Preferred" : "Prefer"}
+                      <Heart
+                        className="size-3.5"
+                        fill={preferred ? "currentColor" : "none"}
+                        aria-hidden
+                      />
+                      {preferred ? "Following" : "Follow"}
                     </button>
                   </li>
                 );

@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { Heart, Mic, Search, Star } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
+import { CatalogAddCard } from "@/components/CatalogAddCard";
 import { Artwork } from "@/components/Artwork";
 import { BrandBadge } from "@/components/BrandBadge";
 import { ViewToggle } from "@/components/ViewToggle";
@@ -123,13 +124,17 @@ function PodcastsPage() {
             ))}
           </ul>
         ) : results.length === 0 ? (
-          <p className="mt-8 rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-            No shows match. Try &ldquo;All shows&rdquo;, or{" "}
-            <Link to="/settings" className="font-semibold text-coral">
-              add a streaming service
-            </Link>
-            .
-          </p>
+          term.trim() ? (
+            <CatalogAddCard kind="podcast" term={term.trim()} />
+          ) : (
+            <p className="mt-8 rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+              No shows match. Try &ldquo;All shows&rdquo;, or{" "}
+              <Link to="/settings" className="font-semibold text-coral">
+                add a streaming service
+              </Link>
+              .
+            </p>
+          )
         ) : (
           <ul
             className={

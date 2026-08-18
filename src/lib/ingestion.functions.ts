@@ -26,7 +26,17 @@ const EnrichMovieInput = z.object({
 
 const RefreshAvailabilityInput = z.object({
   region: z.string().default("US"),
+  /** Batch size — the worker cannot fetch hundreds of TMDB pages in one request. */
+  limit: z.number().int().min(1).max(60).default(40),
+  /** Resume cursor (movies ordered by title). */
+  offset: z.number().int().min(0).default(0),
 });
+
+/** TMDB genre name → our genre slug. Anything unlisted is created on the fly. */
+const TMDB_GENRE_SLUG: Record<string, string> = {
+  "Science Fiction": "scifi",
+  Music: "musical",
+};
 
 const BulkInput = z.object({
   limit: z.number().int().min(1).max(60).default(25),
@@ -505,25 +515,45 @@ export const refreshAvailability = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { getTmdbWatchProviders } = await import("./providers/tmdb.server");
+    const { getTmdbWatchProviders, getTmdbMovieDetails } = await import("./providers/tmdb.server");
+    const { slugify } = await import("./providers/shared.server");
 
     const apiKey = process.env["TMDB_API_KEY"];
     if (!apiKey) throw new Error("TMDB API key not configured");
 
-    const { data: movies } = await supabaseAdmin
+    const { count: total } = await supabaseAdmin
+      .from("movies")
+      .select("*", { count: "exact", head: true })
+      .not("tmdb_id", "is", null);
+
+    const { data: movies, error: listError } = await supabaseAdmin
       .from("movies")
       .select("id, tmdb_id, title")
-      .not("tmdb_id", "is", null);
-    const { data: services } = await supabaseAdmin.from("streaming_services").select("id, slug");
+      .not("tmdb_id", "is", null)
+      .order("title", { ascending: true })
+      .range(data.offset, data.offset + data.limit - 1);
+    if (listError) throw listError;
+
+    const [{ data: services }, { data: genres }] = await Promise.all([
+      supabaseAdmin.from("streaming_services").select("id, slug"),
+      supabaseAdmin.from("genres").select("id, slug"),
+    ]);
     const serviceBySlug = new Map((services ?? []).map((s) => [s.slug, s.id]));
+    const genreBySlug = new Map((genres ?? []).map((g) => [g.slug, g.id]));
 
     let updated = 0;
+    let offersWritten = 0;
+    let genreLinks = 0;
     const failed: string[] = [];
 
     for (const movie of movies ?? []) {
       if (!movie.tmdb_id) continue;
       try {
-        const providers = await getTmdbWatchProviders(apiKey, movie.tmdb_id);
+        const [providers, details] = await Promise.all([
+          getTmdbWatchProviders(apiKey, movie.tmdb_id),
+          getTmdbMovieDetails(apiKey, movie.tmdb_id),
+        ]);
+
         const region = providers.results?.[data.region];
         const offers = [
           ...(region?.flatrate ?? []).map((p) => ({ ...p, offer_type: "subscription" as const })),
@@ -532,32 +562,77 @@ export const refreshAvailability = createServerFn({ method: "POST" })
           ...(region?.buy ?? []).map((p) => ({ ...p, offer_type: "buy" as const })),
         ];
 
+        const rows = new Map<string, {
+          movie_id: string;
+          service_id: string;
+          offer_type: "subscription" | "free_ads" | "rent" | "buy";
+          region: string;
+          deep_link: string | null;
+          provider_source: string;
+          last_checked_at: string;
+        }>();
         for (const offer of offers) {
           const slug = TMDB_PROVIDER_TO_SLUG[offer.provider_id];
           if (!slug) continue;
           const serviceId = serviceBySlug.get(slug);
           if (!serviceId) continue;
-
-          await supabaseAdmin.from("movie_availability").upsert(
-            {
-              movie_id: movie.id,
-              service_id: serviceId,
-              offer_type: offer.offer_type,
-              region: data.region,
-              deep_link: region?.link || null,
-              provider_source: "tmdb",
-              last_checked_at: new Date().toISOString(),
-            },
-            { onConflict: "movie_id, service_id, offer_type, region" },
-          );
+          rows.set(`${serviceId}|${offer.offer_type}`, {
+            movie_id: movie.id,
+            service_id: serviceId,
+            offer_type: offer.offer_type,
+            region: data.region,
+            deep_link: region?.link || null,
+            provider_source: "tmdb",
+            last_checked_at: new Date().toISOString(),
+          });
         }
+
+        if (rows.size > 0) {
+          const { error } = await supabaseAdmin
+            .from("movie_availability")
+            .upsert([...rows.values()], { onConflict: "movie_id,service_id,offer_type,region" });
+          if (error) throw error;
+          offersWritten += rows.size;
+        }
+
+        // Genres come from the same pass so filters actually have data to work with.
+        for (const genre of details?.genres ?? []) {
+          const slug = TMDB_GENRE_SLUG[genre.name] ?? slugify(genre.name);
+          let genreId = genreBySlug.get(slug);
+          if (!genreId) {
+            const { data: created } = await supabaseAdmin
+              .from("genres")
+              .upsert({ slug, name: genre.name }, { onConflict: "slug" })
+              .select("id, slug")
+              .single();
+            if (created) {
+              genreId = created.id;
+              genreBySlug.set(created.slug, created.id);
+            }
+          }
+          if (!genreId) continue;
+          const { error } = await supabaseAdmin
+            .from("movie_genres")
+            .upsert({ movie_id: movie.id, genre_id: genreId }, { onConflict: "movie_id,genre_id" });
+          if (!error) genreLinks += 1;
+        }
+
         updated += 1;
       } catch (err) {
         failed.push(`${movie.title}: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
 
-    return { updated, failed: failed.slice(0, 20), total: movies?.length ?? 0 };
+    const processedTo = data.offset + (movies?.length ?? 0);
+    return {
+      updated,
+      offersWritten,
+      genreLinks,
+      failed: failed.slice(0, 20),
+      total: total ?? 0,
+      nextOffset: processedTo >= (total ?? 0) ? 0 : processedTo,
+      done: processedTo >= (total ?? 0),
+    };
   });
 
 export const listIngestionStats = createServerFn({ method: "GET" })

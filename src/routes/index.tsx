@@ -55,6 +55,18 @@ function TonightPage() {
           </span>
         </header>
 
+        {!isLoading && (catalog?.availability.length ?? 0) === 0 ? (
+          <p className="mb-3 rounded-2xl border border-dashed border-border bg-card p-3 text-xs text-muted-foreground">
+            No streaming availability has been imported yet, so the &ldquo;only my services&rdquo;
+            filter has nothing to match.{" "}
+            <Link to="/admin/ingest" className="font-semibold text-coral">
+              Run the availability sync
+            </Link>{" "}
+            to fill it in.
+          </p>
+        ) : null}
+
+
         <FilterBar
           filters={prefs.filters}
           genres={catalog?.genres ?? []}
