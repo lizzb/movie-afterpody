@@ -428,9 +428,13 @@ function ReviewMatches({ onSuccess }: { onSuccess: () => void }) {
   const [decided, setDecided] = useState<Record<string, "approved" | "rejected">>({});
   const [error, setError] = useState<string | null>(null);
 
+  const trimmedId = podcastId.trim();
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmedId);
+  const validId = isUuid ? trimmedId : "";
+
   const suggestions = useQuery({
-    queryKey: ["match-suggestions", podcastId || "all"],
-    queryFn: () => suggestFn({ data: podcastId ? { podcastId } : {} }),
+    queryKey: ["match-suggestions", validId || "all"],
+    queryFn: () => suggestFn({ data: validId ? { podcastId: validId } : {} }),
     enabled: true,
   });
 
