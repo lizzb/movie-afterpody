@@ -475,6 +475,12 @@ function ReviewMatches({ onSuccess }: { onSuccess: () => void }) {
         placeholder="Filter by podcast UUID (optional)"
         className="mt-4 w-full rounded-xl border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring"
       />
+      {trimmedId && !isUuid ? (
+        <p className="mt-2 text-xs text-muted-foreground">
+          Not a valid podcast UUID yet — showing all shows.
+        </p>
+      ) : null}
+
 
       {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
       {Object.keys(decided).length ? (
