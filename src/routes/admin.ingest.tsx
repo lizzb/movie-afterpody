@@ -428,9 +428,13 @@ function ReviewMatches({ onSuccess }: { onSuccess: () => void }) {
   const [decided, setDecided] = useState<Record<string, "approved" | "rejected">>({});
   const [error, setError] = useState<string | null>(null);
 
+  const trimmedId = podcastId.trim();
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmedId);
+  const validId = isUuid ? trimmedId : "";
+
   const suggestions = useQuery({
-    queryKey: ["match-suggestions", podcastId || "all"],
-    queryFn: () => suggestFn({ data: podcastId ? { podcastId } : {} }),
+    queryKey: ["match-suggestions", validId || "all"],
+    queryFn: () => suggestFn({ data: validId ? { podcastId: validId } : {} }),
     enabled: true,
   });
 
@@ -471,6 +475,12 @@ function ReviewMatches({ onSuccess }: { onSuccess: () => void }) {
         placeholder="Filter by podcast UUID (optional)"
         className="mt-4 w-full rounded-xl border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring"
       />
+      {trimmedId && !isUuid ? (
+        <p className="mt-2 text-xs text-muted-foreground">
+          Not a valid podcast UUID yet — showing all shows.
+        </p>
+      ) : null}
+
 
       {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
       {Object.keys(decided).length ? (
