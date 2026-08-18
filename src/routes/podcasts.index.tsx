@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { Heart, Mic, Search, Star } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
+import { CatalogAddCard } from "@/components/CatalogAddCard";
 import { Artwork } from "@/components/Artwork";
 import { BrandBadge } from "@/components/BrandBadge";
 import { ViewToggle } from "@/components/ViewToggle";
