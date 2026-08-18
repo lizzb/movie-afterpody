@@ -52,7 +52,8 @@ function MoviesPage() {
       <main className="mx-auto w-full max-w-3xl px-5 pb-16 pt-8">
         <h1 className="font-display text-3xl font-bold">All movies</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          The full catalogue — including movies nobody has made a commentary episode about yet.
+          Every movie a catalogued podcast episode has covered — plus anything added by hand. Search
+          for something missing and you can pull it in from TMDB.
         </p>
 
         <div className="mt-4 flex items-center gap-2">
