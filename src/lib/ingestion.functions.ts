@@ -48,12 +48,23 @@ const SuggestMatchesInput = z.object({
 });
 
 async function requireAdmin(context: { supabase: SupabaseClient<Database>; userId: string }) {
-  const { data: isAdmin } = await context.supabase.rpc("has_role", {
+  const { data: isAdmin, error } = await context.supabase.rpc("has_role", {
     _user_id: context.userId,
     _role: "admin",
   });
-  if (!isAdmin) throw new Error("Forbidden: admin required");
+  if (error) throw new Error(`Admin check failed: ${error.message}`);
+  if (!isAdmin) {
+    // Fallback: read the role row directly in case the RPC is unavailable.
+    const { data: row } = await context.supabase
+      .from("user_roles")
+      .select("id")
+      .eq("user_id", context.userId)
+      .eq("role", "admin")
+      .maybeSingle();
+    if (!row) throw new Error("Forbidden: admin required");
+  }
 }
+
 
 async function loadAdminClients() {
   const [
