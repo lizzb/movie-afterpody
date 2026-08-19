@@ -26,73 +26,123 @@ import {
 
 const sel = (s: string): string => s;
 
+/** PostgREST caps a single response at 1000 rows, so page through everything. */
+const PAGE = 1000;
+
+async function fetchAllRows<T>(
+  page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+): Promise<T[]> {
+  const out: T[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await page(from, from + PAGE - 1);
+    if (error) throw new Error(error.message);
+    const rows = data ?? [];
+    out.push(...rows);
+    if (rows.length < PAGE) return out;
+  }
+}
+
 async function fetchCatalog(): Promise<Catalog> {
   const [genres, services, movies, movieGenres, availability, podcasts, metrics, episodes, sources, links] =
     await Promise.all([
-      supabase.from("genres").select(sel("id, slug, name")).order("name").returns<Genre[]>(),
-      supabase
-        .from("streaming_services")
-        .select(sel("id, slug, name, short_name, accent, sort_order"))
-        .order("sort_order")
-        .returns<StreamingService[]>(),
-      supabase
-        .from("movies")
-        .select(
-          sel("id, media_type, slug, title, release_year, runtime_minutes, synopsis, poster_url, accent"),
-        )
-        .order("title")
-        .returns<Movie[]>(),
-      supabase.from("movie_genres").select(sel("movie_id, genre_id")).returns<MovieGenre[]>(),
-      supabase
-        .from("movie_availability")
-        .select(sel("id, movie_id, service_id, offer_type, deep_link"))
-        .returns<MovieAvailability[]>(),
-      supabase
-        .from("podcasts")
-        .select(
-          sel(
-            "id, slug, name, description, artwork_url, accent, episode_count, latest_episode_at, activity_status, website_url",
-          ),
-        )
-        .order("name")
-        .returns<Podcast[]>(),
-      supabase
-        .from("podcast_external_metrics")
-        .select(sel("podcast_id, platform, rating, rating_count, external_url"))
-        .returns<PodcastMetric[]>(),
-      supabase
-        .from("podcast_episodes")
-        .select(sel("id, podcast_id, slug, title, description, released_at, duration_seconds"))
-        .order("released_at", { ascending: false })
-        .returns<Episode[]>(),
-      supabase
-        .from("episode_sources")
-        .select(sel("id, episode_id, platform, url, is_primary, embeddable"))
-        .returns<EpisodeSource[]>(),
-      supabase
-        .from("episode_movies")
-        .select(sel("episode_id, movie_id, is_primary_subject, match_confidence"))
-        .returns<EpisodeMovie[]>(),
+      fetchAllRows<Genre>((from, to) =>
+        supabase.from("genres").select(sel("id, slug, name")).order("name").range(from, to).returns<Genre[]>(),
+      ),
+      fetchAllRows<StreamingService>((from, to) =>
+        supabase
+          .from("streaming_services")
+          .select(sel("id, slug, name, short_name, accent, sort_order"))
+          .order("sort_order")
+          .range(from, to)
+          .returns<StreamingService[]>(),
+      ),
+      fetchAllRows<Movie>((from, to) =>
+        supabase
+          .from("movies")
+          .select(
+            sel("id, media_type, slug, title, release_year, runtime_minutes, synopsis, poster_url, accent"),
+          )
+          .order("title")
+          .range(from, to)
+          .returns<Movie[]>(),
+      ),
+      fetchAllRows<MovieGenre>((from, to) =>
+        supabase
+          .from("movie_genres")
+          .select(sel("movie_id, genre_id"))
+          .order("movie_id")
+          .range(from, to)
+          .returns<MovieGenre[]>(),
+      ),
+      fetchAllRows<MovieAvailability>((from, to) =>
+        supabase
+          .from("movie_availability")
+          .select(sel("id, movie_id, service_id, offer_type, deep_link"))
+          .order("id")
+          .range(from, to)
+          .returns<MovieAvailability[]>(),
+      ),
+      fetchAllRows<Podcast>((from, to) =>
+        supabase
+          .from("podcasts")
+          .select(
+            sel(
+              "id, slug, name, description, artwork_url, accent, episode_count, latest_episode_at, activity_status, website_url",
+            ),
+          )
+          .order("name")
+          .range(from, to)
+          .returns<Podcast[]>(),
+      ),
+      fetchAllRows<PodcastMetric>((from, to) =>
+        supabase
+          .from("podcast_external_metrics")
+          .select(sel("podcast_id, platform, rating, rating_count, external_url"))
+          .order("podcast_id")
+          .range(from, to)
+          .returns<PodcastMetric[]>(),
+      ),
+      fetchAllRows<Episode>((from, to) =>
+        supabase
+          .from("podcast_episodes")
+          .select(sel("id, podcast_id, slug, title, description, released_at, duration_seconds"))
+          .order("released_at", { ascending: false })
+          .order("id")
+          .range(from, to)
+          .returns<Episode[]>(),
+      ),
+      fetchAllRows<EpisodeSource>((from, to) =>
+        supabase
+          .from("episode_sources")
+          .select(sel("id, episode_id, platform, url, is_primary, embeddable"))
+          .order("id")
+          .range(from, to)
+          .returns<EpisodeSource[]>(),
+      ),
+      fetchAllRows<EpisodeMovie>((from, to) =>
+        supabase
+          .from("episode_movies")
+          .select(sel("episode_id, movie_id, is_primary_subject, match_confidence"))
+          .order("episode_id")
+          .range(from, to)
+          .returns<EpisodeMovie[]>(),
+      ),
     ]);
 
-  const first = [genres, services, movies, movieGenres, availability, podcasts, metrics, episodes, sources, links].find(
-    (r) => r.error,
-  );
-  if (first?.error) throw new Error(first.error.message);
-
   return {
-    genres: genres.data ?? [],
-    services: services.data ?? [],
-    movies: movies.data ?? [],
-    movieGenres: movieGenres.data ?? [],
-    availability: availability.data ?? [],
-    podcasts: podcasts.data ?? [],
-    metrics: metrics.data ?? [],
-    episodes: episodes.data ?? [],
-    episodeSources: sources.data ?? [],
-    episodeMovies: links.data ?? [],
+    genres,
+    services,
+    movies,
+    movieGenres,
+    availability,
+    podcasts,
+    metrics,
+    episodes,
+    episodeSources: sources,
+    episodeMovies: links,
   };
 }
+
 
 export function useCatalog() {
   return useQuery({

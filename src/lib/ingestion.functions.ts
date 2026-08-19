@@ -1005,3 +1005,164 @@ export const listPodcastCoverage = createServerFn({ method: "GET" })
 
     return { podcasts: rows };
   });
+
+/** Admin movie search used by the "wrong movie?" relink picker. */
+export const searchMoviesByTitle = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) => z.object({ term: z.string().min(1), limit: z.number().int().min(1).max(50).default(20) }).parse(data))
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: rows, error } = await supabaseAdmin
+      .from("movies")
+      .select("id, title, release_year, slug")
+      .ilike("title", `%${data.term}%`)
+      .order("title")
+      .limit(data.limit);
+    if (error) throw error;
+    return { movies: rows ?? [] };
+  });
+
+/**
+ * Fix a wrong link: drop the bad pair (remembering the rejection so it is not
+ * suggested again) and, when a replacement is given, link it as a manual match.
+ */
+export const relinkEpisodeMovie = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) =>
+    z
+      .object({
+        episodeId: z.string().uuid(),
+        fromMovieId: z.string().uuid(),
+        toMovieId: z.string().uuid().optional(),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { error: delError } = await supabaseAdmin
+      .from("episode_movies")
+      .delete()
+      .eq("episode_id", data.episodeId)
+      .eq("movie_id", data.fromMovieId);
+    if (delError) throw delError;
+
+    const { error: rejError } = await supabaseAdmin.from("episode_match_rejections").upsert(
+      { episode_id: data.episodeId, movie_id: data.fromMovieId, rejected_by: context.userId },
+      { onConflict: "episode_id, movie_id" },
+    );
+    if (rejError) throw rejError;
+
+    if (data.toMovieId) {
+      const { error: insError } = await supabaseAdmin.from("episode_movies").upsert(
+        {
+          episode_id: data.episodeId,
+          movie_id: data.toMovieId,
+          match_method: "manual",
+          match_confidence: 1.0,
+          is_primary_subject: true,
+        },
+        { onConflict: "episode_id, movie_id" },
+      );
+      if (insError) throw insError;
+      await supabaseAdmin
+        .from("episode_match_rejections")
+        .delete()
+        .eq("episode_id", data.episodeId)
+        .eq("movie_id", data.toMovieId);
+    }
+
+    return { ok: true, relinked: Boolean(data.toMovieId) };
+  });
+
+/** Worklist of existing links, searchable by podcast, episode or movie title. */
+export const listEpisodeLinks = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) =>
+    z
+      .object({
+        podcastId: z.string().uuid().optional(),
+        search: z.string().optional(),
+        maxConfidence: z.number().min(0).max(1).default(1),
+        limit: z.number().int().min(1).max(200).default(50),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    let query = supabaseAdmin
+      .from("episode_movies")
+      .select(
+        "episode_id, movie_id, match_method, match_confidence, podcast_episodes!inner(id, title, released_at, podcast_id, podcasts!inner(id, name)), movies!inner(id, title, release_year, slug)",
+        { count: "exact" },
+      )
+      .lte("match_confidence", data.maxConfidence)
+      .order("match_confidence", { ascending: true })
+      .limit(data.limit);
+
+    if (data.podcastId) query = query.eq("podcast_episodes.podcast_id", data.podcastId);
+    const term = data.search?.trim();
+    if (term) {
+      const [{ data: movieHits }, { data: epHits }] = await Promise.all([
+        supabaseAdmin.from("movies").select("id").ilike("title", `%${term}%`).limit(200),
+        supabaseAdmin.from("podcast_episodes").select("id").ilike("title", `%${term}%`).limit(500),
+      ]);
+      const movieIds = (movieHits ?? []).map((m) => m.id);
+      const epIds = (epHits ?? []).map((e) => e.id);
+      const clauses = [
+        movieIds.length ? `movie_id.in.(${movieIds.join(",")})` : null,
+        epIds.length ? `episode_id.in.(${epIds.join(",")})` : null,
+      ].filter(Boolean);
+      query = clauses.length
+        ? query.or(clauses.join(","))
+        : query.eq("episode_id", "00000000-0000-0000-0000-000000000000");
+    }
+
+
+    const { data: rows, error, count } = await query.returns<
+      {
+        episode_id: string;
+        movie_id: string;
+        match_method: string;
+        match_confidence: number;
+        podcast_episodes: {
+          title: string;
+          released_at: string | null;
+          podcast_id: string;
+          podcasts: { id: string; name: string };
+        };
+        movies: { id: string; title: string; release_year: number | null; slug: string };
+      }[]
+    >();
+    if (error) throw error;
+
+    const filtered = term
+      ? (rows ?? []).filter(
+          (r) =>
+            r.movies.title.toLowerCase().includes(term.toLowerCase()) ||
+            r.podcast_episodes.title.toLowerCase().includes(term.toLowerCase()) ||
+            r.podcast_episodes.podcasts.name.toLowerCase().includes(term.toLowerCase()),
+        )
+      : (rows ?? []);
+
+    return {
+      total: count ?? filtered.length,
+      links: filtered.map((r) => ({
+        episodeId: r.episode_id,
+        movieId: r.movie_id,
+        episodeTitle: r.podcast_episodes.title,
+        releasedAt: r.podcast_episodes.released_at,
+        podcastId: r.podcast_episodes.podcast_id,
+        podcastName: r.podcast_episodes.podcasts.name,
+        movieTitle: r.movies.title,
+        movieYear: r.movies.release_year,
+        movieSlug: r.movies.slug,
+        method: r.match_method,
+        confidence: Number(r.match_confidence),
+      })),
+    };
+  });

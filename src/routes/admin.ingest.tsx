@@ -2,7 +2,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
+import { FixMatchesCard } from "@/components/admin/FixMatchesCard";
 import { useAuth } from "@/hooks/useAuth";
+
 import {
   approveEpisodeMatch,
   backfillPodcastArtwork,
@@ -145,8 +147,10 @@ function IngestPage() {
 
         <section className="mt-10 space-y-8">
           <ResolveEpisodesCard onSuccess={() => stats.refetch()} />
+          <FixMatchesCard onSuccess={() => stats.refetch()} />
           <PodcastCoverageCard onSuccess={() => stats.refetch()} />
           <UnmatchedEpisodesCard />
+
           <BulkEnrichCard onSuccess={() => stats.refetch()} />
           <BackfillArtworkCard onSuccess={() => stats.refetch()} />
           <IngestPodcastForm onSuccess={() => stats.refetch()} />
