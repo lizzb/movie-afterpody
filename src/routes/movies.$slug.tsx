@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { BackLink } from "@/components/BackLink";
 import {
-  ArrowLeft,
   Check,
   ChevronDown,
   ExternalLink,
@@ -102,13 +102,7 @@ function MovieDetailPage() {
   return (
     <AppShell>
       <main className="mx-auto w-full max-w-3xl px-4 pb-16 pt-4">
-        <Link
-          to="/"
-          className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="size-4" aria-hidden />
-          Tonight
-        </Link>
+        <BackLink fallbackTo="/movies" fallbackLabel="Movies" />
 
         {/* Poster left, movie properties right, our own score set apart top-right. */}
         <header className="mt-3 flex items-start gap-4">

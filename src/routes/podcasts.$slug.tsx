@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, ExternalLink, Heart, Star } from "lucide-react";
+import { ExternalLink, Heart, Star } from "lucide-react";
+import { BackLink } from "@/components/BackLink";
 import { AppShell } from "@/components/AppShell";
 import { Artwork } from "@/components/Artwork";
 import { BrandBadge } from "@/components/BrandBadge";
