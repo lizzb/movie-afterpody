@@ -76,3 +76,29 @@ Shared tag system for movies and shows: curated starter tags, user-proposed tags
 - Match scoring stays deterministic in `src/lib/providers/matching.server.ts`; description text is already in the database so no re-ingest is needed.
 - Sizing guess for user-tunable score weights (from M): schema for stored weights, a weight editor UI, and reworking `scoring.ts`/`podcasts.ts` to read them — roughly one full pass on its own, best done after M's rating sources exist.
 - iPhone home-screen icon: `add to Home Screen` in Safari uses `apple-touch-icon`, which this project doesn't declare, so iOS falls back to a screenshot/letter tile. Fix is a 180x180 PNG plus an `apple-touch-icon` link and a web app manifest; folded into pass D. Adding via Safari is the correct route; the alternative is just a bookmark.
+
+## Pass O — Watchlist controls: layering and instant feedback (new)
+
+Not covered by Pass F (that pass is about confirm/undo for destructive actions). Separate pass:
+
+- The "new list" name/add popover opened from a movie card renders behind/through the
+  watched + bookmark controls of the card below it. Fix layering and positioning: render the
+  popover in a portal above card content with a proper stacking context, close on outside
+  click and Escape, and keep it inside the viewport on mobile.
+- Adding a movie to an existing watchlist gives no visible response from Tonight, Movies, or
+  the movie detail page. Make the checkmark state optimistic so it flips immediately, then
+  reconcile with stored state; show a brief confirmation and keep the list open for multiple
+  adds.
+- Verify the same control from all three surfaces (Tonight card, Movies card, movie detail)
+  and confirm list membership persists across reload.
+
+## Pass P — Back navigation (done)
+
+- Detail pages now go back to wherever the user came from (Movies list, a show page, Tonight)
+  instead of always Tonight, with browser scroll restoration on the way back.
+
+## Status
+
+- Pass A: done (catalogue paging, no more 1000-row truncation).
+- Pass B: done (admin "Fix wrong matches": search links, unlink, relink to another movie).
+- Pass P: done (back navigation).
