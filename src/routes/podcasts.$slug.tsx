@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, ExternalLink, Heart, Star } from "lucide-react";
+import { ExternalLink, Heart, Star } from "lucide-react";
+import { BackLink } from "@/components/BackLink";
 import { AppShell } from "@/components/AppShell";
 import { Artwork } from "@/components/Artwork";
 import { BrandBadge } from "@/components/BrandBadge";
@@ -84,13 +85,8 @@ function PodcastDetailPage() {
   return (
     <AppShell>
       <main className="mx-auto w-full max-w-3xl px-4 pb-16 pt-4">
-        <Link
-          to="/podcasts"
-          className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="size-4" aria-hidden />
-          Discover
-        </Link>
+        <BackLink fallbackTo="/podcasts" fallbackLabel="Shows" />
+
 
         <header className="mt-3 flex items-start gap-4">
           <Artwork
