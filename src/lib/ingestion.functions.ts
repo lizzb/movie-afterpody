@@ -1106,7 +1106,22 @@ export const listEpisodeLinks = createServerFn({ method: "POST" })
 
     if (data.podcastId) query = query.eq("podcast_episodes.podcast_id", data.podcastId);
     const term = data.search?.trim();
-    if (term) query = query.or(`title.ilike.%${term}%`, { referencedTable: "movies" });
+    if (term) {
+      const [{ data: movieHits }, { data: epHits }] = await Promise.all([
+        supabaseAdmin.from("movies").select("id").ilike("title", `%${term}%`).limit(200),
+        supabaseAdmin.from("podcast_episodes").select("id").ilike("title", `%${term}%`).limit(500),
+      ]);
+      const movieIds = (movieHits ?? []).map((m) => m.id);
+      const epIds = (epHits ?? []).map((e) => e.id);
+      const clauses = [
+        movieIds.length ? `movie_id.in.(${movieIds.join(",")})` : null,
+        epIds.length ? `episode_id.in.(${epIds.join(",")})` : null,
+      ].filter(Boolean);
+      query = clauses.length
+        ? query.or(clauses.join(","))
+        : query.eq("episode_id", "00000000-0000-0000-0000-000000000000");
+    }
+
 
     const { data: rows, error, count } = await query.returns<
       {
