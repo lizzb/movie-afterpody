@@ -145,8 +145,10 @@ function IngestPage() {
 
         <section className="mt-10 space-y-8">
           <ResolveEpisodesCard onSuccess={() => stats.refetch()} />
+          <FixMatchesCard onSuccess={() => stats.refetch()} />
           <PodcastCoverageCard onSuccess={() => stats.refetch()} />
           <UnmatchedEpisodesCard />
+
           <BulkEnrichCard onSuccess={() => stats.refetch()} />
           <BackfillArtworkCard onSuccess={() => stats.refetch()} />
           <IngestPodcastForm onSuccess={() => stats.refetch()} />
