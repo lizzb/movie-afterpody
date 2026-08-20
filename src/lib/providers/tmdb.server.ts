@@ -139,6 +139,37 @@ export async function findBestTmdbMatch(
   };
 }
 
+/** Resolve an IMDb id (tt0110989) straight to a TMDB movie. */
+export async function findTmdbByImdbId(apiKey: string, imdbId: string): Promise<MatchedTmdbMovie | null> {
+  const found = (await tmdbFetch(
+    `/find/${encodeURIComponent(imdbId)}?external_source=imdb_id`,
+    apiKey,
+  )) as { movie_results?: { id: number }[] };
+  const first = found.movie_results?.[0];
+  if (!first) return null;
+
+  const details = await getTmdbMovieDetails(apiKey, first.id);
+  if (!details) return null;
+
+  return {
+    tmdbId: details.id,
+    title: details.title,
+    releaseYear: details.release_date ? Number(details.release_date.slice(0, 4)) : null,
+    releaseDate: details.release_date ?? null,
+    runtime: details.runtime ?? null,
+    overview: details.overview ?? null,
+    tagline: details.tagline ?? null,
+    posterUrl: tmdbPosterUrl(details.poster_path),
+    backdropUrl: tmdbPosterUrl(details.backdrop_path, "w780"),
+    imdbId: details.imdb_id ?? imdbId,
+    confidence: 100,
+  };
+}
+
+export function isImdbId(value: string): boolean {
+  return /^tt\d{6,10}$/i.test(value.trim());
+}
+
 export function slugFromTmdbMovie(title: string): string {
   return slugify(title);
 }

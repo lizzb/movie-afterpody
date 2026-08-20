@@ -12,36 +12,66 @@ export interface UnlinkedEpisode {
   releasedAt: string | null;
 }
 
+const PAGE = 1000;
+
+/**
+ * The Data API caps one response at 1000 rows, so every full-table read here
+ * has to page or it silently truncates (7k+ episodes, 1.3k+ links).
+ */
+export async function pageAll<T>(
+  fetchPage: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
+): Promise<T[]> {
+  const out: T[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await fetchPage(from, from + PAGE - 1);
+    if (error) throw error;
+    const rows = data ?? [];
+    out.push(...rows);
+    if (rows.length < PAGE) break;
+  }
+  return out;
+}
+
+export interface EpisodeRow {
+  id: string;
+  slug: string;
+  title: string;
+  podcast_id: string;
+  released_at: string | null;
+  disposition: "needs_review" | "movie_matched" | "not_about_a_movie";
+  podcasts: { id: string; name: string };
+}
+
+/** Every episode, paged, newest first. */
+export async function fetchAllEpisodes(
+  admin: Admin,
+  opts: { podcastId?: string | undefined } = {},
+): Promise<EpisodeRow[]> {
+  return pageAll<EpisodeRow>((from, to) => {
+    let q = admin
+      .from("podcast_episodes")
+      .select("id, slug, title, podcast_id, released_at, disposition, podcasts!inner(id, name)")
+      .order("released_at", { ascending: false })
+      .range(from, to);
+    if (opts.podcastId) q = q.eq("podcast_id", opts.podcastId);
+    return q.returns<EpisodeRow[]>();
+  });
+}
+
 /** Episodes with zero rows in episode_movies — nothing surfaces them in the app. */
 export async function fetchUnlinkedEpisodes(
   admin: Admin,
-  opts: { podcastId?: string | undefined; limit?: number | undefined } = {},
+  opts: { podcastId?: string | undefined; limit?: number | undefined; includeRetired?: boolean } = {},
 ): Promise<UnlinkedEpisode[]> {
-  let query = admin
-    .from("podcast_episodes")
-    .select("id, slug, title, podcast_id, released_at, podcasts!inner(name)")
-    .order("released_at", { ascending: false });
+  const episodes = await fetchAllEpisodes(admin, { podcastId: opts.podcastId });
+  const linkRows = await pageAll<{ episode_id: string }>((from, to) =>
+    admin.from("episode_movies").select("episode_id").range(from, to),
+  );
+  const linked = new Set(linkRows.map((l) => l.episode_id));
 
-  if (opts.podcastId) query = query.eq("podcast_id", opts.podcastId);
-
-  const { data: episodes, error } = await query.returns<
-    {
-      id: string;
-      slug: string;
-      title: string;
-      podcast_id: string;
-      released_at: string | null;
-      podcasts: { name: string };
-    }[]
-  >();
-  if (error) throw error;
-
-  const { data: links, error: linkError } = await admin.from("episode_movies").select("episode_id");
-  if (linkError) throw linkError;
-  const linked = new Set((links ?? []).map((l) => l.episode_id));
-
-  const unlinked = (episodes ?? [])
+  const unlinked = episodes
     .filter((ep) => !linked.has(ep.id))
+    .filter((ep) => (opts.includeRetired ? true : ep.disposition !== "not_about_a_movie"))
     .map((ep) => ({
       id: ep.id,
       slug: ep.slug,
@@ -55,8 +85,20 @@ export async function fetchUnlinkedEpisodes(
 }
 
 export async function fetchRejectedPairs(admin: Admin): Promise<Set<string>> {
-  const { data } = await admin.from("episode_match_rejections").select("episode_id, movie_id");
-  return new Set((data ?? []).map((r) => `${r.episode_id}:${r.movie_id}`));
+  const rows = await pageAll<{ episode_id: string; movie_id: string }>((from, to) =>
+    admin.from("episode_match_rejections").select("episode_id, movie_id").range(from, to),
+  );
+  return new Set(rows.map((r) => `${r.episode_id}:${r.movie_id}`));
+}
+
+/** Learned negative evidence: how often each movie has been rejected as a match. */
+export async function fetchRejectionCountsByMovie(admin: Admin): Promise<Record<string, number>> {
+  const rows = await pageAll<{ movie_id: string }>((from, to) =>
+    admin.from("episode_match_rejections").select("movie_id").range(from, to),
+  );
+  const counts: Record<string, number> = {};
+  for (const r of rows) counts[r.movie_id] = (counts[r.movie_id] ?? 0) + 1;
+  return counts;
 }
 
 export function slugifyTitle(title: string): string {

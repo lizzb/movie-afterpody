@@ -1,11 +1,28 @@
 import { normalizeTitle } from "./shared.server";
 
+export interface MatchSignals {
+  /** Which rule produced the base score. */
+  rule: "exact" | "contained" | "tokens" | "weak";
+  tokenOverlap: number;
+  yearMatch: "same" | "near" | "mismatch" | "unknown";
+  /** Movie title is a single short word — a common source of false positives. */
+  genericTitle: boolean;
+  /** How many times this movie has been rejected as a match anywhere. */
+  rejectedBefore: number;
+}
+
 export interface MovieMatchCandidate {
   movieId: string;
   title: string;
   releaseYear: number | null;
   confidence: number;
   reason: string;
+  signals: MatchSignals;
+}
+
+export interface MatchOptions {
+  /** Learned negative evidence: movieId → number of recorded rejections. */
+  rejectionCountByMovie?: Record<string, number> | undefined;
 }
 
 const YEAR_RE = /\b(19\d{2}|20\d{2})\b/;
@@ -30,10 +47,18 @@ function jaccard(a: Set<string>, b: Set<string>): number {
   return intersection.size / union.size;
 }
 
+/** Single short word ("Genius", "Cats") matches far too many episode titles. */
+function isGenericTitle(title: string): boolean {
+  const tokens = normalizeTitle(title).split(" ").filter(Boolean);
+  return tokens.length === 1 && (tokens[0]?.length ?? 0) <= 8;
+}
+
 export function matchEpisodeToMovies(
   episodeTitle: string,
   movies: { id: string; title: string; release_year: number | null }[],
+  options: MatchOptions = {},
 ): MovieMatchCandidate[] {
+  const rejectionCounts = options.rejectionCountByMovie ?? {};
   const episodeYear = extractYear(episodeTitle);
   const episodeNoYear = removeYear(episodeTitle);
   const episodeTokens = tokenSet(episodeNoYear);
@@ -42,49 +67,74 @@ export function matchEpisodeToMovies(
     const movieTokens = tokenSet(movie.title);
     const movieLower = normalizeTitle(movie.title);
     const episodeLower = normalizeTitle(episodeNoYear);
+    const similarity = jaccard(episodeTokens, movieTokens);
 
     let confidence = 0;
     let reason = "";
+    let rule: MatchSignals["rule"] = "weak";
 
     // Exact or near-exact title containment
     if (episodeLower === movieLower) {
       confidence = 100;
       reason = "exact title";
+      rule = "exact";
     } else if (episodeLower.includes(movieLower) || movieLower.includes(episodeLower)) {
       confidence = 90;
       reason = "title contained";
+      rule = "contained";
+    } else if (similarity >= 0.85) {
+      confidence = 85;
+      reason = "near-exact tokens";
+      rule = "tokens";
+    } else if (similarity >= 0.6) {
+      confidence = 70;
+      reason = "strong token overlap";
+      rule = "tokens";
+    } else if (similarity >= 0.4) {
+      confidence = 55;
+      reason = "moderate token overlap";
+      rule = "tokens";
+    } else if ([...movieTokens].every((t) => episodeTokens.has(t))) {
+      confidence = 60;
+      reason = "all movie words present";
+      rule = "tokens";
     } else {
-      const similarity = jaccard(episodeTokens, movieTokens);
-      if (similarity >= 0.85) {
-        confidence = 85;
-        reason = "near-exact tokens";
-      } else if (similarity >= 0.6) {
-        confidence = 70;
-        reason = "strong token overlap";
-      } else if (similarity >= 0.4) {
-        confidence = 55;
-        reason = "moderate token overlap";
-      } else if ([...movieTokens].every((t) => episodeTokens.has(t))) {
-        confidence = 60;
-        reason = "all movie words present";
-      } else {
-        confidence = Math.round(similarity * 100);
-        reason = "token overlap";
-      }
+      confidence = Math.round(similarity * 100);
+      reason = "token overlap";
+      rule = "weak";
     }
 
     // Year bonus/penalty
+    let yearMatch: MatchSignals["yearMatch"] = "unknown";
     if (movie.release_year && episodeYear) {
       if (movie.release_year === episodeYear) {
         confidence = Math.min(100, confidence + 10);
         reason += " + year match";
+        yearMatch = "same";
       } else if (Math.abs(movie.release_year - episodeYear) <= 1) {
         confidence = Math.min(100, confidence + 3);
         reason += " + year near";
-      } else if (confidence < 80) {
-        confidence = Math.max(0, confidence - 15);
-        reason += " - year mismatch";
+        yearMatch = "near";
+      } else {
+        yearMatch = "mismatch";
+        if (confidence < 80) {
+          confidence = Math.max(0, confidence - 15);
+          reason += " - year mismatch";
+        }
       }
+    }
+
+    // Learned penalties: generic one-word titles and movies rejected before.
+    const genericTitle = isGenericTitle(movie.title);
+    if (genericTitle && rule !== "exact") {
+      confidence = Math.max(0, confidence - 12);
+      reason += " - generic title";
+    }
+
+    const rejectedBefore = rejectionCounts[movie.id] ?? 0;
+    if (rejectedBefore >= 2 && rule !== "exact") {
+      confidence = Math.max(0, confidence - Math.min(25, rejectedBefore * 6));
+      reason += ` - rejected ${rejectedBefore}x before`;
     }
 
     return {
@@ -93,6 +143,13 @@ export function matchEpisodeToMovies(
       releaseYear: movie.release_year,
       confidence,
       reason,
+      signals: {
+        rule,
+        tokenOverlap: Math.round(similarity * 100) / 100,
+        yearMatch,
+        genericTitle,
+        rejectedBefore,
+      },
     };
   });
 

@@ -92,6 +92,7 @@ export type Database = {
           match_confidence: number
           match_method: Database["public"]["Enums"]["match_method"]
           movie_id: string
+          signals: Json
         }
         Insert: {
           episode_id: string
@@ -99,6 +100,7 @@ export type Database = {
           match_confidence?: number
           match_method?: Database["public"]["Enums"]["match_method"]
           movie_id: string
+          signals?: Json
         }
         Update: {
           episode_id?: string
@@ -106,6 +108,7 @@ export type Database = {
           match_confidence?: number
           match_method?: Database["public"]["Enums"]["match_method"]
           movie_id?: string
+          signals?: Json
         }
         Relationships: [
           {
@@ -179,6 +182,67 @@ export type Database = {
           slug?: string
         }
         Relationships: []
+      }
+      match_actions: {
+        Row: {
+          action: Database["public"]["Enums"]["match_action"]
+          actor_id: string | null
+          created_at: string
+          episode_id: string
+          id: string
+          movie_id: string | null
+          previous_confidence: number | null
+          previous_method: Database["public"]["Enums"]["match_method"] | null
+          previous_movie_id: string | null
+          undone_at: string | null
+        }
+        Insert: {
+          action: Database["public"]["Enums"]["match_action"]
+          actor_id?: string | null
+          created_at?: string
+          episode_id: string
+          id?: string
+          movie_id?: string | null
+          previous_confidence?: number | null
+          previous_method?: Database["public"]["Enums"]["match_method"] | null
+          previous_movie_id?: string | null
+          undone_at?: string | null
+        }
+        Update: {
+          action?: Database["public"]["Enums"]["match_action"]
+          actor_id?: string | null
+          created_at?: string
+          episode_id?: string
+          id?: string
+          movie_id?: string | null
+          previous_confidence?: number | null
+          previous_method?: Database["public"]["Enums"]["match_method"] | null
+          previous_movie_id?: string | null
+          undone_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "match_actions_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "podcast_episodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_actions_movie_id_fkey"
+            columns: ["movie_id"]
+            isOneToOne: false
+            referencedRelation: "movies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_actions_previous_movie_id_fkey"
+            columns: ["previous_movie_id"]
+            isOneToOne: false
+            referencedRelation: "movies"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       movie_availability: {
         Row: {
@@ -316,6 +380,7 @@ export type Database = {
         Row: {
           created_at: string
           description: string | null
+          disposition: Database["public"]["Enums"]["episode_disposition"]
           duration_seconds: number | null
           episode_number: number | null
           id: string
@@ -328,6 +393,7 @@ export type Database = {
         Insert: {
           created_at?: string
           description?: string | null
+          disposition?: Database["public"]["Enums"]["episode_disposition"]
           duration_seconds?: number | null
           episode_number?: number | null
           id?: string
@@ -340,6 +406,7 @@ export type Database = {
         Update: {
           created_at?: string
           description?: string | null
+          disposition?: Database["public"]["Enums"]["episode_disposition"]
           duration_seconds?: number | null
           episode_number?: number | null
           id?: string
@@ -760,8 +827,19 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
+      episode_disposition:
+        | "needs_review"
+        | "movie_matched"
+        | "not_about_a_movie"
       episode_rating: "disliked" | "meh" | "loved"
       listening_status: "not_started" | "started" | "finished"
+      match_action:
+        | "approve"
+        | "reject"
+        | "unlink"
+        | "relink"
+        | "confirm"
+        | "not_about_a_movie"
       match_method: "seed" | "deterministic" | "heuristic" | "ai" | "manual"
       media_type: "movie" | "tv"
       offer_type: "subscription" | "free_ads" | "rent" | "buy"
@@ -897,8 +975,21 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "moderator", "user"],
+      episode_disposition: [
+        "needs_review",
+        "movie_matched",
+        "not_about_a_movie",
+      ],
       episode_rating: ["disliked", "meh", "loved"],
       listening_status: ["not_started", "started", "finished"],
+      match_action: [
+        "approve",
+        "reject",
+        "unlink",
+        "relink",
+        "confirm",
+        "not_about_a_movie",
+      ],
       match_method: ["seed", "deterministic", "heuristic", "ai", "manual"],
       media_type: ["movie", "tv"],
       offer_type: ["subscription", "free_ads", "rent", "buy"],

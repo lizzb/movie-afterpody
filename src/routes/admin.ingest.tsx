@@ -2,11 +2,11 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
-import { FixMatchesCard } from "@/components/admin/FixMatchesCard";
+import { MatchHistoryCard } from "@/components/admin/MatchHistoryCard";
+import { MatchReviewCard } from "@/components/admin/MatchReviewCard";
 import { useAuth } from "@/hooks/useAuth";
 
 import {
-  approveEpisodeMatch,
   backfillPodcastArtwork,
   bootstrapAdmin,
   enrichAllMovies,
@@ -16,10 +16,8 @@ import {
   listPodcastCoverage,
   listUnmatchedEpisodes,
   refreshAvailability,
-  rejectEpisodeMatch,
   rescanEpisodeMatches,
   resolveEpisodesToMovies,
-  suggestEpisodeMatches,
 } from "@/lib/ingestion.functions";
 
 import { useServerFn } from "@tanstack/react-start";
@@ -138,39 +136,55 @@ function IngestPage() {
             <Stat label="Movies" value={stats.data.movies} />
             <Stat label="Podcasts" value={stats.data.podcasts} />
             <Stat label="Episodes" value={stats.data.episodes} />
-            <Stat label="Matched episodes" value={stats.data.matchedEpisodes} />
-            <Stat label="Pending review" value={stats.data.pendingMatches} />
+            <Stat label="Matched episodes" value={stats.data.matchedEpisodes} href="#match-review" />
+            <Stat label="Weak links to review" value={stats.data.pendingMatches} href="#match-review" />
             <Stat label="TMDB linked" value={stats.data.tmdbLinked} />
-            <Stat label="Unmatched episodes" value={stats.data.unmatchedEpisodes} />
+            <Stat
+              label="Unmatched episodes"
+              value={stats.data.unmatchedEpisodes}
+              href="#unmatched-episodes"
+            />
           </section>
         ) : null}
 
         <section className="mt-10 space-y-8">
+          <MatchReviewCard onSuccess={() => stats.refetch()} />
+          <MatchHistoryCard onSuccess={() => stats.refetch()} />
           <ResolveEpisodesCard onSuccess={() => stats.refetch()} />
-          <FixMatchesCard onSuccess={() => stats.refetch()} />
-          <PodcastCoverageCard onSuccess={() => stats.refetch()} />
           <UnmatchedEpisodesCard />
+          <PodcastCoverageCard onSuccess={() => stats.refetch()} />
 
           <BulkEnrichCard onSuccess={() => stats.refetch()} />
           <BackfillArtworkCard onSuccess={() => stats.refetch()} />
           <IngestPodcastForm onSuccess={() => stats.refetch()} />
           <EnrichMovieForm onSuccess={() => stats.refetch()} />
           <RefreshAvailabilityForm onSuccess={() => stats.refetch()} />
-          <ReviewMatches onSuccess={() => stats.refetch()} />
         </section>
+
 
       </main>
     </AppShell>
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-2xl border border-border bg-card p-4 text-center">
+function Stat({ label, value, href }: { label: string; value: number; href?: string }) {
+  const body = (
+    <>
       <p className="font-display text-2xl">{value}</p>
       <p className="text-xs text-muted-foreground">{label}</p>
-    </div>
+    </>
   );
+  if (href) {
+    return (
+      <a
+        href={href}
+        className="block rounded-2xl border border-border bg-card p-4 text-center transition-colors hover:border-primary"
+      >
+        {body}
+      </a>
+    );
+  }
+  return <div className="rounded-2xl border border-border bg-card p-4 text-center">{body}</div>;
 }
 
 function BulkEnrichCard({ onSuccess }: { onSuccess: () => void }) {
@@ -422,129 +436,9 @@ function RefreshAvailabilityForm({ onSuccess }: { onSuccess: () => void }) {
   );
 }
 
-function ReviewMatches({ onSuccess }: { onSuccess: () => void }) {
-  const client = useQueryClient();
-  const suggestFn = useServerFn(suggestEpisodeMatches);
-  const approveFn = useServerFn(approveEpisodeMatch);
-  const rejectFn = useServerFn(rejectEpisodeMatch);
-  const [podcastId, setPodcastId] = useState("");
-  const [busy, setBusy] = useState<string | null>(null);
-  const [decided, setDecided] = useState<Record<string, "approved" | "rejected">>({});
-  const [error, setError] = useState<string | null>(null);
-
-  const trimmedId = podcastId.trim();
-  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmedId);
-  const validId = isUuid ? trimmedId : "";
-
-  const suggestions = useQuery({
-    queryKey: ["match-suggestions", validId || "all"],
-    queryFn: () => suggestFn({ data: validId ? { podcastId: validId } : {} }),
-    enabled: true,
-  });
-
-  const decide = async (episodeId: string, movieId: string, action: "approved" | "rejected") => {
-    setError(null);
-    setBusy(episodeId);
-    try {
-      if (action === "approved") await approveFn({ data: { episodeId, movieId } });
-      else await rejectFn({ data: { episodeId, movieId } });
-      setDecided((prev) => ({ ...prev, [episodeId]: action }));
-      await client.invalidateQueries({ queryKey: ["match-suggestions"] });
-      onSuccess();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not save that decision.");
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const handleApprove = (episodeId: string, movieId: string) => void decide(episodeId, movieId, "approved");
-  const handleReject = (episodeId: string, movieId: string) => void decide(episodeId, movieId, "rejected");
-
-  const items = (suggestions.data?.suggestions ?? []).filter(
-    (s) => s.topCandidate && s.topCandidate.confidence < 80 && !decided[s.episodeId],
-  );
-
-
-  return (
-    <div className="rounded-2xl border border-border bg-card p-5">
-      <h2 className="font-display text-xl">Review episode matches</h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Approve or reject low-confidence episode-to-movie links.
-      </p>
-      <input
-        type="text"
-        value={podcastId}
-        onChange={(e) => setPodcastId(e.target.value)}
-        placeholder="Filter by podcast UUID (optional)"
-        className="mt-4 w-full rounded-xl border border-input bg-background px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-ring"
-      />
-      {trimmedId && !isUuid ? (
-        <p className="mt-2 text-xs text-muted-foreground">
-          Not a valid podcast UUID yet — showing all shows.
-        </p>
-      ) : null}
-
-
-      {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
-      {Object.keys(decided).length ? (
-        <p className="mt-3 text-xs text-muted-foreground">
-          {Object.values(decided).filter((d) => d === "approved").length} approved ·{" "}
-          {Object.values(decided).filter((d) => d === "rejected").length} rejected this session
-        </p>
-      ) : null}
-
-      {suggestions.isLoading ? (
-        <div className="mt-4 h-32 animate-pulse rounded-2xl bg-muted" />
-      ) : items.length === 0 ? (
-        <p className="mt-4 text-sm text-muted-foreground">No low-confidence matches to review right now.</p>
-      ) : (
-        <ul className="mt-4 space-y-3">
-          {items.map((item) => (
-            <li key={item.episodeId} className="rounded-xl border border-border bg-background p-4">
-              <p className="font-semibold">{item.episodeTitle}</p>
-              <p className="text-xs text-muted-foreground">{item.podcastName}</p>
-              {item.topCandidate ? (
-                <div className="mt-2 flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm">
-                      Suggested: <strong>{item.topCandidate.title}</strong> ({item.topCandidate.releaseYear})
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {item.topCandidate.confidence}% — {item.topCandidate.reason}
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      disabled={busy === item.episodeId}
-                      onClick={() => handleApprove(item.episodeId, item.topCandidate!.movieId)}
-                      className="rounded-full bg-teal px-3 py-1.5 text-xs font-semibold text-primary-foreground disabled:opacity-50"
-                    >
-                      {busy === item.episodeId ? "Saving…" : "Approve"}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={busy === item.episodeId}
-                      onClick={() => handleReject(item.episodeId, item.topCandidate!.movieId)}
-                      className="rounded-full bg-muted px-3 py-1.5 text-xs font-semibold text-muted-foreground disabled:opacity-50"
-                    >
-                      Reject
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
 
 function ResolveEpisodesCard({ onSuccess }: { onSuccess: () => void }) {
   const resolveFn = useServerFn(resolveEpisodesToMovies);
-  const rescanFn = useServerFn(rescanEpisodeMatches);
   const client = useQueryClient();
   const refresh = () => {
     onSuccess();
@@ -552,7 +446,6 @@ function ResolveEpisodesCard({ onSuccess }: { onSuccess: () => void }) {
     void client.invalidateQueries({ queryKey: ["match-suggestions"] });
   };
   const resolve = useMutation({ mutationFn: resolveFn, onSuccess: refresh });
-  const rescan = useMutation({ mutationFn: rescanFn, onSuccess: refresh });
 
   return (
     <div className="rounded-2xl border border-border bg-card p-5">
@@ -570,15 +463,8 @@ function ResolveEpisodesCard({ onSuccess }: { onSuccess: () => void }) {
         >
           {resolve.isPending ? "Resolving…" : "Resolve next 100 episodes"}
         </button>
-        <button
-          type="button"
-          onClick={() => rescan.mutate({ data: { limit: 100 } })}
-          disabled={rescan.isPending}
-          className="inline-flex items-center rounded-full border border-border px-5 py-2.5 text-sm font-semibold disabled:opacity-50"
-        >
-          {rescan.isPending ? "Rescanning…" : "Rescan against existing movies"}
-        </button>
       </div>
+
 
       {resolve.isSuccess ? (
         <div className="mt-3 space-y-1 text-sm">
@@ -598,17 +484,8 @@ function ResolveEpisodesCard({ onSuccess }: { onSuccess: () => void }) {
           ) : null}
         </div>
       ) : null}
-      {rescan.isSuccess ? (
-        <p className="mt-3 text-sm text-teal">
-          Rescanned {rescan.data.scanned} · linked {rescan.data.linked} · {rescan.data.stillUnlinked}{" "}
-          still unmatched.
-        </p>
-      ) : null}
       {resolve.isError ? (
         <p className="mt-3 text-sm text-destructive">{(resolve.error as Error).message}</p>
-      ) : null}
-      {rescan.isError ? (
-        <p className="mt-3 text-sm text-destructive">{(rescan.error as Error).message}</p>
       ) : null}
     </div>
   );
@@ -616,20 +493,53 @@ function ResolveEpisodesCard({ onSuccess }: { onSuccess: () => void }) {
 
 function UnmatchedEpisodesCard() {
   const fn = useServerFn(listUnmatchedEpisodes);
+  const rescanFn = useServerFn(rescanEpisodeMatches);
+  const client = useQueryClient();
   const query = useQuery({
     queryKey: ["unmatched-episodes"],
     queryFn: () => fn({ data: { limit: 40 } }),
     retry: false,
     refetchOnWindowFocus: false,
   });
+  const rescan = useMutation({
+    mutationFn: rescanFn,
+    onSuccess: async () => {
+      await client.invalidateQueries({ queryKey: ["unmatched-episodes"] });
+      await client.invalidateQueries({ queryKey: ["match-suggestions"] });
+    },
+  });
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-5">
+    <div id="unmatched-episodes" className="scroll-mt-4 rounded-2xl border border-border bg-card p-5">
       <h2 className="font-display text-xl">Unmatched episodes</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Every episode with no movie attached — including ones whose suggested match you rejected.
         Nothing here is visible in the app yet.
       </p>
+      <div className="mt-4">
+        <button
+          type="button"
+          onClick={() => rescan.mutate({ data: { limit: 100 } })}
+          disabled={rescan.isPending}
+          className="inline-flex items-center rounded-full border border-border px-5 py-2.5 text-sm font-semibold disabled:opacity-50"
+        >
+          {rescan.isPending ? "Rescanning…" : "Recheck these against existing movies"}
+        </button>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Compares unmatched episode titles against movies already in the catalogue and links the
+          confident ones. No TMDB calls, no new movies created, rejected pairs skipped. Use it after
+          you add a movie by hand.
+        </p>
+        {rescan.isSuccess ? (
+          <p className="mt-2 text-sm text-teal">
+            Rescanned {rescan.data.scanned} · linked {rescan.data.linked} ·{" "}
+            {rescan.data.stillUnlinked} still unmatched.
+          </p>
+        ) : null}
+        {rescan.isError ? (
+          <p className="mt-2 text-sm text-destructive">{(rescan.error as Error).message}</p>
+        ) : null}
+      </div>
       {query.isLoading ? (
         <div className="mt-4 h-24 animate-pulse rounded-2xl bg-muted" />
       ) : query.isError ? (
