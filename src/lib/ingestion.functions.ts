@@ -22,6 +22,11 @@ const EnrichMovieInput = z.object({
   movieId: z.string().uuid().optional(),
   title: z.string().min(1).optional(),
   year: z.number().int().min(1900).max(2030).optional(),
+  /** Exact lookup, e.g. tt0110989 (Richie Rich). */
+  imdbId: z
+    .string()
+    .regex(/^tt\d{6,10}$/i, "IMDb ids look like tt0110989")
+    .optional(),
 });
 
 const RefreshAvailabilityInput = z.object({
@@ -45,6 +50,11 @@ const BulkInput = z.object({
 const SuggestMatchesInput = z.object({
   podcastId: z.string().uuid().optional(),
   episodeId: z.string().uuid().optional(),
+  search: z.string().optional(),
+  /** Only surface proposals weaker than this (0-100); 80 = the review band. */
+  maxConfidence: z.number().min(0).max(100).default(80),
+  limit: z.number().int().min(1).max(200).default(40),
+  offset: z.number().int().min(0).default(0),
 });
 
 async function requireAdmin(context: { supabase: SupabaseClient<Database>; userId: string }) {
@@ -64,6 +74,35 @@ async function requireAdmin(context: { supabase: SupabaseClient<Database>; userI
     if (!row) throw new Error("Forbidden: admin required");
   }
 }
+
+type MatchActionKind = "approve" | "reject" | "unlink" | "relink" | "confirm" | "not_about_a_movie";
+
+/** Every match decision is logged so a misclick can be undone later. */
+async function logMatchAction(
+  admin: SupabaseClient<Database>,
+  actorId: string,
+  entry: {
+    action: MatchActionKind;
+    episodeId: string;
+    movieId?: string | null;
+    previousMovieId?: string | null;
+    previousMethod?: Database["public"]["Enums"]["match_method"] | string | null;
+    previousConfidence?: number | null;
+  },
+): Promise<void> {
+  const { error } = await admin.from("match_actions").insert({
+    actor_id: actorId,
+    action: entry.action,
+    episode_id: entry.episodeId,
+    movie_id: entry.movieId ?? null,
+    previous_movie_id: entry.previousMovieId ?? null,
+    previous_method: (entry.previousMethod ?? null) as Database["public"]["Enums"]["match_method"] | null,
+    previous_confidence: entry.previousConfidence ?? null,
+  });
+  // A missing log entry must never fail the decision itself.
+  if (error) console.error("[match_actions] log failed", error.message);
+}
+
 
 
 async function loadAdminClients() {
@@ -300,59 +339,54 @@ export const suggestEpisodeMatches = createServerFn({ method: "POST" })
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { matchEpisodeToMovies } = await import("./providers/matching.server");
+    const { fetchAllEpisodes, fetchRejectionCountsByMovie, pageAll } = await import(
+      "./ingestion-helpers.server"
+    );
 
-    let episodeQuery = supabaseAdmin
-      .from("podcast_episodes")
-      .select("id, slug, title, podcast_id, podcasts!inner(id, slug, name)")
-      .order("released_at", { ascending: false });
+    // Paged: a single response is capped at 1000 rows and there are 7k+ episodes,
+    // which is why the same handful of episodes used to reappear forever.
+    let episodes = await fetchAllEpisodes(supabaseAdmin, { podcastId: data.podcastId });
+    if (data.episodeId) episodes = episodes.filter((ep) => ep.id === data.episodeId);
 
-    if (data.episodeId) {
-      episodeQuery = episodeQuery.eq("id", data.episodeId);
-    } else if (data.podcastId) {
-      episodeQuery = episodeQuery.eq("podcast_id", data.podcastId);
-    }
+    const movieList = await pageAll<{ id: string; title: string; release_year: number | null }>(
+      (from, to) => supabaseAdmin.from("movies").select("id, title, release_year").range(from, to),
+    );
 
-    const { data: episodes, error } = await episodeQuery.returns<
-      {
-        id: string;
-        slug: string;
-        title: string;
-        podcast_id: string;
-        podcasts: { id: string; slug: string; name: string };
-      }[]
-    >();
-    if (error) throw error;
-
-    const { data: movies } = await supabaseAdmin.from("movies").select("id, title, release_year");
-    const movieList = movies ?? [];
-
-    const episodeIds = (episodes ?? []).map((ep) => ep.id);
-
-    // Already-decided pairs: confirmed links and admin rejections.
-    const [{ data: existingLinks }, { data: rejections }] = await Promise.all([
-      supabaseAdmin
-        .from("episode_movies")
-        .select("episode_id, movie_id, match_method")
-        .in("episode_id", episodeIds.length ? episodeIds : ["00000000-0000-0000-0000-000000000000"]),
-      supabaseAdmin
-        .from("episode_match_rejections")
-        .select("episode_id, movie_id")
-        .in("episode_id", episodeIds.length ? episodeIds : ["00000000-0000-0000-0000-000000000000"]),
+    const [existingLinks, rejections, rejectionCountByMovie] = await Promise.all([
+      pageAll<{ episode_id: string; movie_id: string; match_method: string }>((from, to) =>
+        supabaseAdmin.from("episode_movies").select("episode_id, movie_id, match_method").range(from, to),
+      ),
+      pageAll<{ episode_id: string; movie_id: string }>((from, to) =>
+        supabaseAdmin.from("episode_match_rejections").select("episode_id, movie_id").range(from, to),
+      ),
+      fetchRejectionCountsByMovie(supabaseAdmin),
     ]);
 
-    const rejectedPairs = new Set((rejections ?? []).map((r) => `${r.episode_id}:${r.movie_id}`));
+    const rejectedPairs = new Set(rejections.map((r) => `${r.episode_id}:${r.movie_id}`));
     // Confirmed = anything an admin approved or a high-confidence deterministic link.
     const confirmedEpisodes = new Set(
-      (existingLinks ?? [])
-        .filter((l) => l.match_method === "manual" || l.match_method === "deterministic" || l.match_method === "seed")
+      existingLinks
+        .filter(
+          (l) =>
+            l.match_method === "manual" || l.match_method === "deterministic" || l.match_method === "seed",
+        )
         .map((l) => l.episode_id),
     );
 
-    const suggestions = (episodes ?? [])
+    const term = data.search?.trim().toLowerCase();
+
+    const all = episodes
+      .filter((ep) => ep.disposition !== "not_about_a_movie")
       .filter((ep) => !ep.title.toLowerCase().includes("trailer"))
       .filter((ep) => !confirmedEpisodes.has(ep.id))
+      .filter(
+        (ep) =>
+          !term ||
+          ep.title.toLowerCase().includes(term) ||
+          ep.podcasts.name.toLowerCase().includes(term),
+      )
       .map((ep) => {
-        const candidates = matchEpisodeToMovies(ep.title, movieList).filter(
+        const candidates = matchEpisodeToMovies(ep.title, movieList, { rejectionCountByMovie }).filter(
           (c) => !rejectedPairs.has(`${ep.id}:${c.movieId}`),
         );
         const top = candidates[0];
@@ -369,6 +403,7 @@ export const suggestEpisodeMatches = createServerFn({ method: "POST" })
                 releaseYear: top.releaseYear,
                 confidence: top.confidence,
                 reason: top.reason,
+                rejectedBefore: top.signals.rejectedBefore,
               }
             : null,
           candidates: candidates.slice(0, 5).map((c) => ({
@@ -380,9 +415,12 @@ export const suggestEpisodeMatches = createServerFn({ method: "POST" })
           })),
         };
       })
-      .filter((s) => s.topCandidate !== null);
+      .filter((s) => s.topCandidate !== null && s.topCandidate.confidence < data.maxConfidence);
 
-    return { suggestions };
+    return {
+      total: all.length,
+      suggestions: all.slice(data.offset, data.offset + data.limit),
+    };
   });
 
 
@@ -392,6 +430,14 @@ export const approveEpisodeMatch = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: existing } = await supabaseAdmin
+      .from("episode_movies")
+      .select("match_method, match_confidence")
+      .eq("episode_id", data.episodeId)
+      .eq("movie_id", data.movieId)
+      .maybeSingle();
+
     const { error } = await supabaseAdmin.from("episode_movies").upsert(
       {
         episode_id: data.episodeId,
@@ -409,6 +455,17 @@ export const approveEpisodeMatch = createServerFn({ method: "POST" })
       .delete()
       .eq("episode_id", data.episodeId)
       .eq("movie_id", data.movieId);
+    await supabaseAdmin
+      .from("podcast_episodes")
+      .update({ disposition: "movie_matched" })
+      .eq("id", data.episodeId);
+    await logMatchAction(supabaseAdmin, context.userId, {
+      action: "approve",
+      episodeId: data.episodeId,
+      movieId: data.movieId,
+      previousMethod: existing?.match_method ?? null,
+      previousConfidence: existing ? Number(existing.match_confidence) : null,
+    });
     return { ok: true };
   });
 
@@ -418,6 +475,14 @@ export const rejectEpisodeMatch = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: existing } = await supabaseAdmin
+      .from("episode_movies")
+      .select("match_method, match_confidence")
+      .eq("episode_id", data.episodeId)
+      .eq("movie_id", data.movieId)
+      .maybeSingle();
+
     const { error } = await supabaseAdmin
       .from("episode_movies")
       .delete()
@@ -433,8 +498,14 @@ export const rejectEpisodeMatch = createServerFn({ method: "POST" })
       { onConflict: "episode_id, movie_id" },
     );
     if (rejectError) throw rejectError;
+    await logMatchAction(supabaseAdmin, context.userId, {
+      action: "reject",
+      episodeId: data.episodeId,
+      movieId: data.movieId,
+      previousMethod: existing?.match_method ?? null,
+      previousConfidence: existing ? Number(existing.match_confidence) : null,
+    });
     return { ok: true };
-
   });
 
 export const enrichMovie = createServerFn({ method: "POST" })
@@ -443,7 +514,7 @@ export const enrichMovie = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { findBestTmdbMatch } = await import("./providers/tmdb.server");
+    const { findBestTmdbMatch, findTmdbByImdbId, isImdbId } = await import("./providers/tmdb.server");
 
     const apiKey = process.env["TMDB_API_KEY"];
     if (!apiKey) throw new Error("TMDB API key not configured");
@@ -451,6 +522,10 @@ export const enrichMovie = createServerFn({ method: "POST" })
     let title = data.title;
     let year = data.year;
     const movieId = data.movieId;
+
+    // An IMDb id in either field is an exact lookup — no fuzzy title matching.
+    const imdbId =
+      data.imdbId ?? (data.title && isImdbId(data.title) ? data.title.trim() : undefined);
 
     if (movieId && !title) {
       const { data: movie } = await supabaseAdmin
@@ -464,10 +539,12 @@ export const enrichMovie = createServerFn({ method: "POST" })
       }
     }
 
-    if (!title) throw new Error("Movie title required");
+    if (!title && !imdbId) throw new Error("Movie title or IMDb id required");
 
-    const match = await findBestTmdbMatch(apiKey, title, year);
-    if (!match) throw new Error(`No TMDB match found for "${title}"`);
+    const match = imdbId
+      ? await findTmdbByImdbId(apiKey, imdbId)
+      : await findBestTmdbMatch(apiKey, title!, year);
+    if (!match) throw new Error(`No TMDB match found for "${imdbId ?? title}"`);
 
     const baseUpdate = {
       title: match.title,
@@ -920,19 +997,22 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { fetchUnlinkedEpisodes, fetchRejectedPairs } = await import("./ingestion-helpers.server");
+    const { fetchUnlinkedEpisodes, fetchRejectedPairs, fetchRejectionCountsByMovie, pageAll } =
+      await import("./ingestion-helpers.server");
     const { matchEpisodeToMovies } = await import("./providers/matching.server");
 
     const unlinked = await fetchUnlinkedEpisodes(supabaseAdmin, { podcastId: data.podcastId });
     const rejected = await fetchRejectedPairs(supabaseAdmin);
-    const { data: movies } = await supabaseAdmin.from("movies").select("id, title, release_year");
-    const movieList = movies ?? [];
+    const rejectionCountByMovie = await fetchRejectionCountsByMovie(supabaseAdmin);
+    const movieList = await pageAll<{ id: string; title: string; release_year: number | null }>(
+      (from, to) => supabaseAdmin.from("movies").select("id, title, release_year").range(from, to),
+    );
 
     let linked = 0;
     let stillUnlinked = 0;
 
     for (const ep of unlinked) {
-      const top = matchEpisodeToMovies(ep.title, movieList).filter(
+      const top = matchEpisodeToMovies(ep.title, movieList, { rejectionCountByMovie }).filter(
         (c) => !rejected.has(`${ep.id}:${c.movieId}`),
       )[0];
       if (!top || top.confidence < 50) {
@@ -946,6 +1026,7 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
           match_method: top.confidence >= 80 ? "deterministic" : "heuristic",
           match_confidence: top.confidence / 100,
           is_primary_subject: true,
+          signals: { ...top.signals },
         },
         { onConflict: "episode_id, movie_id" },
       );
@@ -1042,6 +1123,13 @@ export const relinkEpisodeMovie = createServerFn({ method: "POST" })
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
+    const { data: existing } = await supabaseAdmin
+      .from("episode_movies")
+      .select("match_method, match_confidence")
+      .eq("episode_id", data.episodeId)
+      .eq("movie_id", data.fromMovieId)
+      .maybeSingle();
+
     const { error: delError } = await supabaseAdmin
       .from("episode_movies")
       .delete()
@@ -1072,7 +1160,20 @@ export const relinkEpisodeMovie = createServerFn({ method: "POST" })
         .delete()
         .eq("episode_id", data.episodeId)
         .eq("movie_id", data.toMovieId);
+      await supabaseAdmin
+        .from("podcast_episodes")
+        .update({ disposition: "movie_matched" })
+        .eq("id", data.episodeId);
     }
+
+    await logMatchAction(supabaseAdmin, context.userId, {
+      action: data.toMovieId ? "relink" : "unlink",
+      episodeId: data.episodeId,
+      movieId: data.toMovieId ?? data.fromMovieId,
+      previousMovieId: data.fromMovieId,
+      previousMethod: existing?.match_method ?? null,
+      previousConfidence: existing ? Number(existing.match_confidence) : null,
+    });
 
     return { ok: true, relinked: Boolean(data.toMovieId) };
   });
@@ -1107,12 +1208,26 @@ export const listEpisodeLinks = createServerFn({ method: "POST" })
     if (data.podcastId) query = query.eq("podcast_episodes.podcast_id", data.podcastId);
     const term = data.search?.trim();
     if (term) {
-      const [{ data: movieHits }, { data: epHits }] = await Promise.all([
+      // The placeholder promises episode, show and movie titles — so all three
+      // are resolved to ids here, including show names (previously missing).
+      const [{ data: movieHits }, { data: showHits }] = await Promise.all([
         supabaseAdmin.from("movies").select("id").ilike("title", `%${term}%`).limit(200),
-        supabaseAdmin.from("podcast_episodes").select("id").ilike("title", `%${term}%`).limit(500),
+        supabaseAdmin.from("podcasts").select("id").ilike("name", `%${term}%`).limit(50),
       ]);
+      const showIds = (showHits ?? []).map((p) => p.id);
+      const epByTitle = await supabaseAdmin
+        .from("podcast_episodes")
+        .select("id")
+        .ilike("title", `%${term}%`)
+        .limit(1000);
+      const epByShow = showIds.length
+        ? await supabaseAdmin.from("podcast_episodes").select("id").in("podcast_id", showIds).limit(1000)
+        : { data: [] as { id: string }[] };
+
       const movieIds = (movieHits ?? []).map((m) => m.id);
-      const epIds = (epHits ?? []).map((e) => e.id);
+      const epIds = [
+        ...new Set([...(epByTitle.data ?? []).map((e) => e.id), ...(epByShow.data ?? []).map((e) => e.id)]),
+      ];
       const clauses = [
         movieIds.length ? `movie_id.in.(${movieIds.join(",")})` : null,
         epIds.length ? `episode_id.in.(${epIds.join(",")})` : null,
@@ -1165,4 +1280,288 @@ export const listEpisodeLinks = createServerFn({ method: "POST" })
         confidence: Number(r.match_confidence),
       })),
     };
+  });
+
+/** Marks an existing link as correct so it drops out of the review queue for good. */
+export const confirmEpisodeMatch = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) => EpisodeMatchInput.parse(data))
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: existing } = await supabaseAdmin
+      .from("episode_movies")
+      .select("match_method, match_confidence")
+      .eq("episode_id", data.episodeId)
+      .eq("movie_id", data.movieId)
+      .maybeSingle();
+
+    const { error } = await supabaseAdmin.from("episode_movies").upsert(
+      {
+        episode_id: data.episodeId,
+        movie_id: data.movieId,
+        match_method: "manual",
+        match_confidence: 1.0,
+        is_primary_subject: true,
+      },
+      { onConflict: "episode_id, movie_id" },
+    );
+    if (error) throw error;
+    await supabaseAdmin
+      .from("podcast_episodes")
+      .update({ disposition: "movie_matched" })
+      .eq("id", data.episodeId);
+    await logMatchAction(supabaseAdmin, context.userId, {
+      action: "confirm",
+      episodeId: data.episodeId,
+      movieId: data.movieId,
+      previousMethod: existing?.match_method ?? null,
+      previousConfidence: existing ? Number(existing.match_confidence) : null,
+    });
+    return { ok: true };
+  });
+
+/** Retires an episode from every review queue — it is not about a movie. */
+export const markEpisodeNotAboutMovie = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) => z.object({ episodeId: z.string().uuid() }).parse(data))
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin
+      .from("podcast_episodes")
+      .update({ disposition: "not_about_a_movie" })
+      .eq("id", data.episodeId);
+    if (error) throw error;
+    await logMatchAction(supabaseAdmin, context.userId, {
+      action: "not_about_a_movie",
+      episodeId: data.episodeId,
+    });
+    return { ok: true };
+  });
+
+const BulkDecisionInput = z.object({
+  action: z.enum(["approve", "reject", "confirm", "unlink"]),
+  pairs: z
+    .array(z.object({ episodeId: z.string().uuid(), movieId: z.string().uuid() }))
+    .min(1)
+    .max(200),
+});
+
+/** One request, many decisions — a failure on one row never aborts the batch. */
+export const bulkMatchDecision = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) => BulkDecisionInput.parse(data))
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    let succeeded = 0;
+    const failed: string[] = [];
+
+    for (const pair of data.pairs) {
+      try {
+        const { data: existing } = await supabaseAdmin
+          .from("episode_movies")
+          .select("match_method, match_confidence")
+          .eq("episode_id", pair.episodeId)
+          .eq("movie_id", pair.movieId)
+          .maybeSingle();
+
+        if (data.action === "approve" || data.action === "confirm") {
+          const { error } = await supabaseAdmin.from("episode_movies").upsert(
+            {
+              episode_id: pair.episodeId,
+              movie_id: pair.movieId,
+              match_method: "manual",
+              match_confidence: data.action === "confirm" ? 1.0 : 0.95,
+              is_primary_subject: true,
+            },
+            { onConflict: "episode_id, movie_id" },
+          );
+          if (error) throw error;
+          await supabaseAdmin
+            .from("episode_match_rejections")
+            .delete()
+            .eq("episode_id", pair.episodeId)
+            .eq("movie_id", pair.movieId);
+          await supabaseAdmin
+            .from("podcast_episodes")
+            .update({ disposition: "movie_matched" })
+            .eq("id", pair.episodeId);
+        } else {
+          const { error } = await supabaseAdmin
+            .from("episode_movies")
+            .delete()
+            .eq("episode_id", pair.episodeId)
+            .eq("movie_id", pair.movieId);
+          if (error) throw error;
+          const { error: rejError } = await supabaseAdmin.from("episode_match_rejections").upsert(
+            { episode_id: pair.episodeId, movie_id: pair.movieId, rejected_by: context.userId },
+            { onConflict: "episode_id, movie_id" },
+          );
+          if (rejError) throw rejError;
+        }
+
+        await logMatchAction(supabaseAdmin, context.userId, {
+          action: data.action === "unlink" ? "unlink" : data.action,
+          episodeId: pair.episodeId,
+          movieId: pair.movieId,
+          previousMethod: existing?.match_method ?? null,
+          previousConfidence: existing ? Number(existing.match_confidence) : null,
+        });
+        succeeded += 1;
+      } catch (e) {
+        failed.push(e instanceof Error ? e.message : "unknown error");
+      }
+    }
+
+    return { attempted: data.pairs.length, succeeded, failed: failed.slice(0, 10) };
+  });
+
+/** Recent match decisions, newest first, so a misclick can be undone. */
+export const listMatchActions = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) => z.object({ limit: z.number().int().min(1).max(200).default(50) }).parse(data))
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: rows, error } = await supabaseAdmin
+      .from("match_actions")
+      .select(
+        "id, action, episode_id, movie_id, previous_method, previous_confidence, undone_at, created_at, podcast_episodes!inner(title, podcasts!inner(name)), movies(title, release_year)",
+      )
+      .order("created_at", { ascending: false })
+      .limit(data.limit)
+      .returns<
+        {
+          id: string;
+          action: string;
+          episode_id: string;
+          movie_id: string | null;
+          previous_method: string | null;
+          previous_confidence: number | null;
+          undone_at: string | null;
+          created_at: string;
+          podcast_episodes: { title: string; podcasts: { name: string } };
+          movies: { title: string; release_year: number | null } | null;
+        }[]
+      >();
+    if (error) throw error;
+
+    return {
+      actions: (rows ?? []).map((r) => ({
+        id: r.id,
+        action: r.action,
+        episodeId: r.episode_id,
+        movieId: r.movie_id,
+        episodeTitle: r.podcast_episodes.title,
+        podcastName: r.podcast_episodes.podcasts.name,
+        movieTitle: r.movies?.title ?? null,
+        movieYear: r.movies?.release_year ?? null,
+        undone: Boolean(r.undone_at),
+        createdAt: r.created_at,
+      })),
+    };
+  });
+
+/** Reverses a single logged decision and restores the prior link state. */
+export const undoMatchAction = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) => z.object({ actionId: z.string().uuid() }).parse(data))
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: action, error } = await supabaseAdmin
+      .from("match_actions")
+      .select("*")
+      .eq("id", data.actionId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!action) throw new Error("That action no longer exists.");
+    if (action.undone_at) throw new Error("That action was already undone.");
+
+    const episodeId = action.episode_id;
+    const movieId = action.movie_id;
+
+    if (action.action === "not_about_a_movie") {
+      await supabaseAdmin
+        .from("podcast_episodes")
+        .update({ disposition: "needs_review" })
+        .eq("id", episodeId);
+    } else if (action.action === "approve" || action.action === "confirm") {
+      // Undo a link that this action created or re-stamped.
+      if (movieId) {
+        if (action.previous_method) {
+          await supabaseAdmin
+            .from("episode_movies")
+            .update({
+              match_method: action.previous_method,
+              match_confidence: action.previous_confidence ?? 0.5,
+            })
+            .eq("episode_id", episodeId)
+            .eq("movie_id", movieId);
+        } else {
+          await supabaseAdmin
+            .from("episode_movies")
+            .delete()
+            .eq("episode_id", episodeId)
+            .eq("movie_id", movieId);
+        }
+      }
+    } else if (action.action === "reject" || action.action === "unlink") {
+      // Restore the link that was removed and forget the rejection.
+      if (movieId) {
+        await supabaseAdmin.from("episode_movies").upsert(
+          {
+            episode_id: episodeId,
+            movie_id: movieId,
+            match_method: action.previous_method ?? "heuristic",
+            match_confidence: action.previous_confidence ?? 0.5,
+            is_primary_subject: true,
+          },
+          { onConflict: "episode_id, movie_id" },
+        );
+        await supabaseAdmin
+          .from("episode_match_rejections")
+          .delete()
+          .eq("episode_id", episodeId)
+          .eq("movie_id", movieId);
+      }
+    } else if (action.action === "relink") {
+      // Drop the new link, restore the old one, forget its rejection.
+      if (movieId) {
+        await supabaseAdmin
+          .from("episode_movies")
+          .delete()
+          .eq("episode_id", episodeId)
+          .eq("movie_id", movieId);
+      }
+      if (action.previous_movie_id) {
+        await supabaseAdmin.from("episode_movies").upsert(
+          {
+            episode_id: episodeId,
+            movie_id: action.previous_movie_id,
+            match_method: action.previous_method ?? "heuristic",
+            match_confidence: action.previous_confidence ?? 0.5,
+            is_primary_subject: true,
+          },
+          { onConflict: "episode_id, movie_id" },
+        );
+        await supabaseAdmin
+          .from("episode_match_rejections")
+          .delete()
+          .eq("episode_id", episodeId)
+          .eq("movie_id", action.previous_movie_id);
+      }
+    }
+
+    await supabaseAdmin
+      .from("match_actions")
+      .update({ undone_at: new Date().toISOString() })
+      .eq("id", data.actionId);
+
+    return { ok: true };
   });
