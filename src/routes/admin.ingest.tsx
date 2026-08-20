@@ -138,26 +138,31 @@ function IngestPage() {
             <Stat label="Movies" value={stats.data.movies} />
             <Stat label="Podcasts" value={stats.data.podcasts} />
             <Stat label="Episodes" value={stats.data.episodes} />
-            <Stat label="Matched episodes" value={stats.data.matchedEpisodes} />
-            <Stat label="Pending review" value={stats.data.pendingMatches} />
+            <Stat label="Matched episodes" value={stats.data.matchedEpisodes} href="#match-review" />
+            <Stat label="Weak links to review" value={stats.data.pendingMatches} href="#match-review" />
             <Stat label="TMDB linked" value={stats.data.tmdbLinked} />
-            <Stat label="Unmatched episodes" value={stats.data.unmatchedEpisodes} />
+            <Stat
+              label="Unmatched episodes"
+              value={stats.data.unmatchedEpisodes}
+              href="#unmatched-episodes"
+            />
           </section>
         ) : null}
 
         <section className="mt-10 space-y-8">
+          <MatchReviewCard onSuccess={() => stats.refetch()} />
+          <MatchHistoryCard onSuccess={() => stats.refetch()} />
           <ResolveEpisodesCard onSuccess={() => stats.refetch()} />
-          <FixMatchesCard onSuccess={() => stats.refetch()} />
-          <PodcastCoverageCard onSuccess={() => stats.refetch()} />
           <UnmatchedEpisodesCard />
+          <PodcastCoverageCard onSuccess={() => stats.refetch()} />
 
           <BulkEnrichCard onSuccess={() => stats.refetch()} />
           <BackfillArtworkCard onSuccess={() => stats.refetch()} />
           <IngestPodcastForm onSuccess={() => stats.refetch()} />
           <EnrichMovieForm onSuccess={() => stats.refetch()} />
           <RefreshAvailabilityForm onSuccess={() => stats.refetch()} />
-          <ReviewMatches onSuccess={() => stats.refetch()} />
         </section>
+
 
       </main>
     </AppShell>
