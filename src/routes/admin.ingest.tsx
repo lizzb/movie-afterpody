@@ -169,13 +169,24 @@ function IngestPage() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="rounded-2xl border border-border bg-card p-4 text-center">
+function Stat({ label, value, href }: { label: string; value: number; href?: string }) {
+  const body = (
+    <>
       <p className="font-display text-2xl">{value}</p>
       <p className="text-xs text-muted-foreground">{label}</p>
-    </div>
+    </>
   );
+  if (href) {
+    return (
+      <a
+        href={href}
+        className="block rounded-2xl border border-border bg-card p-4 text-center transition-colors hover:border-primary"
+      >
+        {body}
+      </a>
+    );
+  }
+  return <div className="rounded-2xl border border-border bg-card p-4 text-center">{body}</div>;
 }
 
 function BulkEnrichCard({ onSuccess }: { onSuccess: () => void }) {
