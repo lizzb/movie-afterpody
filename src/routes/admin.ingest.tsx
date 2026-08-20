@@ -2,11 +2,11 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
-import { FixMatchesCard } from "@/components/admin/FixMatchesCard";
+import { MatchHistoryCard } from "@/components/admin/MatchHistoryCard";
+import { MatchReviewCard } from "@/components/admin/MatchReviewCard";
 import { useAuth } from "@/hooks/useAuth";
 
 import {
-  approveEpisodeMatch,
   backfillPodcastArtwork,
   bootstrapAdmin,
   enrichAllMovies,
@@ -16,10 +16,8 @@ import {
   listPodcastCoverage,
   listUnmatchedEpisodes,
   refreshAvailability,
-  rejectEpisodeMatch,
   rescanEpisodeMatches,
   resolveEpisodesToMovies,
-  suggestEpisodeMatches,
 } from "@/lib/ingestion.functions";
 
 import { useServerFn } from "@tanstack/react-start";
