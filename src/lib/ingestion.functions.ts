@@ -1430,7 +1430,8 @@ export const listMatchActions = createServerFn({ method: "POST" })
     const { data: rows, error } = await supabaseAdmin
       .from("match_actions")
       .select(
-        "id, action, episode_id, movie_id, previous_method, previous_confidence, undone_at, created_at, podcast_episodes!inner(title, podcasts!inner(name)), movies(title, release_year)",
+        // Two FKs point at movies, so the embed must name the constraint.
+        "id, action, episode_id, movie_id, previous_method, previous_confidence, undone_at, created_at, podcast_episodes!inner(title, podcasts!inner(name)), movies!match_actions_movie_id_fkey(title, release_year)",
       )
       .order("created_at", { ascending: false })
       .limit(data.limit)
