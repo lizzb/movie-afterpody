@@ -1584,3 +1584,76 @@ export const undoMatchAction = createServerFn({ method: "POST" })
 
     return { ok: true };
   });
+
+/** Open "wrong movie?" flags raised from the app — the highest-signal review queue. */
+export const listFlaggedLinks = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) =>
+    z.object({ limit: z.number().int().min(1).max(200).default(50) }).parse(data),
+  )
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { data: rows, error, count } = await supabaseAdmin
+      .from("episode_link_flags")
+      .select(
+        "id, episode_id, movie_id, note, created_at, podcast_episodes!inner(title, podcasts!inner(name)), movies!inner(title, release_year)",
+        { count: "exact" },
+      )
+      .is("resolved_at", null)
+      .order("created_at", { ascending: false })
+      .limit(data.limit)
+      .returns<
+        {
+          id: string;
+          episode_id: string;
+          movie_id: string;
+          note: string | null;
+          created_at: string;
+          podcast_episodes: { title: string; podcasts: { name: string } };
+          movies: { title: string; release_year: number | null };
+        }[]
+      >();
+    if (error) throw error;
+
+    return {
+      total: count ?? (rows ?? []).length,
+      flags: (rows ?? []).map((r) => ({
+        flagId: r.id,
+        episodeId: r.episode_id,
+        movieId: r.movie_id,
+        episodeTitle: r.podcast_episodes.title,
+        podcastName: r.podcast_episodes.podcasts.name,
+        movieTitle: r.movies.title,
+        movieYear: r.movies.release_year,
+        note: r.note,
+        createdAt: r.created_at,
+      })),
+    };
+  });
+
+/** Marks every open flag on a pair as handled, without changing the link itself. */
+export const resolveEpisodeFlags = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) =>
+    z
+      .object({
+        episodeId: z.string().uuid(),
+        movieId: z.string().uuid(),
+        resolution: z.enum(["fixed", "dismissed"]).default("fixed"),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin
+      .from("episode_link_flags")
+      .update({ resolved_at: new Date().toISOString(), resolution: data.resolution })
+      .eq("episode_id", data.episodeId)
+      .eq("movie_id", data.movieId)
+      .is("resolved_at", null);
+    if (error) throw error;
+    return { ok: true };
+  });
