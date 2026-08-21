@@ -1178,9 +1178,13 @@ export const listUnmatchedEpisodes = createServerFn({ method: "POST" })
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { fetchUnlinkedEpisodes } = await import("./ingestion-helpers.server");
-    const all = await fetchUnlinkedEpisodes(supabaseAdmin, { podcastId: data.podcastId });
+    const [all, everything] = await Promise.all([
+      fetchUnlinkedEpisodes(supabaseAdmin, { podcastId: data.podcastId }),
+      fetchUnlinkedEpisodes(supabaseAdmin, { podcastId: data.podcastId, activeOnly: false }),
+    ]);
     return {
       total: all.length,
+      totalIncludingParked: everything.length,
       episodes: all.slice(0, data.limit).map((ep) => ({
         episodeId: ep.id,
         episodeTitle: ep.title,
