@@ -842,6 +842,7 @@ export const listIngestionStats = createServerFn({ method: "GET" })
       { count: retiredCount },
       { count: tmdbLinkedCount },
       unlinked,
+      unlinkedAll,
     ] = await Promise.all([
       supabaseAdmin.from("movies").select("*", { count: "exact", head: true }),
       supabaseAdmin
