@@ -24,6 +24,8 @@ export interface MovieEntry {
   score: CommentaryScore;
   genres: Genre[];
   services: StreamingService[];
+  /** Storefront-only offers (rent/buy) — never counted as streaming. */
+  rentBuyServices: StreamingService[];
   episodes: EpisodeEntry[];
   watched: boolean;
   onMyServices: boolean;
@@ -85,6 +87,16 @@ function buildEntries(catalog: Catalog, user: UserData, prefs: Prefs): MovieEntr
       .filter((s, i, arr) => arr.findIndex((x) => x.id === s.id) === i)
       .sort((a, b) => a.sort_order - b.sort_order);
 
+    const streamingIds = new Set(services.map((s) => s.id));
+    const rentBuyServices = catalog.availability
+      .filter((a) => a.movie_id === movie.id)
+      .filter((a) => a.offer_type === "rent" || a.offer_type === "buy")
+      .map((a) => serviceById.get(a.service_id))
+      .filter((s): s is StreamingService => Boolean(s))
+      .filter((s) => !streamingIds.has(s.id))
+      .filter((s, i, arr) => arr.findIndex((x) => x.id === s.id) === i)
+      .sort((a, b) => a.sort_order - b.sort_order);
+
     const episodes: EpisodeEntry[] = catalog.episodeMovies
       .filter((l) => l.movie_id === movie.id)
       .map((l) => episodeById.get(l.episode_id))
@@ -116,6 +128,7 @@ function buildEntries(catalog: Catalog, user: UserData, prefs: Prefs): MovieEntr
       score: scoreMovie(movie.id, catalog, user),
       genres,
       services,
+      rentBuyServices,
       episodes,
       watched: watchedIds.has(movie.id),
       onMyServices: services.some((s) => mySlugs.has(s.slug)),

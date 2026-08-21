@@ -65,6 +65,16 @@ const QUALITY: { value: ProductionQuality; label: string }[] = [
 
 const minutes = (seconds: number | null) => (seconds ? `${Math.round(seconds / 60)} min` : null);
 
+/** Plain-English freshness so a wrong badge can be told from stale data. */
+function checkedAgo(iso: string): string {
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+  if (days <= 0) return "today";
+  if (days === 1) return "yesterday";
+  if (days < 30) return `${days} days ago`;
+  const months = Math.round(days / 30);
+  return months <= 1 ? "about a month ago" : `about ${months} months ago`;
+}
+
 /** Third-party ratings arrive with ingestion; the slots stay hidden until then. */
 type ExternalRatings = { imdb?: number | null; rottenTomatoes?: number | null };
 
@@ -97,7 +107,7 @@ function MovieDetailPage() {
     );
   }
 
-  const { movie, score, genres, services, episodes, watched } = entry;
+  const { movie, score, genres, services, rentBuyServices, episodes, watched } = entry;
   const external = movie as typeof movie & ExternalRatings;
 
   return (
@@ -184,7 +194,9 @@ function MovieDetailPage() {
               ))
             ) : (
               <span className="text-[11px] text-muted-foreground">
-                No streaming availability catalogued.
+                {rentBuyServices.length > 0
+                  ? "Not included with any subscription."
+                  : "No streaming availability catalogued."}
               </span>
             )}
           </div>
@@ -216,6 +228,22 @@ function MovieDetailPage() {
             <AddToListButton movieSlug={movie.slug} variant="button" />
           </div>
         </section>
+
+        {rentBuyServices.length > 0 ? (
+          <p className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+            <span className="font-semibold">Rent or buy only:</span>
+            {rentBuyServices.map((s) => (
+              <span key={s.id} className="rounded-full bg-secondary px-2 py-0.5">
+                {s.name}
+              </span>
+            ))}
+          </p>
+        ) : null}
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          {movie.availability_checked_at
+            ? `Availability checked ${checkedAgo(movie.availability_checked_at)}.`
+            : "Availability has never been checked for this title."}
+        </p>
 
         {notesOpen ? (
           <div className="mt-2 rounded-2xl border border-dashed border-border p-3">
