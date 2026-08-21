@@ -1192,7 +1192,7 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
 
     const writeLink = async (
       episodeId: string,
-      candidate: { movieId: string; confidence: number; signals: Record<string, unknown> },
+      candidate: { movieId: string; confidence: number; signals: object },
       isPrimary: boolean,
     ) => {
       const { error } = await supabaseAdmin.from("episode_movies").upsert(
@@ -1202,7 +1202,7 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
           match_method: candidate.confidence >= 80 ? "deterministic" : "heuristic",
           match_confidence: candidate.confidence / 100,
           is_primary_subject: isPrimary,
-          signals: { ...candidate.signals },
+          signals: { ...candidate.signals } as Database["public"]["Tables"]["episode_movies"]["Insert"]["signals"],
         },
         { onConflict: "episode_id, movie_id" },
       );
