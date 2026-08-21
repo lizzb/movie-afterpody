@@ -4,6 +4,7 @@ import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { MatchHistoryCard } from "@/components/admin/MatchHistoryCard";
 import { MatchReviewCard } from "@/components/admin/MatchReviewCard";
+import { CollapsibleCard } from "@/components/admin/CollapsibleCard";
 import { useAuth } from "@/hooks/useAuth";
 
 import {
@@ -242,8 +243,7 @@ function BulkEnrichCard({ onSuccess }: { onSuccess: () => void }) {
   const mutation = useMutation({ mutationFn: fn, onSuccess });
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-5">
-      <h2 className="font-display text-xl">Enrich all movies (posters + metadata)</h2>
+    <div>
       <p className="mt-1 text-sm text-muted-foreground">
         Runs TMDB lookups for every movie still missing a poster or TMDB id, up to 25 per run. Press
         again to continue where it left off.
@@ -284,8 +284,7 @@ function BackfillArtworkCard({ onSuccess }: { onSuccess: () => void }) {
   const mutation = useMutation({ mutationFn: fn, onSuccess });
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-5">
-      <h2 className="font-display text-xl">Backfill podcast cover art</h2>
+    <div>
       <p className="mt-1 text-sm text-muted-foreground">
         Looks up each show without artwork on Podcast Index and fills cover art, feed URL, site and
         episode counts.
@@ -331,8 +330,7 @@ function IngestPodcastForm({ onSuccess }: { onSuccess: () => void }) {
   };
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-5">
-      <h2 className="font-display text-xl">Ingest podcast</h2>
+    <div>
       <p className="mt-1 text-sm text-muted-foreground">
         Search Podcast Index by name or feed URL. Episodes are matched to your movie catalog automatically.
       </p>
@@ -392,8 +390,7 @@ function EnrichMovieForm({ onSuccess }: { onSuccess: () => void }) {
   };
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-5">
-      <h2 className="font-display text-xl">Enrich movie from TMDB</h2>
+    <div>
       <p className="mt-1 text-sm text-muted-foreground">
         Look up a movie on TMDB to fill runtime, synopsis, poster, and TMDB ID. Availability refresh uses the TMDB ID.
       </p>
@@ -446,8 +443,7 @@ function RefreshAvailabilityForm({ onSuccess }: { onSuccess: () => void }) {
   });
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-5">
-      <h2 className="font-display text-xl">Streaming availability + genres</h2>
+    <div>
       <p className="mt-1 text-sm text-muted-foreground">
         Pulls TMDB watch providers (US) and genres, 40 movies per run so the request never times
         out. Press again to continue from movie {offset + 1}.
@@ -498,8 +494,7 @@ function ResolveEpisodesCard({ onSuccess }: { onSuccess: () => void }) {
   const resolve = useMutation({ mutationFn: resolveFn, onSuccess: refresh });
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-5">
-      <h2 className="font-display text-xl">Build movies from episodes</h2>
+    <div>
       <p className="mt-1 text-sm text-muted-foreground">
         Reads unmatched episode titles, extracts the movie name, looks it up on TMDB, creates the
         movie with full metadata and links the episode. Runs 100 episodes at a time.
@@ -560,8 +555,7 @@ function UnmatchedEpisodesCard() {
   });
 
   return (
-    <div id="unmatched-episodes" className="scroll-mt-4 rounded-2xl border border-border bg-card p-5">
-      <h2 className="font-display text-xl">Unmatched episodes</h2>
+    <div>
       <p className="mt-1 text-sm text-muted-foreground">
         Every episode with no movie attached — including ones whose suggested match you rejected.
         Nothing here is visible in the app yet.
@@ -644,8 +638,7 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
   };
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-5">
-      <h2 className="font-display text-xl">Episode coverage</h2>
+    <div>
       <p className="mt-1 text-sm text-muted-foreground">
         Stored episodes vs. what the feed reports. "Sync episodes" pulls up to 1000 in one pass —
         press again if the stored count is still short.
