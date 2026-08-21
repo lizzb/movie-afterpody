@@ -497,12 +497,24 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
                     isSelected ? "border-primary" : "border-border"
                   }`}
                 >
-                  {/* The whole header is the selection target — comfortable on a phone. */}
-                  <button
-                    type="button"
-                    onClick={() => toggleRow(row.episodeId, row.movieId)}
+                  {/* Header is the selection target (comfortable on a phone), but text
+                      stays selectable: a click that ends a text selection is ignored. */}
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => {
+                      const text = typeof window !== "undefined" ? window.getSelection()?.toString() ?? "" : "";
+                      if (text.trim().length > 0) return;
+                      toggleRow(row.episodeId, row.movieId);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        toggleRow(row.episodeId, row.movieId);
+                      }
+                    }}
                     aria-pressed={isSelected}
-                    className="flex w-full items-start gap-3 p-3 text-left"
+                    className="flex w-full cursor-pointer select-text items-start gap-3 p-3 text-left"
                   >
                     <span
                       aria-hidden
@@ -535,7 +547,8 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
                         </span>
                       ) : null}
                     </span>
-                  </button>
+                  </div>
+
 
                   <div className="flex flex-wrap items-center gap-2 px-3 pb-3">
                     {tab === "proposed" ? (
