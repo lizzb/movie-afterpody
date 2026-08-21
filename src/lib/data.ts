@@ -87,7 +87,7 @@ async function fetchCatalog(): Promise<Catalog> {
           .from("podcasts")
           .select(
             sel(
-              "id, slug, name, description, artwork_url, accent, episode_count, latest_episode_at, activity_status, website_url",
+              "id, slug, name, description, artwork_url, accent, episode_count, latest_episode_at, activity_status, website_url, curation_status",
             ),
           )
           .order("name")
