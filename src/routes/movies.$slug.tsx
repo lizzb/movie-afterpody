@@ -260,11 +260,13 @@ function MovieDetailPage() {
 
 function EpisodeRow({
   entry,
+  movieId,
   rating,
   listening,
   quality,
 }: {
   entry: EpisodeEntry;
+  movieId: string;
   rating: EpisodeRating | null;
   listening: ListeningStatus;
   quality: ProductionQuality | null;
