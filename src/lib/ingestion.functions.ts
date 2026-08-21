@@ -31,10 +31,14 @@ const EnrichMovieInput = z.object({
 
 const RefreshAvailabilityInput = z.object({
   region: z.string().default("US"),
-  /** Batch size — the worker cannot fetch hundreds of TMDB pages in one request. */
-  limit: z.number().int().min(1).max(60).default(40),
-  /** Resume cursor (movies ordered by title). */
-  offset: z.number().int().min(0).default(0),
+  /**
+   * Batch size for one request. Each movie costs 2 TMDB calls, so the ceiling is
+   * the worker request budget, not TMDB's rate limit. The UI chains runs to cover
+   * hundreds of movies without any single request timing out.
+   */
+  limit: z.number().int().min(1).max(120).default(80),
+  /** Only re-check movies never checked or last checked before this ISO timestamp. */
+  staleBefore: z.string().optional(),
 });
 
 /** TMDB genre name → our genre slug. Anything unlisted is created on the fly. */
