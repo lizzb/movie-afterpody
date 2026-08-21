@@ -165,13 +165,8 @@ function IngestPage() {
         <section className="mt-10 space-y-4">
           <MatchReviewCard onSuccess={() => stats.refetch()} />
 
-          <CollapsibleCard
-            id="match-history"
-            title="Recent match decisions"
-            description="Every approve, reject, unlink and confirm, with undo."
-            storageKey="history"
-          >
-            <MatchHistoryCard onSuccess={() => stats.refetch()} />
+          <CollapsibleCard id="add-movie" title="Add movie from TMDB" storageKey="enrich-movie">
+            <EnrichMovieForm onSuccess={() => stats.refetch()} />
           </CollapsibleCard>
 
           <CollapsibleCard
@@ -181,6 +176,27 @@ function IngestPage() {
             storageKey="resolve"
           >
             <ResolveEpisodesCard onSuccess={() => stats.refetch()} />
+          </CollapsibleCard>
+
+          <CollapsibleCard id="enrich-movies" title="Enrich movies from TMDB" storageKey="enrich-all">
+            <BulkEnrichCard onSuccess={() => stats.refetch()} />
+          </CollapsibleCard>
+
+          <CollapsibleCard id="ingest-podcast" title="Ingest podcast" storageKey="ingest-podcast">
+            <IngestPodcastForm onSuccess={() => stats.refetch()} />
+          </CollapsibleCard>
+
+          <CollapsibleCard id="artwork" title="Backfill podcast cover art" storageKey="artwork">
+            <BackfillArtworkCard onSuccess={() => stats.refetch()} />
+          </CollapsibleCard>
+
+          <CollapsibleCard
+            id="coverage"
+            title="Episode coverage & show curation"
+            description="Coverage and progress per show; park shows you're not reviewing yet."
+            storageKey="coverage"
+          >
+            <PodcastCoverageCard onSuccess={() => stats.refetch()} />
           </CollapsibleCard>
 
           <CollapsibleCard
@@ -198,31 +214,19 @@ function IngestPage() {
           </CollapsibleCard>
 
           <CollapsibleCard
-            id="coverage"
-            title="Episode coverage & show curation"
-            description="Coverage and progress per show; park shows you're not reviewing yet."
-            storageKey="coverage"
+            id="match-history"
+            title="Recent match decisions"
+            description="Every approve, reject, unlink and confirm, with undo."
+            storageKey="history"
           >
-            <PodcastCoverageCard onSuccess={() => stats.refetch()} />
+            <MatchHistoryCard onSuccess={() => stats.refetch()} />
           </CollapsibleCard>
 
-          <CollapsibleCard id="enrich-movies" title="Enrich movies from TMDB" storageKey="enrich-all">
-            <BulkEnrichCard onSuccess={() => stats.refetch()} />
-          </CollapsibleCard>
-
-          <CollapsibleCard id="artwork" title="Backfill podcast cover art" storageKey="artwork">
-            <BackfillArtworkCard onSuccess={() => stats.refetch()} />
-          </CollapsibleCard>
-
-          <CollapsibleCard id="ingest-podcast" title="Ingest podcast" storageKey="ingest-podcast">
-            <IngestPodcastForm onSuccess={() => stats.refetch()} />
-          </CollapsibleCard>
-
-          <CollapsibleCard id="add-movie" title="Add movie from TMDB" storageKey="enrich-movie">
-            <EnrichMovieForm onSuccess={() => stats.refetch()} />
-          </CollapsibleCard>
-
-          <CollapsibleCard id="availability" title="Streaming availability + genres" storageKey="availability">
+          <CollapsibleCard
+            id="availability"
+            title="Streaming availability + genres"
+            storageKey="availability"
+          >
             <RefreshAvailabilityForm onSuccess={() => stats.refetch()} />
           </CollapsibleCard>
         </section>
@@ -696,16 +700,19 @@ function UnmatchedEpisodesCard() {
           disabled={rescan.isPending}
           className="inline-flex items-center rounded-full border border-border px-5 py-2.5 text-sm font-semibold disabled:opacity-50"
         >
-          {rescan.isPending ? "Rescanning…" : "Recheck these against existing movies"}
+          {rescan.isPending ? "Rescanning…" : "Recheck every episode against existing movies"}
         </button>
         <p className="mt-2 text-xs text-muted-foreground">
-          Compares unmatched episode titles against movies already in the catalogue and links the
-          confident ones. No TMDB calls, no new movies created, rejected pairs skipped. Use it after
-          you add a movie by hand.
+          Rescores every episode in your active shows against the movies already in the catalogue:
+          links unmatched ones, replaces a weak match when a newly added movie clearly beats it, and
+          attaches extra films to episodes that cover more than one (trilogies, double features).
+          Matches you confirmed by hand are never touched, rejected pairs are always skipped, and no
+          TMDB calls are made. Run it after adding movies by hand.
         </p>
         {rescan.isSuccess ? (
           <p className="mt-2 text-sm text-teal">
-            Rescanned {rescan.data.scanned} · linked {rescan.data.linked} ·{" "}
+            Rescanned {rescan.data.scanned} · newly linked {rescan.data.linked} · improved{" "}
+            {rescan.data.improved} · extra films added {rescan.data.extraAdded} ·{" "}
             {rescan.data.stillUnlinked} still unmatched.
           </p>
         ) : null}
