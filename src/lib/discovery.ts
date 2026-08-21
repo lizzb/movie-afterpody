@@ -75,8 +75,11 @@ function buildEntries(catalog: Catalog, user: UserData, prefs: Prefs): MovieEntr
       .map((mg) => genreById.get(mg.genre_id))
       .filter((g): g is Genre => Boolean(g));
 
+    // Only offers you can actually watch on a subscription (or free with ads)
+    // count as "available" — rent/buy storefront offers are not streaming.
     const services = catalog.availability
       .filter((a) => a.movie_id === movie.id)
+      .filter((a) => a.offer_type === "subscription" || a.offer_type === "free_ads")
       .map((a) => serviceById.get(a.service_id))
       .filter((s): s is StreamingService => Boolean(s))
       .filter((s, i, arr) => arr.findIndex((x) => x.id === s.id) === i)

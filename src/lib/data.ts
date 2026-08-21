@@ -129,17 +129,24 @@ async function fetchCatalog(): Promise<Catalog> {
       ),
     ]);
 
+  // Parked shows stay in the database untouched but drop out of the app entirely:
+  // their episodes and episode → movie links are filtered out of the catalogue.
+  const activePodcasts = podcasts.filter((p) => p.curation_status !== "parked");
+  const activePodcastIds = new Set(activePodcasts.map((p) => p.id));
+  const activeEpisodes = episodes.filter((e) => activePodcastIds.has(e.podcast_id));
+  const activeEpisodeIds = new Set(activeEpisodes.map((e) => e.id));
+
   return {
     genres,
     services,
     movies,
     movieGenres,
     availability,
-    podcasts,
-    metrics,
-    episodes,
-    episodeSources: sources,
-    episodeMovies: links,
+    podcasts: activePodcasts,
+    metrics: metrics.filter((m) => activePodcastIds.has(m.podcast_id)),
+    episodes: activeEpisodes,
+    episodeSources: sources.filter((s) => activeEpisodeIds.has(s.episode_id)),
+    episodeMovies: links.filter((l) => activeEpisodeIds.has(l.episode_id)),
   };
 }
 
