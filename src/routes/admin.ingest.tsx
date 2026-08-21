@@ -833,19 +833,34 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showParked, setShowParked] = useState(false);
+  const [incompleteOnly, setIncompleteOnly] = useState(false);
+  // Per-show sync outcomes so a failed feed is named instead of vanishing.
+  const [syncLog, setSyncLog] = useState<{ name: string; message: string; ok: boolean }[]>([]);
+  const [bulkRunning, setBulkRunning] = useState(false);
+  const bulkCancel = useRef(false);
 
   const refresh = async () => {
     await queryClient.invalidateQueries({ queryKey: ["podcast-coverage"] });
     onSuccess();
   };
 
-  const syncPodcast = async (podcastId: string) => {
+  const syncOne = async (podcastId: string, name: string) => {
+    const result = await sync({ data: { podcastId, maxEpisodes: 1000 } });
+    const note =
+      `stored ${result.episodesInserted} of ${result.episodesFetched} fetched` +
+      (result.feedTotal ? ` · feed reports ${result.feedTotal}` : "") +
+      (result.episodesFailed > 0 ? ` · ${result.episodesFailed} failed` : "");
+    setSyncLog((prev) => [{ name, message: note, ok: result.episodesFailed === 0 }, ...prev].slice(0, 25));
+  };
+
+  const syncPodcast = async (podcastId: string, name: string) => {
     setBusyId(podcastId);
     setError(null);
     try {
-      await sync({ data: { podcastId, maxEpisodes: 1000 } });
+      await syncOne(podcastId, name);
       await refresh();
     } catch (e) {
+      setSyncLog((prev) => [{ name, message: (e as Error).message, ok: false }, ...prev].slice(0, 25));
       setError((e as Error).message);
     } finally {
       setBusyId(null);
@@ -868,7 +883,32 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
   const all = coverage.data?.podcasts ?? [];
   const active = all.filter((p) => p.curationStatus === "active");
   const parked = all.filter((p) => p.curationStatus === "parked");
-  const visible = showParked ? parked : active;
+  const incompleteActive = active.filter((p) => p.incomplete);
+  const base = showParked ? parked : active;
+  const visible = incompleteOnly ? base.filter((p) => p.incomplete) : base;
+
+  // One press works through every active show that is behind its feed, keeping
+  // going after a failure and naming each result.
+  const syncAllIncomplete = async () => {
+    bulkCancel.current = false;
+    setBulkRunning(true);
+    setError(null);
+    setSyncLog([]);
+    for (const p of incompleteActive) {
+      if (bulkCancel.current) break;
+      setBusyId(p.podcastId);
+      try {
+        await syncOne(p.podcastId, p.name);
+      } catch (e) {
+        setSyncLog((prev) =>
+          [{ name: p.name, message: (e as Error).message, ok: false }, ...prev].slice(0, 25),
+        );
+      }
+    }
+    setBusyId(null);
+    setBulkRunning(false);
+    await refresh();
+  };
 
   const row = (p: (typeof all)[number]) => {
     const complete = p.feedTotal > 0 && p.stored >= p.feedTotal;
@@ -882,7 +922,7 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
           <p className="truncate text-sm font-medium">{p.name}</p>
           <p className={`text-xs ${complete ? "text-teal" : "text-muted-foreground"}`}>
             {p.stored} stored{p.feedTotal ? ` / ${p.feedTotal} in feed` : ""}
-            {complete ? " · complete" : ""}
+            {complete ? " · complete" : p.missing ? ` · ${p.missing} missing` : ""}
           </p>
           <p className="text-xs text-muted-foreground">
             {p.linked} linked · {p.unmatched} unmatched · {p.retired} not about a movie
@@ -892,7 +932,7 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
           <button
             type="button"
             onClick={() => toggleCuration(p.podcastId, isParked ? "active" : "parked")}
-            disabled={busyId === p.podcastId}
+            disabled={busyId === p.podcastId || bulkRunning}
             className={`rounded-full px-3 py-1.5 text-xs font-semibold disabled:opacity-50 ${
               isParked
                 ? "bg-teal text-primary-foreground"
@@ -903,8 +943,8 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
           </button>
           <button
             type="button"
-            onClick={() => syncPodcast(p.podcastId)}
-            disabled={busyId === p.podcastId || isParked}
+            onClick={() => syncPodcast(p.podcastId, p.name)}
+            disabled={busyId === p.podcastId || isParked || bulkRunning}
             className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
           >
             {busyId === p.podcastId ? "Working…" : "Sync episodes"}
@@ -922,7 +962,7 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
         time with nothing to re-ingest.
       </p>
 
-      <div className="mt-3 flex items-center gap-2 text-xs font-semibold">
+      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold">
         <button
           type="button"
           onClick={() => setShowParked(false)}
@@ -937,18 +977,67 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
         >
           Parked ({parked.length})
         </button>
+        <button
+          type="button"
+          onClick={() => setIncompleteOnly((v) => !v)}
+          className={`rounded-full px-3 py-1.5 ${incompleteOnly ? "bg-secondary" : "border border-border"}`}
+        >
+          Behind feed only
+        </button>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={syncAllIncomplete}
+          disabled={bulkRunning || incompleteActive.length === 0}
+          className="inline-flex items-center rounded-full bg-navy px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+        >
+          {bulkRunning
+            ? "Syncing shows…"
+            : `Sync all incomplete (${incompleteActive.length})`}
+        </button>
+        {bulkRunning ? (
+          <button
+            type="button"
+            onClick={() => {
+              bulkCancel.current = true;
+            }}
+            className="rounded-full border border-border px-4 py-2 text-sm font-semibold"
+          >
+            Stop after this show
+          </button>
+        ) : null}
       </div>
 
       {coverage.isLoading ? (
         <div className="mt-4 h-24 animate-pulse rounded-xl bg-muted" />
       ) : visible.length === 0 ? (
         <p className="mt-4 text-sm text-muted-foreground">
-          {showParked ? "No shows are parked." : "No active podcasts."}
+          {incompleteOnly
+            ? "Every show here matches its feed count."
+            : showParked
+              ? "No shows are parked."
+              : "No active podcasts."}
         </p>
       ) : (
         <ul className="mt-4 space-y-2">{visible.map(row)}</ul>
       )}
+
+      {syncLog.length > 0 ? (
+        <ul className="mt-4 space-y-1">
+          {syncLog.map((entry, i) => (
+            <li
+              key={`${entry.name}-${i}`}
+              className={`text-xs ${entry.ok ? "text-muted-foreground" : "text-destructive"}`}
+            >
+              <span className="font-semibold">{entry.name}</span>: {entry.message}
+            </li>
+          ))}
+        </ul>
+      ) : null}
       {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
     </div>
   );
+
 }
