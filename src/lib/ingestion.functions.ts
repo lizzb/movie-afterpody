@@ -614,12 +614,20 @@ export const refreshAvailability = createServerFn({ method: "POST" })
       .select("*", { count: "exact", head: true })
       .not("tmdb_id", "is", null);
 
-    const { data: movies, error: listError } = await supabaseAdmin
+    // Staleness-first queue: never-checked movies, then the oldest checks.
+    // No offset cursor is needed — every run consumes from the stale end, so
+    // repeated runs always make progress and never re-do fresh movies.
+    let query = supabaseAdmin
       .from("movies")
-      .select("id, tmdb_id, title")
+      .select("id, tmdb_id, title, availability_checked_at")
       .not("tmdb_id", "is", null)
+      .order("availability_checked_at", { ascending: true, nullsFirst: true })
       .order("title", { ascending: true })
-      .range(data.offset, data.offset + data.limit - 1);
+      .limit(data.limit);
+    if (data.staleBefore) {
+      query = query.or(`availability_checked_at.is.null,availability_checked_at.lt.${data.staleBefore}`);
+    }
+    const { data: movies, error: listError } = await query;
     if (listError) throw listError;
 
     const [{ data: services }, { data: genres }] = await Promise.all([
@@ -650,6 +658,7 @@ export const refreshAvailability = createServerFn({ method: "POST" })
           ...(region?.buy ?? []).map((p) => ({ ...p, offer_type: "buy" as const })),
         ];
 
+        const checkedAt = new Date().toISOString();
         const rows = new Map<string, {
           movie_id: string;
           service_id: string;
@@ -671,14 +680,23 @@ export const refreshAvailability = createServerFn({ method: "POST" })
             region: data.region,
             deep_link: region?.link || null,
             provider_source: "tmdb",
-            last_checked_at: new Date().toISOString(),
+            last_checked_at: checkedAt,
           });
         }
+
+        // Offers expire. Replacing this movie's region rows wholesale is the only
+        // way stale "streaming on X" claims ever disappear — upsert alone kept them forever.
+        const { error: deleteError } = await supabaseAdmin
+          .from("movie_availability")
+          .delete()
+          .eq("movie_id", movie.id)
+          .eq("region", data.region);
+        if (deleteError) throw deleteError;
 
         if (rows.size > 0) {
           const { error } = await supabaseAdmin
             .from("movie_availability")
-            .upsert([...rows.values()], { onConflict: "movie_id,service_id,offer_type,region" });
+            .insert([...rows.values()]);
           if (error) throw error;
           offersWritten += rows.size;
         }
@@ -705,22 +723,98 @@ export const refreshAvailability = createServerFn({ method: "POST" })
           if (!error) genreLinks += 1;
         }
 
+        // Stamped even when nothing is streaming, so "checked, nothing available"
+        // is distinguishable from "never checked".
+        await supabaseAdmin
+          .from("movies")
+          .update({ availability_checked_at: checkedAt })
+          .eq("id", movie.id);
+
         updated += 1;
       } catch (err) {
         failed.push(`${movie.title}: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
 
-    const processedTo = data.offset + (movies?.length ?? 0);
+    const fetched = movies?.length ?? 0;
     return {
       updated,
       offersWritten,
       genreLinks,
       failed: failed.slice(0, 20),
       total: total ?? 0,
-      nextOffset: processedTo >= (total ?? 0) ? 0 : processedTo,
-      done: processedTo >= (total ?? 0),
+      /** No stale movies left in scope — the client stops chaining. */
+      done: fetched < data.limit,
     };
+  });
+
+/** Freshness picture for the availability card: how much of the catalogue is current. */
+export const availabilityFreshness = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await requireAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const [{ count: total }, { count: neverChecked }, { count: staleWeek }, { data: oldest }, { data: newest }] =
+      await Promise.all([
+        supabaseAdmin.from("movies").select("*", { count: "exact", head: true }).not("tmdb_id", "is", null),
+        supabaseAdmin
+          .from("movies")
+          .select("*", { count: "exact", head: true })
+          .not("tmdb_id", "is", null)
+          .is("availability_checked_at", null),
+        supabaseAdmin
+          .from("movies")
+          .select("*", { count: "exact", head: true })
+          .not("tmdb_id", "is", null)
+          .lt("availability_checked_at", weekAgo),
+        supabaseAdmin
+          .from("movies")
+          .select("availability_checked_at")
+          .not("availability_checked_at", "is", null)
+          .order("availability_checked_at", { ascending: true })
+          .limit(1)
+          .maybeSingle(),
+        supabaseAdmin
+          .from("movies")
+          .select("availability_checked_at")
+          .not("availability_checked_at", "is", null)
+          .order("availability_checked_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ]);
+
+    return {
+      total: total ?? 0,
+      neverChecked: neverChecked ?? 0,
+      staleOverAWeek: staleWeek ?? 0,
+      oldestCheck: oldest?.availability_checked_at ?? null,
+      newestCheck: newest?.availability_checked_at ?? null,
+      staleBefore: weekAgo,
+    };
+  });
+
+/**
+ * Park or re-activate a show. Parked shows keep every episode and link but drop
+ * out of the review queues and out of the user-facing app.
+ */
+export const setPodcastCuration = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) =>
+    z
+      .object({ podcastId: z.string().uuid(), status: z.enum(["active", "parked"]) })
+      .parse(data),
+  )
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin
+      .from("podcasts")
+      .update({ curation_status: data.status })
+      .eq("id", data.podcastId);
+    if (error) throw error;
+    return { ok: true, status: data.status };
   });
 
 export const listIngestionStats = createServerFn({ method: "GET" })
