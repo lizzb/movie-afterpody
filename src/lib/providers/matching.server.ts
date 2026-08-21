@@ -7,6 +7,8 @@ export interface MatchSignals {
   yearMatch: "same" | "near" | "mismatch" | "unknown";
   /** Movie title is a single short word — a common source of false positives. */
   genericTitle: boolean;
+  /** Movie title is under 4 characters ("Er", "P2") — near-useless as evidence alone. */
+  shortTitle: boolean;
   /** How many times this movie has been rejected as a match anywhere. */
   rejectedBefore: number;
   /** The movie title appears verbatim in the episode description. */
