@@ -145,6 +145,9 @@ async function loadAdminClients() {
 const TMDB_PROVIDER_TO_SLUG: Record<number, string> = {
   8: "netflix",
   9: "prime-video",
+  // 10 is the Amazon Video storefront (rent/buy). Mapped so a rent-only title is
+  // stored as a rent offer instead of looking like it streams on Prime.
+  10: "prime-video",
   119: "prime-video",
   337: "disney-plus",
   189: "max",
@@ -831,6 +834,7 @@ export const listIngestionStats = createServerFn({ method: "GET" })
     const [
       { count: movieCount },
       { count: podcastCount },
+      { count: parkedCount },
       { count: episodeCount },
       { count: linkCount },
       { count: reviewLinkCount },
@@ -840,7 +844,14 @@ export const listIngestionStats = createServerFn({ method: "GET" })
       unlinked,
     ] = await Promise.all([
       supabaseAdmin.from("movies").select("*", { count: "exact", head: true }),
-      supabaseAdmin.from("podcasts").select("*", { count: "exact", head: true }),
+      supabaseAdmin
+        .from("podcasts")
+        .select("*", { count: "exact", head: true })
+        .eq("curation_status", "active"),
+      supabaseAdmin
+        .from("podcasts")
+        .select("*", { count: "exact", head: true })
+        .eq("curation_status", "parked"),
       supabaseAdmin.from("podcast_episodes").select("*", { count: "exact", head: true }),
       supabaseAdmin.from("episode_movies").select("*", { count: "exact", head: true }),
       // Same band the "Existing links" review tab defaults to.
@@ -858,14 +869,15 @@ export const listIngestionStats = createServerFn({ method: "GET" })
         .select("*", { count: "exact", head: true })
         .eq("disposition", "not_about_a_movie"),
       supabaseAdmin.from("movies").select("*", { count: "exact", head: true }).not("tmdb_id", "is", null),
-      // Counted exactly the way the Unmatched episodes card counts, so the tile
-      // and the section can never disagree.
+      // Counted exactly the way the Unmatched episodes card counts (active shows
+      // only), so the tile and the section can never disagree.
       fetchUnlinkedEpisodes(supabaseAdmin),
     ]);
 
     return {
       movies: movieCount ?? 0,
       podcasts: podcastCount ?? 0,
+      parkedPodcasts: parkedCount ?? 0,
       episodes: episodeCount ?? 0,
       links: linkCount ?? 0,
       linksToReview: reviewLinkCount ?? 0,
@@ -1179,26 +1191,40 @@ export const listPodcastCoverage = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { pageAll } = await import("./ingestion-helpers.server");
+
     const { data: podcasts, error } = await supabaseAdmin
       .from("podcasts")
-      .select("id, name, episode_count")
+      .select("id, name, episode_count, curation_status")
       .order("name");
     if (error) throw error;
 
-    const rows = await Promise.all(
-      (podcasts ?? []).map(async (p) => {
-        const { count } = await supabaseAdmin
-          .from("podcast_episodes")
-          .select("id", { count: "exact", head: true })
-          .eq("podcast_id", p.id);
-        return {
-          podcastId: p.id,
-          name: p.name,
-          stored: count ?? 0,
-          feedTotal: p.episode_count ?? 0,
-        };
-      }),
+    // One paged read of every episode + link, then counted per show — far cheaper
+    // than three count queries per podcast.
+    const episodes = await pageAll<{ id: string; podcast_id: string; disposition: string }>(
+      (from, to) =>
+        supabaseAdmin.from("podcast_episodes").select("id, podcast_id, disposition").range(from, to),
     );
+    const linkRows = await pageAll<{ episode_id: string }>((from, to) =>
+      supabaseAdmin.from("episode_movies").select("episode_id").range(from, to),
+    );
+    const linked = new Set(linkRows.map((l) => l.episode_id));
+
+    const rows = (podcasts ?? []).map((p) => {
+      const own = episodes.filter((e) => e.podcast_id === p.id);
+      const linkedCount = own.filter((e) => linked.has(e.id)).length;
+      const retired = own.filter((e) => !linked.has(e.id) && e.disposition === "not_about_a_movie").length;
+      return {
+        podcastId: p.id,
+        name: p.name,
+        stored: own.length,
+        feedTotal: p.episode_count ?? 0,
+        curationStatus: (p.curation_status ?? "active") as "active" | "parked",
+        linked: linkedCount,
+        retired,
+        unmatched: own.length - linkedCount - retired,
+      };
+    });
 
     return { podcasts: rows };
   });

@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { MatchHistoryCard } from "@/components/admin/MatchHistoryCard";
 import { MatchReviewCard } from "@/components/admin/MatchReviewCard";
@@ -8,6 +8,7 @@ import { CollapsibleCard } from "@/components/admin/CollapsibleCard";
 import { useAuth } from "@/hooks/useAuth";
 
 import {
+  availabilityFreshness,
   backfillPodcastArtwork,
   bootstrapAdmin,
   enrichAllMovies,
@@ -19,6 +20,7 @@ import {
   refreshAvailability,
   rescanEpisodeMatches,
   resolveEpisodesToMovies,
+  setPodcastCuration,
 } from "@/lib/ingestion.functions";
 
 import { useServerFn } from "@tanstack/react-start";
@@ -135,7 +137,8 @@ function IngestPage() {
         ) : stats.data ? (
           <section className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
             <Stat label="Movies" value={stats.data.movies} />
-            <Stat label="Podcasts" value={stats.data.podcasts} />
+            <Stat label="Active shows" value={stats.data.podcasts} href="#coverage" />
+            <Stat label="Parked shows" value={stats.data.parkedPodcasts} href="#coverage" />
             <Stat label="Episodes" value={stats.data.episodes} />
             <Stat label="Flagged as wrong" value={stats.data.flagged} href="#match-review" />
             <Stat label="Links to review" value={stats.data.linksToReview} href="#match-review" />
@@ -181,8 +184,9 @@ function IngestPage() {
           </CollapsibleCard>
 
           <CollapsibleCard
-            title="Episode coverage"
-            description="Stored episodes vs. what each feed reports."
+            id="coverage"
+            title="Episode coverage & show curation"
+            description="Coverage and progress per show; park shows you're not reviewing yet."
             storageKey="coverage"
           >
             <PodcastCoverageCard onSuccess={() => stats.refetch()} />
@@ -712,6 +716,7 @@ function UnmatchedEpisodesCard() {
 function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
   const fetchCoverage = useServerFn(listPodcastCoverage);
   const sync = useServerFn(ingestPodcast);
+  const setCuration = useServerFn(setPodcastCuration);
   const queryClient = useQueryClient();
   const coverage = useQuery({
     queryKey: ["podcast-coverage"],
@@ -721,14 +726,19 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
   });
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showParked, setShowParked] = useState(false);
+
+  const refresh = async () => {
+    await queryClient.invalidateQueries({ queryKey: ["podcast-coverage"] });
+    onSuccess();
+  };
 
   const syncPodcast = async (podcastId: string) => {
     setBusyId(podcastId);
     setError(null);
     try {
       await sync({ data: { podcastId, maxEpisodes: 1000 } });
-      await queryClient.invalidateQueries({ queryKey: ["podcast-coverage"] });
-      onSuccess();
+      await refresh();
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -736,44 +746,101 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
     }
   };
 
+  const toggleCuration = async (podcastId: string, status: "active" | "parked") => {
+    setBusyId(podcastId);
+    setError(null);
+    try {
+      await setCuration({ data: { podcastId, status } });
+      await refresh();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const all = coverage.data?.podcasts ?? [];
+  const active = all.filter((p) => p.curationStatus === "active");
+  const parked = all.filter((p) => p.curationStatus === "parked");
+  const visible = showParked ? parked : active;
+
+  const row = (p: (typeof all)[number]) => {
+    const complete = p.feedTotal > 0 && p.stored >= p.feedTotal;
+    const isParked = p.curationStatus === "parked";
+    return (
+      <li
+        key={p.podcastId}
+        className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 px-3 py-2"
+      >
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-medium">{p.name}</p>
+          <p className={`text-xs ${complete ? "text-teal" : "text-muted-foreground"}`}>
+            {p.stored} stored{p.feedTotal ? ` / ${p.feedTotal} in feed` : ""}
+            {complete ? " · complete" : ""}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {p.linked} linked · {p.unmatched} unmatched · {p.retired} not about a movie
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            type="button"
+            onClick={() => toggleCuration(p.podcastId, isParked ? "active" : "parked")}
+            disabled={busyId === p.podcastId}
+            className={`rounded-full px-3 py-1.5 text-xs font-semibold disabled:opacity-50 ${
+              isParked
+                ? "bg-teal text-primary-foreground"
+                : "border border-border text-muted-foreground"
+            }`}
+          >
+            {isParked ? "Re-activate" : "Park"}
+          </button>
+          <button
+            type="button"
+            onClick={() => syncPodcast(p.podcastId)}
+            disabled={busyId === p.podcastId || isParked}
+            className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
+          >
+            {busyId === p.podcastId ? "Working…" : "Sync episodes"}
+          </button>
+        </div>
+      </li>
+    );
+  };
+
   return (
     <div>
       <p className="mt-1 text-sm text-muted-foreground">
-        Stored episodes vs. what the feed reports. "Sync episodes" pulls up to 1000 in one pass —
-        press again if the stored count is still short.
+        Stored episodes vs. what the feed reports, plus progress per show. Parking a show keeps every
+        episode and link but removes it from the review queues and from the app — re-activate any
+        time with nothing to re-ingest.
       </p>
+
+      <div className="mt-3 flex items-center gap-2 text-xs font-semibold">
+        <button
+          type="button"
+          onClick={() => setShowParked(false)}
+          className={`rounded-full px-3 py-1.5 ${!showParked ? "bg-secondary" : "border border-border"}`}
+        >
+          Active ({active.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowParked(true)}
+          className={`rounded-full px-3 py-1.5 ${showParked ? "bg-secondary" : "border border-border"}`}
+        >
+          Parked ({parked.length})
+        </button>
+      </div>
+
       {coverage.isLoading ? (
         <div className="mt-4 h-24 animate-pulse rounded-xl bg-muted" />
-      ) : (coverage.data?.podcasts.length ?? 0) === 0 ? (
-        <p className="mt-4 text-sm text-muted-foreground">No podcasts ingested yet.</p>
+      ) : visible.length === 0 ? (
+        <p className="mt-4 text-sm text-muted-foreground">
+          {showParked ? "No shows are parked." : "No active podcasts."}
+        </p>
       ) : (
-        <ul className="mt-4 space-y-2">
-          {coverage.data?.podcasts.map((p) => {
-            const complete = p.feedTotal > 0 && p.stored >= p.feedTotal;
-            return (
-              <li
-                key={p.podcastId}
-                className="flex items-center justify-between gap-3 rounded-xl border border-border/60 px-3 py-2"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">{p.name}</p>
-                  <p className={`text-xs ${complete ? "text-teal" : "text-muted-foreground"}`}>
-                    {p.stored} stored{p.feedTotal ? ` / ${p.feedTotal} in feed` : ""}
-                    {complete ? " · complete" : ""}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => syncPodcast(p.podcastId)}
-                  disabled={busyId === p.podcastId}
-                  className="shrink-0 rounded-full border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
-                >
-                  {busyId === p.podcastId ? "Syncing…" : "Sync episodes"}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+        <ul className="mt-4 space-y-2">{visible.map(row)}</ul>
       )}
       {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
     </div>
