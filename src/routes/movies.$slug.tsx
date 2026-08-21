@@ -97,7 +97,7 @@ function MovieDetailPage() {
     );
   }
 
-  const { movie, score, genres, services, episodes, watched } = entry;
+  const { movie, score, genres, services, rentBuyServices, episodes, watched } = entry;
   const external = movie as typeof movie & ExternalRatings;
 
   return (
