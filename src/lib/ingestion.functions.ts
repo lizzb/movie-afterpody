@@ -728,35 +728,53 @@ export const listIngestionStats = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { fetchUnlinkedEpisodes } = await import("./ingestion-helpers.server");
 
     const [
       { count: movieCount },
       { count: podcastCount },
       { count: episodeCount },
-      { count: matchedEpisodeCount },
-      { count: pendingMatchCount },
+      { count: linkCount },
+      { count: reviewLinkCount },
+      { count: flaggedCount },
+      { count: retiredCount },
       { count: tmdbLinkedCount },
-      { data: links },
+      unlinked,
     ] = await Promise.all([
       supabaseAdmin.from("movies").select("*", { count: "exact", head: true }),
       supabaseAdmin.from("podcasts").select("*", { count: "exact", head: true }),
       supabaseAdmin.from("podcast_episodes").select("*", { count: "exact", head: true }),
       supabaseAdmin.from("episode_movies").select("*", { count: "exact", head: true }),
-      supabaseAdmin.from("episode_movies").select("*", { count: "exact", head: true }).eq("match_method", "heuristic"),
+      // Same band the "Existing links" review tab defaults to.
+      supabaseAdmin
+        .from("episode_movies")
+        .select("*", { count: "exact", head: true })
+        .neq("match_method", "manual")
+        .lte("match_confidence", 0.95),
+      supabaseAdmin
+        .from("episode_link_flags")
+        .select("*", { count: "exact", head: true })
+        .is("resolved_at", null),
+      supabaseAdmin
+        .from("podcast_episodes")
+        .select("*", { count: "exact", head: true })
+        .eq("disposition", "not_about_a_movie"),
       supabaseAdmin.from("movies").select("*", { count: "exact", head: true }).not("tmdb_id", "is", null),
-      supabaseAdmin.from("episode_movies").select("episode_id"),
+      // Counted exactly the way the Unmatched episodes card counts, so the tile
+      // and the section can never disagree.
+      fetchUnlinkedEpisodes(supabaseAdmin),
     ]);
-
-    const linkedEpisodes = new Set((links ?? []).map((l) => l.episode_id)).size;
 
     return {
       movies: movieCount ?? 0,
       podcasts: podcastCount ?? 0,
       episodes: episodeCount ?? 0,
-      matchedEpisodes: matchedEpisodeCount ?? 0,
-      pendingMatches: pendingMatchCount ?? 0,
+      links: linkCount ?? 0,
+      linksToReview: reviewLinkCount ?? 0,
+      flagged: flaggedCount ?? 0,
+      retiredEpisodes: retiredCount ?? 0,
       tmdbLinked: tmdbLinkedCount ?? 0,
-      unmatchedEpisodes: Math.max(0, (episodeCount ?? 0) - linkedEpisodes),
+      unmatchedEpisodes: unlinked.length,
     };
   });
 
