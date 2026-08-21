@@ -165,13 +165,8 @@ function IngestPage() {
         <section className="mt-10 space-y-4">
           <MatchReviewCard onSuccess={() => stats.refetch()} />
 
-          <CollapsibleCard
-            id="match-history"
-            title="Recent match decisions"
-            description="Every approve, reject, unlink and confirm, with undo."
-            storageKey="history"
-          >
-            <MatchHistoryCard onSuccess={() => stats.refetch()} />
+          <CollapsibleCard id="add-movie" title="Add movie from TMDB" storageKey="enrich-movie">
+            <EnrichMovieForm onSuccess={() => stats.refetch()} />
           </CollapsibleCard>
 
           <CollapsibleCard
@@ -181,6 +176,27 @@ function IngestPage() {
             storageKey="resolve"
           >
             <ResolveEpisodesCard onSuccess={() => stats.refetch()} />
+          </CollapsibleCard>
+
+          <CollapsibleCard id="enrich-movies" title="Enrich movies from TMDB" storageKey="enrich-all">
+            <BulkEnrichCard onSuccess={() => stats.refetch()} />
+          </CollapsibleCard>
+
+          <CollapsibleCard id="ingest-podcast" title="Ingest podcast" storageKey="ingest-podcast">
+            <IngestPodcastForm onSuccess={() => stats.refetch()} />
+          </CollapsibleCard>
+
+          <CollapsibleCard id="artwork" title="Backfill podcast cover art" storageKey="artwork">
+            <BackfillArtworkCard onSuccess={() => stats.refetch()} />
+          </CollapsibleCard>
+
+          <CollapsibleCard
+            id="coverage"
+            title="Episode coverage & show curation"
+            description="Coverage and progress per show; park shows you're not reviewing yet."
+            storageKey="coverage"
+          >
+            <PodcastCoverageCard onSuccess={() => stats.refetch()} />
           </CollapsibleCard>
 
           <CollapsibleCard
@@ -198,31 +214,19 @@ function IngestPage() {
           </CollapsibleCard>
 
           <CollapsibleCard
-            id="coverage"
-            title="Episode coverage & show curation"
-            description="Coverage and progress per show; park shows you're not reviewing yet."
-            storageKey="coverage"
+            id="match-history"
+            title="Recent match decisions"
+            description="Every approve, reject, unlink and confirm, with undo."
+            storageKey="history"
           >
-            <PodcastCoverageCard onSuccess={() => stats.refetch()} />
+            <MatchHistoryCard onSuccess={() => stats.refetch()} />
           </CollapsibleCard>
 
-          <CollapsibleCard id="enrich-movies" title="Enrich movies from TMDB" storageKey="enrich-all">
-            <BulkEnrichCard onSuccess={() => stats.refetch()} />
-          </CollapsibleCard>
-
-          <CollapsibleCard id="artwork" title="Backfill podcast cover art" storageKey="artwork">
-            <BackfillArtworkCard onSuccess={() => stats.refetch()} />
-          </CollapsibleCard>
-
-          <CollapsibleCard id="ingest-podcast" title="Ingest podcast" storageKey="ingest-podcast">
-            <IngestPodcastForm onSuccess={() => stats.refetch()} />
-          </CollapsibleCard>
-
-          <CollapsibleCard id="add-movie" title="Add movie from TMDB" storageKey="enrich-movie">
-            <EnrichMovieForm onSuccess={() => stats.refetch()} />
-          </CollapsibleCard>
-
-          <CollapsibleCard id="availability" title="Streaming availability + genres" storageKey="availability">
+          <CollapsibleCard
+            id="availability"
+            title="Streaming availability + genres"
+            storageKey="availability"
+          >
             <RefreshAvailabilityForm onSuccess={() => stats.refetch()} />
           </CollapsibleCard>
         </section>
