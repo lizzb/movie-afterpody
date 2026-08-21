@@ -10,8 +10,12 @@ Priority reflects the app's current state: a personal tool for one user, refinin
 
 ## Do next
 
-### Pass R — Shrink the working set without losing work — ~55k — Priority 1
-Per-podcast Active / Parked curation status. Parked shows keep every ingested episode but drop out of all review queues, stat tiles and the user-facing app; flip back any time with nothing to re-ingest. Adds scope-aware queues, a per-show progress line (linked / reviewed / unmatched), bulk "Retire remaining unmatched" for mixed shows like Crime Writers On..., an explicitly-labelled per-show episode purge, and a "Score the matcher" action that measures precision/recall against your logged approve/reject decisions. No movie data removed. Full detail: `.lovable/plan/pass-r-shrink-working-set-2026-08-20.md`.
+### Pass R — Shrink the working set without losing work — split into R1/R2/R3
+Full detail: `.lovable/plan/pass-r-shrink-working-set-2026-08-20.md`.
+
+- **R1 — Active / Parked curation — DONE (2026-08-21).** `podcast_curation` enum + `curation_status` on podcasts; Park / Re-activate per show in "Episode coverage & show curation" with Active/Parked tabs and a linked / unmatched / not-about-a-movie progress line; `activeOnly` scoping in `ingestion-helpers.server.ts` so suggest / rescan / resolve / unmatched are active-only; `data.ts` drops parked shows, their episodes and links from the app; stat tiles split into "Active shows" / "Parked shows" so nothing is silently invisible. Parked shows are also skipped by episode sync.
+- **R2 — Episode-level noise handling — ~20k — Priority 1.** Bulk "Retire remaining unmatched" on one show (marks every still-unmatched episode `not_about_a_movie`, logged in `match_actions`, undoable), plus the separately-labelled destructive "Delete episodes, keep the show".
+- **R3 — Score the matcher — ~25k — Priority 2.** `matcher-eval.server.ts` replays current scoring rules over the labelled approve/reject/confirm set in `match_actions` + `episode_match_rejections` and reports precision, recall and the confidence band where mistakes cluster. No TMDB calls.
 
 ### Pass C2 — Description-aware matching — ~45k — Priority 2
 The remaining half of pass C. Score episode↔movie using the stored episode description as well as the title (all episodes already have descriptions; nothing reads them), with year proximity from the description body. Deterministic, no AI, no tokens at runtime. This is the single biggest accuracy lever left and it pairs directly with pass R's measurement loop.
