@@ -276,9 +276,10 @@ export const ingestPodcast = createServerFn({ method: "POST" })
         .single();
 
       if (epError || !upsertedEp) {
-        console.warn("Episode upsert failed:", epError?.message);
+        episodeErrors.push(`${ep.title}: ${epError?.message ?? "upsert returned no row"}`);
         continue;
       }
+
       insertedEpisodes += 1;
 
       try {
