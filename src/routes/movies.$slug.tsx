@@ -14,6 +14,7 @@ import { AppShell } from "@/components/AppShell";
 import { Artwork } from "@/components/Artwork";
 import { BrandBadge } from "@/components/BrandBadge";
 import { ScorePill } from "@/components/ScorePill";
+import { FlagMatchButton } from "@/components/FlagMatchButton";
 import { useDiscovery, type EpisodeEntry } from "@/lib/discovery";
 import { prefsActions } from "@/lib/prefs";
 import type { EpisodeRating, ListeningStatus, ProductionQuality } from "@/lib/types";
@@ -244,6 +245,7 @@ function MovieDetailPage() {
                 <EpisodeRow
                   key={ep.episode.id}
                   entry={ep}
+                  movieId={movie.id}
                   rating={prefs.ratings[ep.episode.slug] ?? null}
                   listening={prefs.listening[ep.episode.slug] ?? "not_started"}
                   quality={prefs.quality[ep.episode.slug] ?? null}
@@ -259,11 +261,13 @@ function MovieDetailPage() {
 
 function EpisodeRow({
   entry,
+  movieId,
   rating,
   listening,
   quality,
 }: {
   entry: EpisodeEntry;
+  movieId: string;
   rating: EpisodeRating | null;
   listening: ListeningStatus;
   quality: ProductionQuality | null;
@@ -318,19 +322,22 @@ function EpisodeRow({
             </a>
           ) : null}
 
-          <button
-            type="button"
-            onClick={() => prefsActions.togglePreferredPodcast(podcast.slug, !preferred)}
-            aria-pressed={preferred}
-            aria-label={preferred ? `Unfollow ${podcast.name}` : `Prefer ${podcast.name}`}
-            className={`rounded-full border p-1.5 transition-colors ${
-              preferred
-                ? "border-transparent bg-berry text-primary-foreground"
-                : "border-border text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Heart className="size-3.5" aria-hidden />
-          </button>
+          <div className="flex items-center gap-1.5">
+            <FlagMatchButton episodeId={episode.id} movieId={movieId} />
+            <button
+              type="button"
+              onClick={() => prefsActions.togglePreferredPodcast(podcast.slug, !preferred)}
+              aria-pressed={preferred}
+              aria-label={preferred ? `Unfollow ${podcast.name}` : `Prefer ${podcast.name}`}
+              className={`rounded-full border p-1.5 transition-colors ${
+                preferred
+                  ? "border-transparent bg-berry text-primary-foreground"
+                  : "border-border text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Heart className="size-3.5" aria-hidden />
+            </button>
+          </div>
         </div>
       </div>
 

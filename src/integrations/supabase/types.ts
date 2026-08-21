@@ -49,6 +49,57 @@ export type Database = {
           },
         ]
       }
+      episode_link_flags: {
+        Row: {
+          created_at: string
+          episode_id: string
+          flagged_by: string | null
+          id: string
+          movie_id: string
+          note: string | null
+          resolution: string | null
+          resolved_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          episode_id: string
+          flagged_by?: string | null
+          id?: string
+          movie_id: string
+          note?: string | null
+          resolution?: string | null
+          resolved_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          episode_id?: string
+          flagged_by?: string | null
+          id?: string
+          movie_id?: string
+          note?: string | null
+          resolution?: string | null
+          resolved_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "episode_link_flags_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "podcast_episodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "episode_link_flags_movie_id_fkey"
+            columns: ["movie_id"]
+            isOneToOne: false
+            referencedRelation: "movies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       episode_match_rejections: {
         Row: {
           created_at: string

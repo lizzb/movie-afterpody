@@ -40,13 +40,7 @@ export function MatchHistoryCard({ onSuccess }: { onSuccess: () => void }) {
   });
 
   return (
-    <section id="match-history" className="scroll-mt-4 rounded-2xl border border-border bg-card p-5">
-      <h2 className="font-display text-lg font-bold">Recent match decisions</h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Every approve, reject, unlink and confirm is logged here. Undo restores the link state from
-        before that decision.
-      </p>
-
+    <div>
       {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
 
       {actions.isLoading ? (
@@ -89,6 +83,6 @@ export function MatchHistoryCard({ onSuccess }: { onSuccess: () => void }) {
           ))}
         </ul>
       )}
-    </section>
+    </div>
   );
 }

@@ -5,6 +5,7 @@ import { AppShell } from "@/components/AppShell";
 import { Artwork } from "@/components/Artwork";
 import { BrandBadge } from "@/components/BrandBadge";
 import { ViewToggle } from "@/components/ViewToggle";
+import { FlagMatchButton } from "@/components/FlagMatchButton";
 import { usePodcasts, type PodcastMovie } from "@/lib/podcasts";
 import { prefsActions, type ViewMode } from "@/lib/prefs";
 
@@ -286,8 +287,14 @@ function CoveredMovie({ item, view }: { item: PodcastMovie; view: ViewMode }) {
           </h3>
           <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
             {item.episodes.map((ep) => (
-              <li key={ep.id} className="line-clamp-1">
-                {ep.title}
+              <li key={ep.id} className="flex items-center gap-1">
+                <span className="line-clamp-1 min-w-0 flex-1">{ep.title}</span>
+                <FlagMatchButton
+                  episodeId={ep.id}
+                  movieId={movie.id}
+                  variant="inline"
+                  label=""
+                />
               </li>
             ))}
           </ul>
