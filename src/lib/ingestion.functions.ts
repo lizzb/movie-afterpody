@@ -295,7 +295,7 @@ export const ingestPodcast = createServerFn({ method: "POST" })
         /* source insert is best-effort */
       }
 
-      const candidates = clients.matchEpisodeToMovies(ep.title, movieList);
+      const candidates = clients.matchEpisodeToMovies(ep.title, movieList, { description: ep.description || null });
       const top = candidates[0];
       if (top) {
         if (top.confidence >= 80) {
@@ -393,7 +393,7 @@ export const suggestEpisodeMatches = createServerFn({ method: "POST" })
           ep.podcasts.name.toLowerCase().includes(term),
       )
       .map((ep) => {
-        const candidates = matchEpisodeToMovies(ep.title, movieList, { rejectionCountByMovie }).filter(
+        const candidates = matchEpisodeToMovies(ep.title, movieList, { rejectionCountByMovie, description: ep.description }).filter(
           (c) => !rejectedPairs.has(`${ep.id}:${c.movieId}`),
         );
         const top = candidates[0];
@@ -1140,7 +1140,7 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
     let stillUnlinked = 0;
 
     for (const ep of unlinked) {
-      const top = matchEpisodeToMovies(ep.title, movieList, { rejectionCountByMovie }).filter(
+      const top = matchEpisodeToMovies(ep.title, movieList, { rejectionCountByMovie, description: ep.description }).filter(
         (c) => !rejected.has(`${ep.id}:${c.movieId}`),
       )[0];
       if (!top || top.confidence < 50) {
