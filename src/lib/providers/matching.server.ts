@@ -2,13 +2,17 @@ import { normalizeTitle } from "./shared.server";
 
 export interface MatchSignals {
   /** Which rule produced the base score. */
-  rule: "exact" | "contained" | "tokens" | "weak";
+  rule: "exact" | "contained" | "tokens" | "weak" | "description";
   tokenOverlap: number;
   yearMatch: "same" | "near" | "mismatch" | "unknown";
   /** Movie title is a single short word — a common source of false positives. */
   genericTitle: boolean;
   /** How many times this movie has been rejected as a match anywhere. */
   rejectedBefore: number;
+  /** The movie title appears verbatim in the episode description. */
+  descTitle: boolean;
+  /** Year agreement between the movie and years mentioned in the description. */
+  descYear: "same" | "near" | "mismatch" | "unknown";
 }
 
 export interface MovieMatchCandidate {
@@ -23,9 +27,15 @@ export interface MovieMatchCandidate {
 export interface MatchOptions {
   /** Learned negative evidence: movieId → number of recorded rejections. */
   rejectionCountByMovie?: Record<string, number> | undefined;
+  /** Episode description / show notes — read for titles and years. */
+  description?: string | null | undefined;
 }
 
 const YEAR_RE = /\b(19\d{2}|20\d{2})\b/;
+const YEAR_ALL_RE = /\b(19\d{2}|20\d{2})\b/g;
+/** Descriptions get long; only the opening is reliably about the episode's subject. */
+const DESC_CHARS = 700;
+
 
 function extractYear(title: string): number | null {
   const m = title.match(YEAR_RE);
@@ -62,6 +72,16 @@ export function matchEpisodeToMovies(
   const episodeYear = extractYear(episodeTitle);
   const episodeNoYear = removeYear(episodeTitle);
   const episodeTokens = tokenSet(episodeNoYear);
+
+  // Description-aware signals (Pass C2): deterministic, no AI, no network.
+  const descRaw = (options.description ?? "")
+    .replace(/<[^>]*>/g, " ")
+    .slice(0, DESC_CHARS);
+  const descPadded = descRaw ? ` ${normalizeTitle(descRaw)} ` : "";
+  const descYears = new Set<number>(
+    descRaw ? (descRaw.match(YEAR_ALL_RE) ?? []).map((y) => Number(y)) : [],
+  );
+
 
   const candidates: MovieMatchCandidate[] = movies.map((movie) => {
     const movieTokens = tokenSet(movie.title);
@@ -131,6 +151,45 @@ export function matchEpisodeToMovies(
       reason += " - generic title";
     }
 
+    // Description-aware evidence: the show notes usually name the film outright,
+    // often with its release year, even when the episode title is a pun.
+    let descTitle = false;
+    let descYear: MatchSignals["descYear"] = "unknown";
+    const longEnough = movieLower.replace(/ /g, "").length >= 5 || movieTokens.size >= 2;
+    if (descPadded && longEnough && !(genericTitle && movieLower.length <= 4)) {
+      descTitle = descPadded.includes(` ${movieLower} `);
+    }
+
+    if (descTitle) {
+      if (rule === "weak") {
+        // Title gave us nothing; the description alone is decent-but-unconfirmed evidence.
+        confidence = Math.max(confidence, genericTitle ? 40 : 48);
+        reason = "named in description";
+        rule = "description";
+      } else {
+        confidence = Math.min(100, confidence + 10);
+        reason += " + named in description";
+      }
+
+      if (movie.release_year && descYears.size > 0) {
+        if (descYears.has(movie.release_year)) {
+          confidence = Math.min(100, confidence + 10);
+          reason += " + year in description";
+          descYear = "same";
+        } else if ([...descYears].some((y) => Math.abs(y - movie.release_year!) <= 1)) {
+          confidence = Math.min(100, confidence + 3);
+          reason += " + year near in description";
+          descYear = "near";
+        } else {
+          descYear = "mismatch";
+          if (rule === "description") {
+            confidence = Math.max(0, confidence - 8);
+            reason += " - year not in description";
+          }
+        }
+      }
+    }
+
     const rejectedBefore = rejectionCounts[movie.id] ?? 0;
     if (rejectedBefore >= 2 && rule !== "exact") {
       confidence = Math.max(0, confidence - Math.min(25, rejectedBefore * 6));
@@ -149,8 +208,11 @@ export function matchEpisodeToMovies(
         yearMatch,
         genericTitle,
         rejectedBefore,
+        descTitle,
+        descYear,
       },
     };
+
   });
 
   candidates.sort((a, b) => b.confidence - a.confidence);
