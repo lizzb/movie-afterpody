@@ -842,6 +842,7 @@ export const listIngestionStats = createServerFn({ method: "GET" })
       { count: retiredCount },
       { count: tmdbLinkedCount },
       unlinked,
+      unlinkedAll,
     ] = await Promise.all([
       supabaseAdmin.from("movies").select("*", { count: "exact", head: true }),
       supabaseAdmin
@@ -872,7 +873,10 @@ export const listIngestionStats = createServerFn({ method: "GET" })
       // Counted exactly the way the Unmatched episodes card counts (active shows
       // only), so the tile and the section can never disagree.
       fetchUnlinkedEpisodes(supabaseAdmin),
+      // Same count with parked shows included, so nothing is silently invisible.
+      fetchUnlinkedEpisodes(supabaseAdmin, { activeOnly: false }),
     ]);
+
 
     return {
       movies: movieCount ?? 0,
@@ -885,6 +889,7 @@ export const listIngestionStats = createServerFn({ method: "GET" })
       retiredEpisodes: retiredCount ?? 0,
       tmdbLinked: tmdbLinkedCount ?? 0,
       unmatchedEpisodes: unlinked.length,
+      unmatchedEpisodesAll: unlinkedAll.length,
     };
   });
 
@@ -1173,9 +1178,13 @@ export const listUnmatchedEpisodes = createServerFn({ method: "POST" })
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { fetchUnlinkedEpisodes } = await import("./ingestion-helpers.server");
-    const all = await fetchUnlinkedEpisodes(supabaseAdmin, { podcastId: data.podcastId });
+    const [all, everything] = await Promise.all([
+      fetchUnlinkedEpisodes(supabaseAdmin, { podcastId: data.podcastId }),
+      fetchUnlinkedEpisodes(supabaseAdmin, { podcastId: data.podcastId, activeOnly: false }),
+    ]);
     return {
       total: all.length,
+      totalIncludingParked: everything.length,
       episodes: all.slice(0, data.limit).map((ep) => ({
         episodeId: ep.id,
         episodeTitle: ep.title,

@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { ChevronDown } from "lucide-react";
+import { ArrowUp, ChevronDown } from "lucide-react";
 
 interface Props {
   id?: string;
@@ -68,7 +68,20 @@ export function CollapsibleCard({
         </span>
         {badge ? <span className="shrink-0 text-xs font-semibold text-coral">{badge}</span> : null}
       </button>
-      {open ? <div className="border-t border-border px-5 pb-5 pt-4">{children}</div> : null}
+      {open ? (
+        <div className="border-t border-border px-5 pb-5 pt-4">
+          <div className="mb-3 flex justify-end">
+            <a
+              href="#admin-top"
+              className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground"
+            >
+              <ArrowUp className="size-3" aria-hidden />
+              Back to top
+            </a>
+          </div>
+          {children}
+        </div>
+      ) : null}
     </section>
   );
 }
