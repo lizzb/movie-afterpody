@@ -462,16 +462,18 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
                     type="button"
                     disabled={bulk.isPending}
                     onClick={() => runBulk("confirm")}
-                    className="rounded-full bg-teal px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-teal px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"
                   >
+                    <Check className="size-3.5" aria-hidden />
                     Confirm all correct
                   </button>
                   <button
                     type="button"
                     disabled={bulk.isPending}
                     onClick={() => runBulk("unlink")}
-                    className="rounded-full border border-border px-3 py-2 text-xs font-semibold disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs font-semibold disabled:opacity-50"
                   >
+                    <Unlink className="size-3.5" aria-hidden />
                     Unlink all
                   </button>
                 </>
