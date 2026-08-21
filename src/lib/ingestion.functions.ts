@@ -1179,26 +1179,40 @@ export const listPodcastCoverage = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { pageAll } = await import("./ingestion-helpers.server");
+
     const { data: podcasts, error } = await supabaseAdmin
       .from("podcasts")
-      .select("id, name, episode_count")
+      .select("id, name, episode_count, curation_status")
       .order("name");
     if (error) throw error;
 
-    const rows = await Promise.all(
-      (podcasts ?? []).map(async (p) => {
-        const { count } = await supabaseAdmin
-          .from("podcast_episodes")
-          .select("id", { count: "exact", head: true })
-          .eq("podcast_id", p.id);
-        return {
-          podcastId: p.id,
-          name: p.name,
-          stored: count ?? 0,
-          feedTotal: p.episode_count ?? 0,
-        };
-      }),
+    // One paged read of every episode + link, then counted per show — far cheaper
+    // than three count queries per podcast.
+    const episodes = await pageAll<{ id: string; podcast_id: string; disposition: string }>(
+      (from, to) =>
+        supabaseAdmin.from("podcast_episodes").select("id, podcast_id, disposition").range(from, to),
     );
+    const linkRows = await pageAll<{ episode_id: string }>((from, to) =>
+      supabaseAdmin.from("episode_movies").select("episode_id").range(from, to),
+    );
+    const linked = new Set(linkRows.map((l) => l.episode_id));
+
+    const rows = (podcasts ?? []).map((p) => {
+      const own = episodes.filter((e) => e.podcast_id === p.id);
+      const linkedCount = own.filter((e) => linked.has(e.id)).length;
+      const retired = own.filter((e) => !linked.has(e.id) && e.disposition === "not_about_a_movie").length;
+      return {
+        podcastId: p.id,
+        name: p.name,
+        stored: own.length,
+        feedTotal: p.episode_count ?? 0,
+        curationStatus: (p.curation_status ?? "active") as "active" | "parked",
+        linked: linkedCount,
+        retired,
+        unmatched: own.length - linkedCount - retired,
+      };
+    });
 
     return { podcasts: rows };
   });
