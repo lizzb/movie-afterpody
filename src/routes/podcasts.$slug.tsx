@@ -5,6 +5,7 @@ import { AppShell } from "@/components/AppShell";
 import { Artwork } from "@/components/Artwork";
 import { BrandBadge } from "@/components/BrandBadge";
 import { ViewToggle } from "@/components/ViewToggle";
+import { FlagMatchButton } from "@/components/FlagMatchButton";
 import { usePodcasts, type PodcastMovie } from "@/lib/podcasts";
 import { prefsActions, type ViewMode } from "@/lib/prefs";
 
