@@ -696,16 +696,19 @@ function UnmatchedEpisodesCard() {
           disabled={rescan.isPending}
           className="inline-flex items-center rounded-full border border-border px-5 py-2.5 text-sm font-semibold disabled:opacity-50"
         >
-          {rescan.isPending ? "Rescanning…" : "Recheck these against existing movies"}
+          {rescan.isPending ? "Rescanning…" : "Recheck every episode against existing movies"}
         </button>
         <p className="mt-2 text-xs text-muted-foreground">
-          Compares unmatched episode titles against movies already in the catalogue and links the
-          confident ones. No TMDB calls, no new movies created, rejected pairs skipped. Use it after
-          you add a movie by hand.
+          Rescores every episode in your active shows against the movies already in the catalogue:
+          links unmatched ones, replaces a weak match when a newly added movie clearly beats it, and
+          attaches extra films to episodes that cover more than one (trilogies, double features).
+          Matches you confirmed by hand are never touched, rejected pairs are always skipped, and no
+          TMDB calls are made. Run it after adding movies by hand.
         </p>
         {rescan.isSuccess ? (
           <p className="mt-2 text-sm text-teal">
-            Rescanned {rescan.data.scanned} · linked {rescan.data.linked} ·{" "}
+            Rescanned {rescan.data.scanned} · newly linked {rescan.data.linked} · improved{" "}
+            {rescan.data.improved} · extra films added {rescan.data.extraAdded} ·{" "}
             {rescan.data.stillUnlinked} still unmatched.
           </p>
         ) : null}
