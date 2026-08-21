@@ -889,6 +889,7 @@ export const listIngestionStats = createServerFn({ method: "GET" })
       retiredEpisodes: retiredCount ?? 0,
       tmdbLinked: tmdbLinkedCount ?? 0,
       unmatchedEpisodes: unlinked.length,
+      unmatchedEpisodesAll: unlinkedAll.length,
     };
   });
 
