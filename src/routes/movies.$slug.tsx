@@ -244,6 +244,7 @@ function MovieDetailPage() {
                 <EpisodeRow
                   key={ep.episode.id}
                   entry={ep}
+                  movieId={movie.id}
                   rating={prefs.ratings[ep.episode.slug] ?? null}
                   listening={prefs.listening[ep.episode.slug] ?? "not_started"}
                   quality={prefs.quality[ep.episode.slug] ?? null}
