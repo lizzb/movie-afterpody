@@ -128,6 +128,7 @@ function buildEntries(catalog: Catalog, user: UserData, prefs: Prefs): MovieEntr
       score: scoreMovie(movie.id, catalog, user),
       genres,
       services,
+      rentBuyServices,
       episodes,
       watched: watchedIds.has(movie.id),
       onMyServices: services.some((s) => mySlugs.has(s.slug)),
