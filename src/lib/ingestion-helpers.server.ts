@@ -39,21 +39,30 @@ export interface EpisodeRow {
   podcast_id: string;
   released_at: string | null;
   disposition: "needs_review" | "movie_matched" | "not_about_a_movie";
-  podcasts: { id: string; name: string };
+  podcasts: { id: string; name: string; curation_status: "active" | "parked" };
 }
 
-/** Every episode, paged, newest first. */
+/**
+ * Every episode, paged, newest first.
+ * `activeOnly` (default true) drops episodes belonging to parked shows so every
+ * review queue is scoped to the shows you are actually working on. Nothing is
+ * deleted — flipping a show back to active brings its episodes straight back.
+ */
 export async function fetchAllEpisodes(
   admin: Admin,
-  opts: { podcastId?: string | undefined } = {},
+  opts: { podcastId?: string | undefined; activeOnly?: boolean } = {},
 ): Promise<EpisodeRow[]> {
+  const activeOnly = opts.activeOnly ?? true;
   return pageAll<EpisodeRow>((from, to) => {
     let q = admin
       .from("podcast_episodes")
-      .select("id, slug, title, podcast_id, released_at, disposition, podcasts!inner(id, name)")
+      .select(
+        "id, slug, title, podcast_id, released_at, disposition, podcasts!inner(id, name, curation_status)",
+      )
       .order("released_at", { ascending: false })
       .range(from, to);
     if (opts.podcastId) q = q.eq("podcast_id", opts.podcastId);
+    if (activeOnly) q = q.eq("podcasts.curation_status", "active");
     return q.returns<EpisodeRow[]>();
   });
 }
@@ -61,9 +70,17 @@ export async function fetchAllEpisodes(
 /** Episodes with zero rows in episode_movies — nothing surfaces them in the app. */
 export async function fetchUnlinkedEpisodes(
   admin: Admin,
-  opts: { podcastId?: string | undefined; limit?: number | undefined; includeRetired?: boolean } = {},
+  opts: {
+    podcastId?: string | undefined;
+    limit?: number | undefined;
+    includeRetired?: boolean;
+    activeOnly?: boolean;
+  } = {},
 ): Promise<UnlinkedEpisode[]> {
-  const episodes = await fetchAllEpisodes(admin, { podcastId: opts.podcastId });
+  const episodes = await fetchAllEpisodes(admin, {
+    podcastId: opts.podcastId,
+    activeOnly: opts.activeOnly ?? true,
+  });
   const linkRows = await pageAll<{ episode_id: string }>((from, to) =>
     admin.from("episode_movies").select("episode_id").range(from, to),
   );

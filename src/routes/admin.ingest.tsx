@@ -428,53 +428,155 @@ function EnrichMovieForm({ onSuccess }: { onSuccess: () => void }) {
   );
 }
 
+function relativeTime(iso: string | null): string {
+  if (!iso) return "never";
+  const hours = (Date.now() - new Date(iso).getTime()) / 3_600_000;
+  if (hours < 1) return "just now";
+  if (hours < 24) return `${Math.round(hours)}h ago`;
+  return `${Math.round(hours / 24)}d ago`;
+}
+
+const AVAILABILITY_BATCH = 80;
+
 function RefreshAvailabilityForm({ onSuccess }: { onSuccess: () => void }) {
   const fn = useServerFn(refreshAvailability);
-  const [offset, setOffset] = useState(0);
-  const mutation = useMutation({
-    mutationFn: fn,
-    onSuccess: (result) => {
-      setOffset(result.nextOffset);
-      onSuccess();
-    },
+  const fetchFreshness = useServerFn(availabilityFreshness);
+  const queryClient = useQueryClient();
+  const freshness = useQuery({
+    queryKey: ["availability-freshness"],
+    queryFn: () => fetchFreshness({}),
+    retry: false,
+    refetchOnWindowFocus: false,
   });
+
+  const [running, setRunning] = useState(false);
+  const [progress, setProgress] = useState<{
+    checked: number;
+    offers: number;
+    genres: number;
+    failed: number;
+    done: boolean;
+  } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const cancelRef = useRef(false);
+
+  // Chained runs: each request stays small enough to finish, but pressing once
+  // works through hundreds of movies, always starting with the stalest.
+  const run = async (maxMovies: number, staleOnly: boolean) => {
+    cancelRef.current = false;
+    setRunning(true);
+    setError(null);
+    let checked = 0;
+    let offers = 0;
+    let genres = 0;
+    let failed = 0;
+    let done = false;
+    try {
+      while (checked < maxMovies && !cancelRef.current) {
+        const limit = Math.min(AVAILABILITY_BATCH, maxMovies - checked);
+        const result = await fn({
+          data: {
+            region: "US",
+            limit,
+            ...(staleOnly && freshness.data?.staleBefore
+              ? { staleBefore: freshness.data.staleBefore }
+              : {}),
+          },
+        });
+        checked += result.updated;
+        offers += result.offersWritten;
+        genres += result.genreLinks;
+        failed += result.failed.length;
+        setProgress({ checked, offers, genres, failed, done: result.done });
+        if (result.done) {
+          done = true;
+          break;
+        }
+      }
+      setProgress({ checked, offers, genres, failed, done });
+      await queryClient.invalidateQueries({ queryKey: ["availability-freshness"] });
+      onSuccess();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const f = freshness.data;
 
   return (
     <div>
       <p className="mt-1 text-sm text-muted-foreground">
-        Pulls TMDB watch providers (US) and genres, 40 movies per run so the request never times
-        out. Press again to continue from movie {offset + 1}.
+        Pulls TMDB watch providers (US) and genres. Movies are processed oldest-checked first, in
+        batches of {AVAILABILITY_BATCH}, chained automatically — so one press covers hundreds. Only
+        subscription and free-with-ads offers count as "available" in the app; rent/buy offers are
+        stored but never shown as streaming.
       </p>
+
+      {f ? (
+        <dl className="mt-4 grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+          <div className="rounded-xl border border-border/60 px-3 py-2">
+            <dt className="text-muted-foreground">Never checked</dt>
+            <dd className="font-display text-lg">
+              {f.neverChecked}
+              <span className="text-xs text-muted-foreground"> / {f.total}</span>
+            </dd>
+          </div>
+          <div className="rounded-xl border border-border/60 px-3 py-2">
+            <dt className="text-muted-foreground">Older than 7 days</dt>
+            <dd className="font-display text-lg">{f.staleOverAWeek}</dd>
+          </div>
+          <div className="rounded-xl border border-border/60 px-3 py-2">
+            <dt className="text-muted-foreground">Oldest check</dt>
+            <dd className="font-display text-lg">{relativeTime(f.oldestCheck)}</dd>
+          </div>
+          <div className="rounded-xl border border-border/60 px-3 py-2">
+            <dt className="text-muted-foreground">Last run</dt>
+            <dd className="font-display text-lg">{relativeTime(f.newestCheck)}</dd>
+          </div>
+        </dl>
+      ) : null}
+
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <button
           type="button"
-          onClick={() => mutation.mutate({ data: { region: "US", limit: 40, offset } })}
-          disabled={mutation.isPending}
+          onClick={() => run(400, true)}
+          disabled={running}
           className="inline-flex items-center rounded-full bg-navy px-5 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
         >
-          {mutation.isPending ? "Syncing…" : `Sync next 40 (from #${offset + 1})`}
+          {running ? "Syncing…" : "Sync up to 400 stale movies"}
         </button>
-        {offset > 0 ? (
+        <button
+          type="button"
+          onClick={() => run(AVAILABILITY_BATCH, true)}
+          disabled={running}
+          className="rounded-full border border-border px-4 py-2 text-sm font-semibold disabled:opacity-50"
+        >
+          Just {AVAILABILITY_BATCH}
+        </button>
+        {running ? (
           <button
             type="button"
-            onClick={() => setOffset(0)}
+            onClick={() => {
+              cancelRef.current = true;
+            }}
             className="rounded-full border border-border px-4 py-2 text-sm font-semibold"
           >
-            Start over
+            Stop after this batch
           </button>
         ) : null}
       </div>
-      {mutation.isSuccess ? (
+
+      {progress ? (
         <p className="mt-3 text-sm text-teal">
-          Checked {mutation.data.updated} movies · {mutation.data.offersWritten} streaming offers ·{" "}
-          {mutation.data.genreLinks} genre links. {mutation.data.total} movies have a TMDB id.
-          {mutation.data.done ? " All movies processed." : ""}
-          {mutation.data.failed.length > 0 ? ` ${mutation.data.failed.length} failed.` : ""}
+          Checked {progress.checked} movies · {progress.offers} offers · {progress.genres} genre
+          links.
+          {progress.done ? " Everything in scope is up to date." : ""}
+          {progress.failed > 0 ? ` ${progress.failed} failed.` : ""}
         </p>
       ) : null}
-      {mutation.isError ? (
-        <p className="mt-3 text-sm text-destructive">{(mutation.error as Error).message}</p>
-      ) : null}
+      {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
     </div>
   );
 }

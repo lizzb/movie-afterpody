@@ -46,6 +46,8 @@ export interface MovieAvailability {
   deep_link: string | null;
 }
 
+export type PodcastCuration = "active" | "parked";
+
 export interface Podcast {
   id: string;
   slug: string;
@@ -57,6 +59,7 @@ export interface Podcast {
   latest_episode_at: string | null;
   activity_status: PodcastActivity;
   website_url: string | null;
+  curation_status: PodcastCuration;
 }
 
 export interface PodcastMetric {
