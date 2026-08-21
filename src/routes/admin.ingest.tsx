@@ -604,6 +604,14 @@ function RefreshAvailabilityForm({ onSuccess }: { onSuccess: () => void }) {
         </button>
         <button
           type="button"
+          onClick={() => run(Number.POSITIVE_INFINITY, true)}
+          disabled={running}
+          className="rounded-full border border-border px-4 py-2 text-sm font-semibold disabled:opacity-50"
+        >
+          Run until done
+        </button>
+        <button
+          type="button"
           onClick={() => run(AVAILABILITY_BATCH, true)}
           disabled={running}
           className="rounded-full border border-border px-4 py-2 text-sm font-semibold disabled:opacity-50"
@@ -624,13 +632,20 @@ function RefreshAvailabilityForm({ onSuccess }: { onSuccess: () => void }) {
       </div>
 
       {progress ? (
-        <p className="mt-3 text-sm text-teal">
-          Checked {progress.checked} movies · {progress.offers} offers · {progress.genres} genre
-          links.
-          {progress.done ? " Everything in scope is up to date." : ""}
-          {progress.failed > 0 ? ` ${progress.failed} failed.` : ""}
-        </p>
+        <div className="mt-3 space-y-1 text-sm">
+          <p className="text-teal">
+            {running ? "Checking" : "Checked"} movies {progress.batchFrom}–
+            {Math.max(progress.batchTo, progress.batchFrom)} of {progress.total} · {progress.offers}{" "}
+            offers · {progress.genres} genre links.
+            {progress.done ? " Everything in scope is up to date." : ""}
+            {progress.failed > 0 ? ` ${progress.failed} failed.` : ""}
+          </p>
+          {progress.failures.length > 0 ? (
+            <p className="text-xs text-destructive">{progress.failures.join("; ")}</p>
+          ) : null}
+        </div>
       ) : null}
+
       {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
     </div>
   );
