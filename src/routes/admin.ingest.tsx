@@ -630,7 +630,8 @@ function ResolveEpisodesCard({ onSuccess }: { onSuccess: () => void }) {
     <div>
       <p className="mt-1 text-sm text-muted-foreground">
         Reads unmatched episode titles, extracts the movie name, looks it up on TMDB, creates the
-        movie with full metadata and links the episode. Runs 100 episodes at a time.
+        movie with full metadata and links the episode. Runs 100 episodes at a time and reports why
+        any episode was skipped.
       </p>
       <div className="mt-4 flex flex-wrap gap-3">
         <button
@@ -643,22 +644,37 @@ function ResolveEpisodesCard({ onSuccess }: { onSuccess: () => void }) {
         </button>
       </div>
 
-
       {resolve.isSuccess ? (
-        <div className="mt-3 space-y-1 text-sm">
+        <div className="mt-3 space-y-2 text-sm">
           <p className="text-teal">
-            Linked {resolve.data.linked} of {resolve.data.attempted} episodes ·{" "}
-            {resolve.data.moviesCreated} movies created · {resolve.data.remaining} still unmatched.
+            Linked {resolve.data.linked} of {resolve.data.attempted} attempted (
+            {resolve.data.pool} unmatched in scope) · {resolve.data.moviesCreated} movies created ·{" "}
+            {resolve.data.remaining} not attempted this run.
           </p>
-          {resolve.data.skipped.length > 0 ? (
+          {resolve.data.attempted < resolve.data.requested ? (
             <p className="text-xs text-muted-foreground">
-              Skipped (not about a movie): {resolve.data.skipped.join("; ")}
+              Only {resolve.data.attempted} episodes were available — the unmatched pool is smaller
+              than the requested {resolve.data.requested}.
             </p>
           ) : null}
-          {resolve.data.unresolved.length > 0 ? (
-            <p className="text-xs text-muted-foreground">
-              Needs a manual link: {resolve.data.unresolved.join("; ")}
-            </p>
+          {resolve.data.skipped > 0 ? (
+            <div className="rounded-xl border border-border/60 px-3 py-2">
+              <p className="text-xs font-semibold">
+                {resolve.data.skipped} skipped — why:
+              </p>
+              <ul className="mt-1 space-y-1">
+                {resolve.data.skipReasons.map((r) => (
+                  <li key={r.reason} className="text-xs text-muted-foreground">
+                    <span className="font-semibold text-foreground">{r.count}</span> · {r.label}
+                    {r.examples.length > 0 ? (
+                      <span className="block text-[11px] text-muted-foreground/80">
+                        e.g. {r.examples.join("; ")}
+                      </span>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
           ) : null}
         </div>
       ) : null}
@@ -668,6 +684,7 @@ function ResolveEpisodesCard({ onSuccess }: { onSuccess: () => void }) {
     </div>
   );
 }
+
 
 function UnmatchedEpisodesCard() {
   const fn = useServerFn(listUnmatchedEpisodes);
