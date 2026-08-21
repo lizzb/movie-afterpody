@@ -2,13 +2,17 @@ import { normalizeTitle } from "./shared.server";
 
 export interface MatchSignals {
   /** Which rule produced the base score. */
-  rule: "exact" | "contained" | "tokens" | "weak";
+  rule: "exact" | "contained" | "tokens" | "weak" | "description";
   tokenOverlap: number;
   yearMatch: "same" | "near" | "mismatch" | "unknown";
   /** Movie title is a single short word — a common source of false positives. */
   genericTitle: boolean;
   /** How many times this movie has been rejected as a match anywhere. */
   rejectedBefore: number;
+  /** The movie title appears verbatim in the episode description. */
+  descTitle: boolean;
+  /** Year agreement between the movie and years mentioned in the description. */
+  descYear: "same" | "near" | "mismatch" | "unknown";
 }
 
 export interface MovieMatchCandidate {
@@ -23,9 +27,15 @@ export interface MovieMatchCandidate {
 export interface MatchOptions {
   /** Learned negative evidence: movieId → number of recorded rejections. */
   rejectionCountByMovie?: Record<string, number> | undefined;
+  /** Episode description / show notes — read for titles and years. */
+  description?: string | null | undefined;
 }
 
 const YEAR_RE = /\b(19\d{2}|20\d{2})\b/;
+const YEAR_ALL_RE = /\b(19\d{2}|20\d{2})\b/g;
+/** Descriptions get long; only the opening is reliably about the episode's subject. */
+const DESC_CHARS = 700;
+
 
 function extractYear(title: string): number | null {
   const m = title.match(YEAR_RE);
