@@ -18,9 +18,6 @@ Full detail: `.lovable/plan/pass-r-shrink-working-set-2026-08-20.md`.
 - **R3 — Score the matcher — ~25k — Priority 2.** `matcher-eval.server.ts` replays current scoring rules over the labelled approve/reject/confirm set in `match_actions` + `episode_match_rejections` and reports precision, recall and the confidence band where mistakes cluster. No TMDB calls.
 
 
-### Pass K — Ingestion throughput and honest errors — ~35k — Priority 3
-"Build movies from episodes" reports why episodes were skipped instead of silently doing fewer than requested. Per-podcast sync errors surfaced, "sync all incomplete" button, and a coverage filter for shows where stored count is below feed count. Partially done already (availability sync remembers its offset and reports a range).
-
 ## Worth doing soon
 
 ### Pass D — Header consistency + info sheet — ~30k — Priority 4
@@ -91,6 +88,9 @@ All hand-seeded podcasts, episodes and movies were removed (twice) so the catalo
 
 ### Availability accuracy + throughput — verified 2026-08-21
 `availability_checked_at` per movie; staleness-first queue (never-checked, then oldest) so repeat runs always progress; batches of 80 chained automatically up to 400 movies per press; per-movie region rows deleted before insert so expired offers actually disappear; freshness tiles (never checked / older than 7 days / oldest check / last run). Only `subscription` and `free_ads` count as streaming — `rent`/`buy` are stored, shown on the movie page as a muted "Rent or buy only" line, and never badge a movie as available. TMDB provider 10 (Amazon Video storefront) mapped to Prime as a rent/buy offer, which was the source of the false "on Prime" badges. Movie pages show "Availability checked N days ago" so stale data is distinguishable from a genuine rental-only title.
+
+### Pass K — Ingestion throughput and honest errors — DONE (2026-08-21)
+"Build movies from episodes" now returns a per-reason skip breakdown (not about a movie / no title extracted / no TMDB match / already rejected / errored) with counts plus examples, and reports pool vs requested vs attempted so a short run is always explained. Podcast ingest returns feed total, stored count and named per-episode failures instead of a silent console warning. Episode coverage gained a "Behind feed only" filter, a per-show missing count, and a "Sync all incomplete" button that walks every active show behind its feed, keeps going after failures and logs each outcome by name. Availability sync gained a "Run until done" mode and now reports "movies 41-80 of 491" plus the failing movie names.
 
 ### Pass C2 — Description-aware matching — DONE (2026-08-21)
 `matching.server.ts` now reads the episode description (first 700 chars, HTML stripped) alongside the title: a verbatim title mention lifts a weak title match to ~48-58, boosts an existing title match by 10, and years found in the description add up to 10 more (or a small penalty when a description-only match's year is absent). Guards keep short/generic titles from matching on description alone. Two new signals (`descTitle`, `descYear`) plus a `description` rule are stored on every link for pass R3's evaluation. Descriptions flow through `fetchAllEpisodes` / `fetchUnlinkedEpisodes` into suggest, rescan and first-ingest matching. Deterministic, no AI, no extra network calls.
