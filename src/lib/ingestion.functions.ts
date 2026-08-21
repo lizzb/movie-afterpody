@@ -249,6 +249,10 @@ export const ingestPodcast = createServerFn({ method: "POST" })
     let insertedEpisodes = 0;
     let insertedMatches = 0;
     let pendingMatches = 0;
+    // Surfaced instead of swallowed: a feed with 900 episodes that only stores 700
+    // should say why rather than looking like a coverage mystery.
+    const episodeErrors: string[] = [];
+
 
     for (const ep of episodes) {
       const epSlug = clients.episodeSlug(upsertedPodcast.slug, ep.title);
