@@ -861,6 +861,8 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
   const fetchCoverage = useServerFn(listPodcastCoverage);
   const sync = useServerFn(ingestPodcast);
   const setCuration = useServerFn(setPodcastCuration);
+  const rescanShow = useServerFn(rescanEpisodeMatches);
+  const buildShow = useServerFn(resolveEpisodesToMovies);
   const queryClient = useQueryClient();
   const coverage = useQuery({
     queryKey: ["podcast-coverage"],
@@ -896,6 +898,55 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
     setError(null);
     try {
       await syncOne(podcastId, name);
+      await refresh();
+    } catch (e) {
+      setSyncLog((prev) => [{ name, message: (e as Error).message, ok: false }, ...prev].slice(0, 25));
+      setError((e as Error).message);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  // Same two pipeline steps as the page-level buttons, scoped to one show.
+  const rescanPodcast = async (podcastId: string, name: string) => {
+    setBusyId(podcastId);
+    setError(null);
+    try {
+      const r = await rescanShow({ data: { podcastId, limit: 150 } });
+      setSyncLog((prev) =>
+        [
+          {
+            name,
+            message: `recheck: ${r.scanned} scanned · ${r.linked} linked · ${r.improved} improved · ${r.extraAdded} extra · ${r.stillUnlinked} still unmatched`,
+            ok: true,
+          },
+          ...prev,
+        ].slice(0, 25),
+      );
+      await refresh();
+    } catch (e) {
+      setSyncLog((prev) => [{ name, message: (e as Error).message, ok: false }, ...prev].slice(0, 25));
+      setError((e as Error).message);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const buildPodcast = async (podcastId: string, name: string) => {
+    setBusyId(podcastId);
+    setError(null);
+    try {
+      const r = await buildShow({ data: { podcastId, limit: 100 } });
+      setSyncLog((prev) =>
+        [
+          {
+            name,
+            message: `build: ${r.linked} linked · ${r.moviesCreated} movies created · ${r.skipped} skipped`,
+            ok: true,
+          },
+          ...prev,
+        ].slice(0, 25),
+      );
       await refresh();
     } catch (e) {
       setSyncLog((prev) => [{ name, message: (e as Error).message, ok: false }, ...prev].slice(0, 25));
@@ -966,7 +1017,7 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
             {p.linked} linked · {p.unmatched} unmatched · {p.retired} not about a movie
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => toggleCuration(p.podcastId, isParked ? "active" : "parked")}
@@ -986,6 +1037,22 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
             className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
           >
             {busyId === p.podcastId ? "Working…" : "Sync episodes"}
+          </button>
+          <button
+            type="button"
+            onClick={() => rescanPodcast(p.podcastId, p.name)}
+            disabled={busyId === p.podcastId || isParked || bulkRunning}
+            className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
+          >
+            Recheck episodes
+          </button>
+          <button
+            type="button"
+            onClick={() => buildPodcast(p.podcastId, p.name)}
+            disabled={busyId === p.podcastId || isParked || bulkRunning}
+            className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
+          >
+            Build movies
           </button>
         </div>
       </li>
