@@ -218,6 +218,7 @@ export function matchEpisodeToMovies(
         tokenOverlap: Math.round(similarity * 100) / 100,
         yearMatch,
         genericTitle,
+        shortTitle,
         rejectedBefore,
         descTitle,
         descYear,
