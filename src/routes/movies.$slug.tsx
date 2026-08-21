@@ -321,19 +321,22 @@ function EpisodeRow({
             </a>
           ) : null}
 
-          <button
-            type="button"
-            onClick={() => prefsActions.togglePreferredPodcast(podcast.slug, !preferred)}
-            aria-pressed={preferred}
-            aria-label={preferred ? `Unfollow ${podcast.name}` : `Prefer ${podcast.name}`}
-            className={`rounded-full border p-1.5 transition-colors ${
-              preferred
-                ? "border-transparent bg-berry text-primary-foreground"
-                : "border-border text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Heart className="size-3.5" aria-hidden />
-          </button>
+          <div className="flex items-center gap-1.5">
+            <FlagMatchButton episodeId={episode.id} movieId={movieId} />
+            <button
+              type="button"
+              onClick={() => prefsActions.togglePreferredPodcast(podcast.slug, !preferred)}
+              aria-pressed={preferred}
+              aria-label={preferred ? `Unfollow ${podcast.name}` : `Prefer ${podcast.name}`}
+              className={`rounded-full border p-1.5 transition-colors ${
+                preferred
+                  ? "border-transparent bg-berry text-primary-foreground"
+                  : "border-border text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Heart className="size-3.5" aria-hidden />
+            </button>
+          </div>
         </div>
       </div>
 
