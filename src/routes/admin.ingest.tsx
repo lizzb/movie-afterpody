@@ -234,11 +234,22 @@ function IngestPage() {
   );
 }
 
-function Stat({ label, value, href }: { label: string; value: number; href?: string }) {
+function Stat({
+  label,
+  value,
+  sub,
+  href,
+}: {
+  label: string;
+  value: number;
+  sub?: string;
+  href?: string;
+}) {
   const body = (
     <>
       <p className="font-display text-2xl">{value}</p>
       <p className="text-xs text-muted-foreground">{label}</p>
+      {sub ? <p className="mt-0.5 text-[11px] text-muted-foreground/80">{sub}</p> : null}
     </>
   );
   if (href) {
