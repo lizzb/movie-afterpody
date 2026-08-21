@@ -692,7 +692,12 @@ function UnmatchedEpisodesCard() {
       ) : query.isError ? (
         <p className="mt-3 text-sm text-destructive">{(query.error as Error).message}</p>
       ) : (query.data?.total ?? 0) === 0 ? (
-        <p className="mt-4 text-sm text-teal">Every episode is linked to at least one movie.</p>
+        <p className="mt-4 text-sm text-teal">
+          Every episode in an active show is linked to at least one movie.
+          {(query.data?.totalIncludingParked ?? 0) > 0
+            ? ` ${query.data?.totalIncludingParked} unmatched episodes remain in parked shows.`
+            : ""}
+        </p>
       ) : (
         <>
           <p className="mt-3 text-sm font-semibold">
