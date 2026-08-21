@@ -145,6 +145,9 @@ async function loadAdminClients() {
 const TMDB_PROVIDER_TO_SLUG: Record<number, string> = {
   8: "netflix",
   9: "prime-video",
+  // 10 is the Amazon Video storefront (rent/buy). Mapped so a rent-only title is
+  // stored as a rent offer instead of looking like it streams on Prime.
+  10: "prime-video",
   119: "prime-video",
   337: "disney-plus",
   189: "max",

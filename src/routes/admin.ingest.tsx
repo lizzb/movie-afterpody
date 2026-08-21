@@ -137,7 +137,8 @@ function IngestPage() {
         ) : stats.data ? (
           <section className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
             <Stat label="Movies" value={stats.data.movies} />
-            <Stat label="Podcasts" value={stats.data.podcasts} />
+            <Stat label="Active shows" value={stats.data.podcasts} href="#coverage" />
+            <Stat label="Parked shows" value={stats.data.parkedPodcasts} href="#coverage" />
             <Stat label="Episodes" value={stats.data.episodes} />
             <Stat label="Flagged as wrong" value={stats.data.flagged} href="#match-review" />
             <Stat label="Links to review" value={stats.data.linksToReview} href="#match-review" />
