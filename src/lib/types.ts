@@ -31,6 +31,8 @@ export interface Movie {
   synopsis: string | null;
   poster_url: string | null;
   accent: string;
+  /** When TMDB watch providers were last checked for this movie. */
+  availability_checked_at?: string | null;
 }
 
 export interface MovieGenre {

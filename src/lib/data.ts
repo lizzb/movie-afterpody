@@ -60,7 +60,9 @@ async function fetchCatalog(): Promise<Catalog> {
         supabase
           .from("movies")
           .select(
-            sel("id, media_type, slug, title, release_year, runtime_minutes, synopsis, poster_url, accent"),
+            sel(
+              "id, media_type, slug, title, release_year, runtime_minutes, synopsis, poster_url, accent, availability_checked_at",
+            ),
           )
           .order("title")
           .range(from, to)
