@@ -831,6 +831,7 @@ export const listIngestionStats = createServerFn({ method: "GET" })
     const [
       { count: movieCount },
       { count: podcastCount },
+      { count: parkedCount },
       { count: episodeCount },
       { count: linkCount },
       { count: reviewLinkCount },
@@ -840,7 +841,14 @@ export const listIngestionStats = createServerFn({ method: "GET" })
       unlinked,
     ] = await Promise.all([
       supabaseAdmin.from("movies").select("*", { count: "exact", head: true }),
-      supabaseAdmin.from("podcasts").select("*", { count: "exact", head: true }),
+      supabaseAdmin
+        .from("podcasts")
+        .select("*", { count: "exact", head: true })
+        .eq("curation_status", "active"),
+      supabaseAdmin
+        .from("podcasts")
+        .select("*", { count: "exact", head: true })
+        .eq("curation_status", "parked"),
       supabaseAdmin.from("podcast_episodes").select("*", { count: "exact", head: true }),
       supabaseAdmin.from("episode_movies").select("*", { count: "exact", head: true }),
       // Same band the "Existing links" review tab defaults to.
@@ -858,14 +866,15 @@ export const listIngestionStats = createServerFn({ method: "GET" })
         .select("*", { count: "exact", head: true })
         .eq("disposition", "not_about_a_movie"),
       supabaseAdmin.from("movies").select("*", { count: "exact", head: true }).not("tmdb_id", "is", null),
-      // Counted exactly the way the Unmatched episodes card counts, so the tile
-      // and the section can never disagree.
+      // Counted exactly the way the Unmatched episodes card counts (active shows
+      // only), so the tile and the section can never disagree.
       fetchUnlinkedEpisodes(supabaseAdmin),
     ]);
 
     return {
       movies: movieCount ?? 0,
       podcasts: podcastCount ?? 0,
+      parkedPodcasts: parkedCount ?? 0,
       episodes: episodeCount ?? 0,
       links: linkCount ?? 0,
       linksToReview: reviewLinkCount ?? 0,
