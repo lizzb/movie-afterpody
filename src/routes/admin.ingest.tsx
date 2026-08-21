@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { MatchHistoryCard } from "@/components/admin/MatchHistoryCard";
-import { MatchReviewCard } from "@/components/admin/MatchReviewCard";
+import { MatchReviewCard, RelinkPicker } from "@/components/admin/MatchReviewCard";
 import { CollapsibleCard } from "@/components/admin/CollapsibleCard";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -21,6 +21,8 @@ import {
   rescanEpisodeMatches,
   resolveEpisodesToMovies,
   setPodcastCuration,
+  approveEpisodeMatch,
+  markEpisodeNotAboutMovie,
 } from "@/lib/ingestion.functions";
 
 import { useServerFn } from "@tanstack/react-start";
@@ -182,6 +184,14 @@ function IngestPage() {
             <BulkEnrichCard onSuccess={() => stats.refetch()} />
           </CollapsibleCard>
 
+          <CollapsibleCard
+            id="availability"
+            title="Streaming availability + genres"
+            storageKey="availability"
+          >
+            <RefreshAvailabilityForm onSuccess={() => stats.refetch()} />
+          </CollapsibleCard>
+
           <CollapsibleCard id="ingest-podcast" title="Ingest podcast" storageKey="ingest-podcast">
             <IngestPodcastForm onSuccess={() => stats.refetch()} />
           </CollapsibleCard>
@@ -222,13 +232,6 @@ function IngestPage() {
             <MatchHistoryCard onSuccess={() => stats.refetch()} />
           </CollapsibleCard>
 
-          <CollapsibleCard
-            id="availability"
-            title="Streaming availability + genres"
-            storageKey="availability"
-          >
-            <RefreshAvailabilityForm onSuccess={() => stats.refetch()} />
-          </CollapsibleCard>
         </section>
 
 
@@ -749,6 +752,20 @@ function UnmatchedEpisodesCard() {
       await client.invalidateQueries({ queryKey: ["match-suggestions"] });
     },
   });
+  const refreshQueues = async () => {
+    await client.invalidateQueries({ queryKey: ["unmatched-episodes"] });
+    await client.invalidateQueries({ queryKey: ["match-suggestions"] });
+    await client.invalidateQueries({ queryKey: ["ingestion-stats"] });
+    await client.invalidateQueries({ queryKey: ["podcast-coverage"] });
+  };
+  const retire = useMutation({
+    mutationFn: useServerFn(markEpisodeNotAboutMovie),
+    onSuccess: refreshQueues,
+  });
+  const link = useMutation({
+    mutationFn: useServerFn(approveEpisodeMatch),
+    onSuccess: refreshQueues,
+  });
 
   return (
     <div>
@@ -782,6 +799,11 @@ function UnmatchedEpisodesCard() {
         {rescan.isError ? (
           <p className="mt-2 text-sm text-destructive">{(rescan.error as Error).message}</p>
         ) : null}
+        {retire.isError || link.isError ? (
+          <p className="mt-2 text-sm text-destructive">
+            {((retire.error ?? link.error) as Error).message}
+          </p>
+        ) : null}
       </div>
       {query.isLoading ? (
         <div className="mt-4 h-24 animate-pulse rounded-2xl bg-muted" />
@@ -810,6 +832,22 @@ function UnmatchedEpisodesCard() {
                   {ep.podcastName}
                   {ep.releasedAt ? ` · ${ep.releasedAt}` : ""}
                 </p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => retire.mutate({ data: { episodeId: ep.episodeId } })}
+                    disabled={retire.isPending || link.isPending}
+                    className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold hover:bg-secondary disabled:opacity-60"
+                  >
+                    Not about a movie
+                  </button>
+                  <RelinkPicker
+                    disabled={retire.isPending || link.isPending}
+                    onPick={async (movieId) => {
+                      await link.mutateAsync({ data: { episodeId: ep.episodeId, movieId } });
+                    }}
+                  />
+                </div>
               </li>
             ))}
           </ul>
@@ -823,6 +861,8 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
   const fetchCoverage = useServerFn(listPodcastCoverage);
   const sync = useServerFn(ingestPodcast);
   const setCuration = useServerFn(setPodcastCuration);
+  const rescanShow = useServerFn(rescanEpisodeMatches);
+  const buildShow = useServerFn(resolveEpisodesToMovies);
   const queryClient = useQueryClient();
   const coverage = useQuery({
     queryKey: ["podcast-coverage"],
@@ -858,6 +898,55 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
     setError(null);
     try {
       await syncOne(podcastId, name);
+      await refresh();
+    } catch (e) {
+      setSyncLog((prev) => [{ name, message: (e as Error).message, ok: false }, ...prev].slice(0, 25));
+      setError((e as Error).message);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  // Same two pipeline steps as the page-level buttons, scoped to one show.
+  const rescanPodcast = async (podcastId: string, name: string) => {
+    setBusyId(podcastId);
+    setError(null);
+    try {
+      const r = await rescanShow({ data: { podcastId, limit: 150 } });
+      setSyncLog((prev) =>
+        [
+          {
+            name,
+            message: `recheck: ${r.scanned} scanned · ${r.linked} linked · ${r.improved} improved · ${r.extraAdded} extra · ${r.stillUnlinked} still unmatched`,
+            ok: true,
+          },
+          ...prev,
+        ].slice(0, 25),
+      );
+      await refresh();
+    } catch (e) {
+      setSyncLog((prev) => [{ name, message: (e as Error).message, ok: false }, ...prev].slice(0, 25));
+      setError((e as Error).message);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const buildPodcast = async (podcastId: string, name: string) => {
+    setBusyId(podcastId);
+    setError(null);
+    try {
+      const r = await buildShow({ data: { podcastId, limit: 100 } });
+      setSyncLog((prev) =>
+        [
+          {
+            name,
+            message: `build: ${r.linked} linked · ${r.moviesCreated} movies created · ${r.skipped} skipped`,
+            ok: true,
+          },
+          ...prev,
+        ].slice(0, 25),
+      );
       await refresh();
     } catch (e) {
       setSyncLog((prev) => [{ name, message: (e as Error).message, ok: false }, ...prev].slice(0, 25));
@@ -928,7 +1017,7 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
             {p.linked} linked · {p.unmatched} unmatched · {p.retired} not about a movie
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => toggleCuration(p.podcastId, isParked ? "active" : "parked")}
@@ -948,6 +1037,22 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
             className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
           >
             {busyId === p.podcastId ? "Working…" : "Sync episodes"}
+          </button>
+          <button
+            type="button"
+            onClick={() => rescanPodcast(p.podcastId, p.name)}
+            disabled={busyId === p.podcastId || isParked || bulkRunning}
+            className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
+          >
+            Recheck episodes
+          </button>
+          <button
+            type="button"
+            onClick={() => buildPodcast(p.podcastId, p.name)}
+            disabled={busyId === p.podcastId || isParked || bulkRunning}
+            className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
+          >
+            Build movies
           </button>
         </div>
       </li>

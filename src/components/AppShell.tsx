@@ -1,8 +1,9 @@
 import { Link } from "@tanstack/react-router";
-import { Bookmark, Clapperboard, Mic, Settings, Sparkles, UserRound } from "lucide-react";
+import { Bookmark, Clapperboard, Database, Mic, Settings, Sparkles, UserRound } from "lucide-react";
 import type { ReactNode } from "react";
 import { ThemeToggle, useThemeClass } from "@/components/ThemeToggle";
 import { useAuth } from "@/hooks/useAuth";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 
 const TABS = [
   { to: "/", label: "Tonight", icon: Sparkles },
@@ -15,6 +16,7 @@ const TABS = [
 export function AppShell({ children }: { children: ReactNode }) {
   useThemeClass();
   const { userId, user } = useAuth();
+  const isAdmin = useIsAdmin();
   const accountLabel = userId ? (user?.email ?? "Signed in") : "Sign in";
 
   return (
@@ -37,6 +39,16 @@ export function AppShell({ children }: { children: ReactNode }) {
                 {tab.label}
               </Link>
             ))}
+            {isAdmin ? (
+              <Link
+                to="/admin/ingest"
+                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
+                activeProps={{ className: "bg-coral-soft text-coral" }}
+              >
+                <Database className="size-4" aria-hidden />
+                Ingest
+              </Link>
+            ) : null}
           </nav>
           <div className="flex items-center gap-2">
             <ThemeToggle />
@@ -63,6 +75,17 @@ export function AppShell({ children }: { children: ReactNode }) {
           Movie&nbsp;Afterparty
         </Link>
         <div className="flex items-center gap-1.5">
+          {isAdmin ? (
+            <Link
+              to="/admin/ingest"
+              aria-label="Data ingestion tools"
+              className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1 text-[11px] font-semibold text-muted-foreground"
+              activeProps={{ className: "border-transparent bg-coral-soft text-coral" }}
+            >
+              <Database className="size-3.5" aria-hidden />
+              Ingest
+            </Link>
+          ) : null}
           <ThemeToggle />
           <Link
             to="/auth"

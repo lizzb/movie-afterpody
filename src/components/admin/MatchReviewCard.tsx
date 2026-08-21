@@ -650,7 +650,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
 }
 
 /** Catalogue search that also accepts an IMDb id, pulling the movie in via TMDB. */
-function RelinkPicker({
+export function RelinkPicker({
   onPick,
   disabled,
 }: {
