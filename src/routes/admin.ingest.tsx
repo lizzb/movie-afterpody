@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { MatchHistoryCard } from "@/components/admin/MatchHistoryCard";
-import { MatchReviewCard } from "@/components/admin/MatchReviewCard";
+import { MatchReviewCard, RelinkPicker } from "@/components/admin/MatchReviewCard";
 import { CollapsibleCard } from "@/components/admin/CollapsibleCard";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -21,6 +21,8 @@ import {
   rescanEpisodeMatches,
   resolveEpisodesToMovies,
   setPodcastCuration,
+  approveEpisodeMatch,
+  markEpisodeNotAboutMovie,
 } from "@/lib/ingestion.functions";
 
 import { useServerFn } from "@tanstack/react-start";
@@ -182,6 +184,14 @@ function IngestPage() {
             <BulkEnrichCard onSuccess={() => stats.refetch()} />
           </CollapsibleCard>
 
+          <CollapsibleCard
+            id="availability"
+            title="Streaming availability + genres"
+            storageKey="availability"
+          >
+            <RefreshAvailabilityForm onSuccess={() => stats.refetch()} />
+          </CollapsibleCard>
+
           <CollapsibleCard id="ingest-podcast" title="Ingest podcast" storageKey="ingest-podcast">
             <IngestPodcastForm onSuccess={() => stats.refetch()} />
           </CollapsibleCard>
@@ -222,13 +232,6 @@ function IngestPage() {
             <MatchHistoryCard onSuccess={() => stats.refetch()} />
           </CollapsibleCard>
 
-          <CollapsibleCard
-            id="availability"
-            title="Streaming availability + genres"
-            storageKey="availability"
-          >
-            <RefreshAvailabilityForm onSuccess={() => stats.refetch()} />
-          </CollapsibleCard>
         </section>
 
 
@@ -749,6 +752,20 @@ function UnmatchedEpisodesCard() {
       await client.invalidateQueries({ queryKey: ["match-suggestions"] });
     },
   });
+  const refreshQueues = async () => {
+    await client.invalidateQueries({ queryKey: ["unmatched-episodes"] });
+    await client.invalidateQueries({ queryKey: ["match-suggestions"] });
+    await client.invalidateQueries({ queryKey: ["ingestion-stats"] });
+    await client.invalidateQueries({ queryKey: ["podcast-coverage"] });
+  };
+  const retire = useMutation({
+    mutationFn: useServerFn(markEpisodeNotAboutMovie),
+    onSuccess: refreshQueues,
+  });
+  const link = useMutation({
+    mutationFn: useServerFn(approveEpisodeMatch),
+    onSuccess: refreshQueues,
+  });
 
   return (
     <div>
@@ -782,6 +799,11 @@ function UnmatchedEpisodesCard() {
         {rescan.isError ? (
           <p className="mt-2 text-sm text-destructive">{(rescan.error as Error).message}</p>
         ) : null}
+        {retire.isError || link.isError ? (
+          <p className="mt-2 text-sm text-destructive">
+            {((retire.error ?? link.error) as Error).message}
+          </p>
+        ) : null}
       </div>
       {query.isLoading ? (
         <div className="mt-4 h-24 animate-pulse rounded-2xl bg-muted" />
@@ -810,6 +832,22 @@ function UnmatchedEpisodesCard() {
                   {ep.podcastName}
                   {ep.releasedAt ? ` · ${ep.releasedAt}` : ""}
                 </p>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => retire.mutate({ data: { episodeId: ep.episodeId } })}
+                    disabled={retire.isPending || link.isPending}
+                    className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold hover:bg-secondary disabled:opacity-60"
+                  >
+                    Not about a movie
+                  </button>
+                  <RelinkPicker
+                    disabled={retire.isPending || link.isPending}
+                    onPick={(movieId) =>
+                      link.mutateAsync({ data: { episodeId: ep.episodeId, movieId } })
+                    }
+                  />
+                </div>
               </li>
             ))}
           </ul>
