@@ -7,6 +7,8 @@ export interface MatchSignals {
   yearMatch: "same" | "near" | "mismatch" | "unknown";
   /** Movie title is a single short word — a common source of false positives. */
   genericTitle: boolean;
+  /** Movie title is under 4 characters ("Er", "P2") — near-useless as evidence alone. */
+  shortTitle: boolean;
   /** How many times this movie has been rejected as a match anywhere. */
   rejectedBefore: number;
   /** The movie title appears verbatim in the episode description. */
@@ -196,6 +198,15 @@ export function matchEpisodeToMovies(
       reason += ` - rejected ${rejectedBefore}x before`;
     }
 
+    // Very short titles ("Er", "P2", "UHF") appear inside all sorts of episode
+    // titles by accident. Only an exact whole-title match is trustworthy.
+    const shortTitle = movieLower.replace(/ /g, "").length < 4;
+    if (shortTitle && rule !== "exact") {
+      confidence = Math.min(confidence, 15);
+      reason += " - very short title";
+    }
+
+
     return {
       movieId: movie.id,
       title: movie.title,
@@ -207,6 +218,7 @@ export function matchEpisodeToMovies(
         tokenOverlap: Math.round(similarity * 100) / 100,
         yearMatch,
         genericTitle,
+        shortTitle,
         rejectedBefore,
         descTitle,
         descYear,
