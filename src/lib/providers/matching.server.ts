@@ -151,6 +151,45 @@ export function matchEpisodeToMovies(
       reason += " - generic title";
     }
 
+    // Description-aware evidence: the show notes usually name the film outright,
+    // often with its release year, even when the episode title is a pun.
+    let descTitle = false;
+    let descYear: MatchSignals["descYear"] = "unknown";
+    const longEnough = movieLower.replace(/ /g, "").length >= 5 || movieTokens.size >= 2;
+    if (descPadded && longEnough && !(genericTitle && movieLower.length <= 4)) {
+      descTitle = descPadded.includes(` ${movieLower} `);
+    }
+
+    if (descTitle) {
+      if (rule === "weak") {
+        // Title gave us nothing; the description alone is decent-but-unconfirmed evidence.
+        confidence = Math.max(confidence, genericTitle ? 40 : 48);
+        reason = "named in description";
+        rule = "description";
+      } else {
+        confidence = Math.min(100, confidence + 10);
+        reason += " + named in description";
+      }
+
+      if (movie.release_year && descYears.size > 0) {
+        if (descYears.has(movie.release_year)) {
+          confidence = Math.min(100, confidence + 10);
+          reason += " + year in description";
+          descYear = "same";
+        } else if ([...descYears].some((y) => Math.abs(y - movie.release_year!) <= 1)) {
+          confidence = Math.min(100, confidence + 3);
+          reason += " + year near in description";
+          descYear = "near";
+        } else {
+          descYear = "mismatch";
+          if (rule === "description") {
+            confidence = Math.max(0, confidence - 8);
+            reason += " - year not in description";
+          }
+        }
+      }
+    }
+
     const rejectedBefore = rejectionCounts[movie.id] ?? 0;
     if (rejectedBefore >= 2 && rule !== "exact") {
       confidence = Math.max(0, confidence - Math.min(25, rejectedBefore * 6));
@@ -169,8 +208,11 @@ export function matchEpisodeToMovies(
         yearMatch,
         genericTitle,
         rejectedBefore,
+        descTitle,
+        descYear,
       },
     };
+
   });
 
   candidates.sort((a, b) => b.confidence - a.confidence);
