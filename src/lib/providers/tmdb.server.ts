@@ -95,8 +95,30 @@ export async function findBestTmdbMatch(
   title: string,
   year?: number,
 ): Promise<MatchedTmdbMovie | null> {
-  const results = await searchTmdbMovies(apiKey, title, year);
+  // A year filter on TMDB search is a hard filter: one wrong year returns zero
+  // rows even for an exact title. So we widen the search progressively instead
+  // of reporting "no match" for a film that plainly exists.
+  const cleaned = title
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/\s*[:\-–—]\s*$/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const attempts: { query: string; year?: number | undefined }[] = [
+    { query: title, year },
+    ...(year ? [{ query: title, year: undefined }] : []),
+    ...(cleaned && cleaned.toLowerCase() !== title.trim().toLowerCase()
+      ? [{ query: cleaned, year: undefined }]
+      : []),
+  ];
+
+  let results: TmdbMovieResult[] = [];
+  for (const attempt of attempts) {
+    results = await searchTmdbMovies(apiKey, attempt.query, attempt.year);
+    if (results.length) break;
+  }
   if (!results.length) return null;
+
 
   const normalizedQuery = normalizeTitle(title);
   const scored = results.map((r) => {
