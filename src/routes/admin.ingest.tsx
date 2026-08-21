@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { MatchHistoryCard } from "@/components/admin/MatchHistoryCard";
 import { MatchReviewCard } from "@/components/admin/MatchReviewCard";
@@ -8,6 +8,7 @@ import { CollapsibleCard } from "@/components/admin/CollapsibleCard";
 import { useAuth } from "@/hooks/useAuth";
 
 import {
+  availabilityFreshness,
   backfillPodcastArtwork,
   bootstrapAdmin,
   enrichAllMovies,
@@ -19,6 +20,7 @@ import {
   refreshAvailability,
   rescanEpisodeMatches,
   resolveEpisodesToMovies,
+  setPodcastCuration,
 } from "@/lib/ingestion.functions";
 
 import { useServerFn } from "@tanstack/react-start";
