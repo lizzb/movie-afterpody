@@ -490,12 +490,17 @@ function RefreshAvailabilityForm({ onSuccess }: { onSuccess: () => void }) {
     genres: number;
     failed: number;
     done: boolean;
+    batchFrom: number;
+    batchTo: number;
+    total: number;
+    failures: string[];
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const cancelRef = useRef(false);
 
   // Chained runs: each request stays small enough to finish, but pressing once
   // works through hundreds of movies, always starting with the stalest.
+  // `maxMovies = Infinity` is the "run until done" mode.
   const run = async (maxMovies: number, staleOnly: boolean) => {
     cancelRef.current = false;
     setRunning(true);
@@ -505,9 +510,11 @@ function RefreshAvailabilityForm({ onSuccess }: { onSuccess: () => void }) {
     let genres = 0;
     let failed = 0;
     let done = false;
+    const failures: string[] = [];
     try {
       while (checked < maxMovies && !cancelRef.current) {
         const limit = Math.min(AVAILABILITY_BATCH, maxMovies - checked);
+        const batchFrom = checked + 1;
         const result = await fn({
           data: {
             region: "US",
@@ -521,13 +528,26 @@ function RefreshAvailabilityForm({ onSuccess }: { onSuccess: () => void }) {
         offers += result.offersWritten;
         genres += result.genreLinks;
         failed += result.failed.length;
-        setProgress({ checked, offers, genres, failed, done: result.done });
+        for (const f of result.failed) if (failures.length < 10) failures.push(f);
+        setProgress({
+          checked,
+          offers,
+          genres,
+          failed,
+          done: result.done,
+          batchFrom,
+          batchTo: checked,
+          total: result.total,
+          failures: [...failures],
+        });
         if (result.done) {
           done = true;
           break;
         }
       }
-      setProgress({ checked, offers, genres, failed, done });
+      setProgress((p) =>
+        p ? { ...p, checked, offers, genres, failed, done, failures: [...failures] } : p,
+      );
       await queryClient.invalidateQueries({ queryKey: ["availability-freshness"] });
       onSuccess();
     } catch (e) {
@@ -536,6 +556,7 @@ function RefreshAvailabilityForm({ onSuccess }: { onSuccess: () => void }) {
       setRunning(false);
     }
   };
+
 
   const f = freshness.data;
 
