@@ -1389,6 +1389,10 @@ export const listPodcastCoverage = createServerFn({ method: "GET" })
         linked: linkedCount,
         retired,
         unmatched: own.length - linkedCount - retired,
+        /** Feed reports more episodes than we stored — a sync would fetch more. */
+        incomplete: (p.episode_count ?? 0) > own.length,
+        missing: Math.max(0, (p.episode_count ?? 0) - own.length),
+
       };
     });
 
