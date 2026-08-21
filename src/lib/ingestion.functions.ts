@@ -1202,7 +1202,7 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
           match_method: candidate.confidence >= 80 ? "deterministic" : "heuristic",
           match_confidence: candidate.confidence / 100,
           is_primary_subject: isPrimary,
-          signals: { ...candidate.signals } as Database["public"]["Tables"]["episode_movies"]["Insert"]["signals"],
+          signals: { ...candidate.signals } as Database["public"]["Tables"]["episode_movies"]["Row"]["signals"],
         },
         { onConflict: "episode_id, movie_id" },
       );
