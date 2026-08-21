@@ -14,6 +14,7 @@ import { AppShell } from "@/components/AppShell";
 import { Artwork } from "@/components/Artwork";
 import { BrandBadge } from "@/components/BrandBadge";
 import { ScorePill } from "@/components/ScorePill";
+import { FlagMatchButton } from "@/components/FlagMatchButton";
 import { useDiscovery, type EpisodeEntry } from "@/lib/discovery";
 import { prefsActions } from "@/lib/prefs";
 import type { EpisodeRating, ListeningStatus, ProductionQuality } from "@/lib/types";
