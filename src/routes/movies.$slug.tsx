@@ -184,7 +184,9 @@ function MovieDetailPage() {
               ))
             ) : (
               <span className="text-[11px] text-muted-foreground">
-                No streaming availability catalogued.
+                {rentBuyServices.length > 0
+                  ? "Not included with any subscription."
+                  : "No streaming availability catalogued."}
               </span>
             )}
           </div>
