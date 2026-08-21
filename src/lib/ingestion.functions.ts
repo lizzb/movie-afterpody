@@ -873,7 +873,10 @@ export const listIngestionStats = createServerFn({ method: "GET" })
       // Counted exactly the way the Unmatched episodes card counts (active shows
       // only), so the tile and the section can never disagree.
       fetchUnlinkedEpisodes(supabaseAdmin),
+      // Same count with parked shows included, so nothing is silently invisible.
+      fetchUnlinkedEpisodes(supabaseAdmin, { activeOnly: false }),
     ]);
+
 
     return {
       movies: movieCount ?? 0,
