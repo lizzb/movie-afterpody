@@ -521,6 +521,7 @@ export type Database = {
           activity_status: Database["public"]["Enums"]["podcast_activity"]
           artwork_url: string | null
           created_at: string
+          curation_status: Database["public"]["Enums"]["podcast_curation"]
           description: string | null
           episode_count: number
           external_ids: Json
@@ -537,6 +538,7 @@ export type Database = {
           activity_status?: Database["public"]["Enums"]["podcast_activity"]
           artwork_url?: string | null
           created_at?: string
+          curation_status?: Database["public"]["Enums"]["podcast_curation"]
           description?: string | null
           episode_count?: number
           external_ids?: Json
@@ -553,6 +555,7 @@ export type Database = {
           activity_status?: Database["public"]["Enums"]["podcast_activity"]
           artwork_url?: string | null
           created_at?: string
+          curation_status?: Database["public"]["Enums"]["podcast_curation"]
           description?: string | null
           episode_count?: number
           external_ids?: Json
@@ -895,6 +898,7 @@ export type Database = {
       media_type: "movie" | "tv"
       offer_type: "subscription" | "free_ads" | "rent" | "buy"
       podcast_activity: "active" | "slow" | "dormant" | "ended"
+      podcast_curation: "active" | "parked"
       podcast_preference: "preferred" | "neutral" | "blocked"
       production_quality: "poor" | "okay" | "good"
       source_access_tier: "public" | "premium" | "private"
@@ -1045,6 +1049,7 @@ export const Constants = {
       media_type: ["movie", "tv"],
       offer_type: ["subscription", "free_ads", "rent", "buy"],
       podcast_activity: ["active", "slow", "dormant", "ended"],
+      podcast_curation: ["active", "parked"],
       podcast_preference: ["preferred", "neutral", "blocked"],
       production_quality: ["poor", "okay", "good"],
       source_access_tier: ["public", "premium", "private"],
