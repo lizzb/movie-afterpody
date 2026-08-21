@@ -54,11 +54,9 @@ export function useToggleFlag() {
     if (on) {
       const { error } = await supabase
         .from("episode_link_flags")
-        .upsert(
-          { episode_id: episodeId, movie_id: movieId, flagged_by: userId },
-          { onConflict: "episode_id,movie_id,flagged_by" },
-        );
-      if (error) throw new Error(error.message);
+        .insert({ episode_id: episodeId, movie_id: movieId, flagged_by: userId });
+      // A partial unique index guards duplicates; an existing open flag is fine.
+      if (error && error.code !== "23505") throw new Error(error.message);
     } else {
       const { error } = await supabase
         .from("episode_link_flags")
