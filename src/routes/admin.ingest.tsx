@@ -695,7 +695,12 @@ function UnmatchedEpisodesCard() {
         <p className="mt-4 text-sm text-teal">Every episode is linked to at least one movie.</p>
       ) : (
         <>
-          <p className="mt-3 text-sm font-semibold">{query.data?.total} unmatched</p>
+          <p className="mt-3 text-sm font-semibold">
+            {query.data?.total} unmatched in active shows
+            <span className="ml-1 font-normal text-muted-foreground">
+              · {query.data?.totalIncludingParked} including parked shows
+            </span>
+          </p>
           <ul className="mt-3 space-y-2">
             {query.data?.episodes.map((ep) => (
               <li key={ep.episodeId} className="rounded-xl border border-border/60 px-3 py-2 text-sm">
