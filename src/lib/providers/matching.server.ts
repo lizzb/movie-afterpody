@@ -198,6 +198,15 @@ export function matchEpisodeToMovies(
       reason += ` - rejected ${rejectedBefore}x before`;
     }
 
+    // Very short titles ("Er", "P2", "UHF") appear inside all sorts of episode
+    // titles by accident. Only an exact whole-title match is trustworthy.
+    const shortTitle = movieLower.replace(/ /g, "").length < 4;
+    if (shortTitle && rule !== "exact") {
+      confidence = Math.min(confidence, 15);
+      reason += " - very short title";
+    }
+
+
     return {
       movieId: movie.id,
       title: movie.title,
