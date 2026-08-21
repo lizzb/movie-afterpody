@@ -1124,50 +1124,159 @@ export const resolveEpisodesToMovies = createServerFn({ method: "POST" })
   });
 
 /** Cheap backfill: re-match still-unlinked episodes against movies already in the catalogue. */
+const RescanInput = ResolveInput.extend({
+  /** Replace a weak existing link when a clearly better candidate now exists. */
+  rescoreWeakLinks: z.boolean().default(true),
+  /** Attach extra strong candidates (trilogies, double features) alongside the primary. */
+  addExtraLinks: z.boolean().default(true),
+});
+
+/** A newly added movie can beat a weak link only by this margin (percentage points). */
+const IMPROVE_MARGIN = 8;
+/** Extra (non-primary) links need a higher bar than the primary link. */
+const EXTRA_LINK_MIN = 70;
+const MAX_EXTRA_LINKS = 2;
+
+/**
+ * Rechecks episodes against the movies already in the catalogue. Unlike the
+ * first version this is not limited to episodes with zero links: weak
+ * (non-manual, sub-80%) links get re-scored so a movie you just added can take
+ * over, and strong runners-up are attached as extra links so an episode about a
+ * trilogy can point at every film once they all exist. Manual/confirmed links
+ * are never replaced, and rejected pairs are always skipped.
+ */
 export const rescanEpisodeMatches = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data) => ResolveInput.parse(data))
+  .inputValidator((data) => RescanInput.parse(data))
   .handler(async ({ data, context }) => {
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { fetchUnlinkedEpisodes, fetchRejectedPairs, fetchRejectionCountsByMovie, pageAll } =
+    const { fetchAllEpisodes, fetchRejectedPairs, fetchRejectionCountsByMovie, pageAll } =
       await import("./ingestion-helpers.server");
     const { matchEpisodeToMovies } = await import("./providers/matching.server");
 
-    const unlinked = await fetchUnlinkedEpisodes(supabaseAdmin, { podcastId: data.podcastId });
+    const episodes = (
+      await fetchAllEpisodes(supabaseAdmin, { podcastId: data.podcastId })
+    ).filter((ep) => ep.disposition !== "not_about_a_movie");
     const rejected = await fetchRejectedPairs(supabaseAdmin);
     const rejectionCountByMovie = await fetchRejectionCountsByMovie(supabaseAdmin);
     const movieList = await pageAll<{ id: string; title: string; release_year: number | null }>(
       (from, to) => supabaseAdmin.from("movies").select("id, title, release_year").range(from, to),
     );
 
+    type LinkRow = {
+      episode_id: string;
+      movie_id: string;
+      match_method: string;
+      match_confidence: number;
+      is_primary_subject: boolean;
+    };
+    const linkRows = await pageAll<LinkRow>((from, to) =>
+      supabaseAdmin
+        .from("episode_movies")
+        .select("episode_id, movie_id, match_method, match_confidence, is_primary_subject")
+        .range(from, to)
+        .returns<LinkRow[]>(),
+    );
+    const linksByEpisode = new Map<string, LinkRow[]>();
+    for (const row of linkRows) {
+      const list = linksByEpisode.get(row.episode_id);
+      if (list) list.push(row);
+      else linksByEpisode.set(row.episode_id, [row]);
+    }
+
     let linked = 0;
+    let improved = 0;
+    let extraAdded = 0;
     let stillUnlinked = 0;
 
-    for (const ep of unlinked) {
-      const top = matchEpisodeToMovies(ep.title, movieList, { rejectionCountByMovie, description: ep.description }).filter(
-        (c) => !rejected.has(`${ep.id}:${c.movieId}`),
-      )[0];
-      if (!top || top.confidence < 50) {
-        stillUnlinked += 1;
-        continue;
-      }
+    const writeLink = async (
+      episodeId: string,
+      candidate: { movieId: string; confidence: number; signals: Record<string, unknown> },
+      isPrimary: boolean,
+    ) => {
       const { error } = await supabaseAdmin.from("episode_movies").upsert(
         {
-          episode_id: ep.id,
-          movie_id: top.movieId,
-          match_method: top.confidence >= 80 ? "deterministic" : "heuristic",
-          match_confidence: top.confidence / 100,
-          is_primary_subject: true,
-          signals: { ...top.signals },
+          episode_id: episodeId,
+          movie_id: candidate.movieId,
+          match_method: candidate.confidence >= 80 ? "deterministic" : "heuristic",
+          match_confidence: candidate.confidence / 100,
+          is_primary_subject: isPrimary,
+          signals: { ...candidate.signals },
         },
         { onConflict: "episode_id, movie_id" },
       );
-      if (error) stillUnlinked += 1;
-      else linked += 1;
+      return !error;
+    };
+
+    for (const ep of episodes) {
+      const existing = linksByEpisode.get(ep.id) ?? [];
+      const linkedMovieIds = new Set(existing.map((l) => l.movie_id));
+      const candidates = matchEpisodeToMovies(ep.title, movieList, {
+        rejectionCountByMovie,
+        description: ep.description,
+      }).filter((c) => !rejected.has(`${ep.id}:${c.movieId}`));
+
+      // 1. No links at all — the original behaviour.
+      if (existing.length === 0) {
+        const top = candidates[0];
+        if (!top || top.confidence < 50) {
+          stillUnlinked += 1;
+          continue;
+        }
+        if (await writeLink(ep.id, top, true)) linked += 1;
+        else stillUnlinked += 1;
+        linkedMovieIds.add(top.movieId);
+      } else if (data.rescoreWeakLinks) {
+        // 2. Re-score weak links: a link you confirmed by hand is untouchable,
+        //    anything else can be beaten by a clearly better candidate.
+        const weak = existing.filter(
+          (l) => l.match_method !== "manual" && l.match_method !== "seed" && l.match_confidence < 0.8,
+        );
+        const best = candidates.find((c) => !linkedMovieIds.has(c.movieId));
+        const weakest = weak.sort((a, b) => a.match_confidence - b.match_confidence)[0];
+        if (
+          best &&
+          weakest &&
+          best.confidence >= 50 &&
+          best.confidence - Math.round(weakest.match_confidence * 100) >= IMPROVE_MARGIN
+        ) {
+          if (await writeLink(ep.id, best, weakest.is_primary_subject)) {
+            await supabaseAdmin
+              .from("episode_movies")
+              .delete()
+              .eq("episode_id", ep.id)
+              .eq("movie_id", weakest.movie_id);
+            await logMatchAction(supabaseAdmin, context.userId, {
+              action: "relink",
+              episodeId: ep.id,
+              movieId: best.movieId,
+              previousMovieId: weakest.movie_id,
+              previousMethod: weakest.match_method,
+              previousConfidence: weakest.match_confidence,
+            });
+            improved += 1;
+            linkedMovieIds.add(best.movieId);
+            linkedMovieIds.delete(weakest.movie_id);
+          }
+        }
+      }
+
+      // 3. Extra links for episodes that cover more than one film.
+      if (data.addExtraLinks) {
+        const extras = candidates
+          .filter((c) => !linkedMovieIds.has(c.movieId) && c.confidence >= EXTRA_LINK_MIN)
+          .slice(0, MAX_EXTRA_LINKS);
+        for (const extra of extras) {
+          if (await writeLink(ep.id, extra, false)) {
+            extraAdded += 1;
+            linkedMovieIds.add(extra.movieId);
+          }
+        }
+      }
     }
 
-    return { scanned: unlinked.length, linked, stillUnlinked };
+    return { scanned: episodes.length, linked, improved, extraAdded, stillUnlinked };
   });
 
 /** Safety net: nothing should be invisible, so expose every episode with no movie link. */
