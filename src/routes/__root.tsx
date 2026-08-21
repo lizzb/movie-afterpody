@@ -13,6 +13,7 @@ import appCss from "../styles.css?url";
 import { useTrackNavigation } from "../components/BackLink";
 
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { Toaster } from "../components/ui/sonner";
 
 function NotFoundComponent() {
   return (
