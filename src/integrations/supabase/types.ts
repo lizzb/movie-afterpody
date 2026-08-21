@@ -376,6 +376,7 @@ export type Database = {
       movies: {
         Row: {
           accent: string
+          availability_checked_at: string | null
           backdrop_url: string | null
           created_at: string
           id: string
@@ -393,6 +394,7 @@ export type Database = {
         }
         Insert: {
           accent?: string
+          availability_checked_at?: string | null
           backdrop_url?: string | null
           created_at?: string
           id?: string
@@ -410,6 +412,7 @@ export type Database = {
         }
         Update: {
           accent?: string
+          availability_checked_at?: string | null
           backdrop_url?: string | null
           created_at?: string
           id?: string
