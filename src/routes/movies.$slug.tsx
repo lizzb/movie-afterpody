@@ -219,6 +219,22 @@ function MovieDetailPage() {
           </div>
         </section>
 
+        {rentBuyServices.length > 0 ? (
+          <p className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+            <span className="font-semibold">Rent or buy only:</span>
+            {rentBuyServices.map((s) => (
+              <span key={s.id} className="rounded-full bg-secondary px-2 py-0.5">
+                {s.name}
+              </span>
+            ))}
+          </p>
+        ) : null}
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          {movie.availability_checked_at
+            ? `Availability checked ${checkedAgo(movie.availability_checked_at)}.`
+            : "Availability has never been checked for this title."}
+        </p>
+
         {notesOpen ? (
           <div className="mt-2 rounded-2xl border border-dashed border-border p-3">
             <p className="text-xs text-muted-foreground">
