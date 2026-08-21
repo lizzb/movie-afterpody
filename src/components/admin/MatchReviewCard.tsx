@@ -246,14 +246,29 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
     single.mutate({ action, episodeId: row.episodeId, movieId: row.movieId, wasFlagged: row.flagged });
   };
 
+  /**
+   * Pairs travel as mutation variables, never read from state inside the
+   * handler: clearing the selection optimistically would otherwise leave the
+   * request with an empty array (server rejects it as "too_small").
+   */
   const bulk = useMutation({
-    mutationFn: (action: "approve" | "reject" | "confirm" | "unlink") =>
-      bulkFn({
-        data: {
-          action,
-          pairs: Object.entries(selected).map(([episodeId, movieId]) => ({ episodeId, movieId })),
-        },
-      }),
+    mutationFn: async (vars: {
+      action: "approve" | "reject" | "confirm" | "unlink";
+      pairs: { episodeId: string; movieId: string }[];
+      flagged: { episodeId: string; movieId: string }[];
+    }) => {
+      const result = await bulkFn({ data: { action: vars.action, pairs: vars.pairs } });
+      for (const pair of vars.flagged) {
+        await resolveFlagsFn({
+          data: {
+            episodeId: pair.episodeId,
+            movieId: pair.movieId,
+            resolution: vars.action === "confirm" ? "dismissed" : "fixed",
+          },
+        });
+      }
+      return result;
+    },
     onSuccess: (result) => {
       setError(null);
       setNote(
@@ -293,9 +308,14 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
     ) {
       return;
     }
-    const keys = rows.filter((r) => selected[r.episodeId] === r.movieId).map((r) => r.key);
-    markDone(keys);
-    bulk.mutate(action);
+    const chosen = rows.filter((r) => selected[r.episodeId] === r.movieId);
+    if (chosen.length === 0) return;
+    const pairs = chosen.map((r) => ({ episodeId: r.episodeId, movieId: r.movieId }));
+    const flagged = chosen
+      .filter((r) => r.flagged)
+      .map((r) => ({ episodeId: r.episodeId, movieId: r.movieId }));
+    markDone(chosen.map((r) => r.key));
+    bulk.mutate({ action, pairs, flagged });
   };
 
   return (
@@ -442,16 +462,18 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
                     type="button"
                     disabled={bulk.isPending}
                     onClick={() => runBulk("confirm")}
-                    className="rounded-full bg-teal px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-teal px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"
                   >
+                    <Check className="size-3.5" aria-hidden />
                     Confirm all correct
                   </button>
                   <button
                     type="button"
                     disabled={bulk.isPending}
                     onClick={() => runBulk("unlink")}
-                    className="rounded-full border border-border px-3 py-2 text-xs font-semibold disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs font-semibold disabled:opacity-50"
                   >
+                    <Unlink className="size-3.5" aria-hidden />
                     Unlink all
                   </button>
                 </>
