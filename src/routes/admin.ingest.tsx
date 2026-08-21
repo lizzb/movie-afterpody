@@ -843,9 +843,9 @@ function UnmatchedEpisodesCard() {
                   </button>
                   <RelinkPicker
                     disabled={retire.isPending || link.isPending}
-                    onPick={(movieId) =>
-                      link.mutateAsync({ data: { episodeId: ep.episodeId, movieId } })
-                    }
+                    onPick={async (movieId) => {
+                      await link.mutateAsync({ data: { episodeId: ep.episodeId, movieId } });
+                    }}
                   />
                 </div>
               </li>
