@@ -188,10 +188,7 @@ function IngestPage() {
             <PodcastCoverageCard onSuccess={() => stats.refetch()} />
           </CollapsibleCard>
 
-          <CollapsibleCard
-            title="Enrich all movies (posters + metadata)"
-            storageKey="enrich-all"
-          >
+          <CollapsibleCard title="Enrich movies from TMDB" storageKey="enrich-all">
             <BulkEnrichCard onSuccess={() => stats.refetch()} />
           </CollapsibleCard>
 
@@ -203,7 +200,7 @@ function IngestPage() {
             <IngestPodcastForm onSuccess={() => stats.refetch()} />
           </CollapsibleCard>
 
-          <CollapsibleCard title="Enrich movie from TMDB" storageKey="enrich-movie">
+          <CollapsibleCard title="Add movie from TMDB" storageKey="enrich-movie">
             <EnrichMovieForm onSuccess={() => stats.refetch()} />
           </CollapsibleCard>
 
