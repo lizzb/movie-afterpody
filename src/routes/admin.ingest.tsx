@@ -389,11 +389,21 @@ function IngestPodcastForm({ onSuccess }: { onSuccess: () => void }) {
         </button>
       </form>
       {mutation.isSuccess ? (
-        <p className="mt-3 text-sm text-teal">
-          Fetched {mutation.data.episodesFetched} episodes, inserted {mutation.data.episodesInserted} new,{" "}
-          {mutation.data.matchesInserted} auto-matched, {mutation.data.pendingMatches} pending review.
-        </p>
+        <div className="mt-3 space-y-1 text-sm">
+          <p className="text-teal">
+            Fetched {mutation.data.episodesFetched} of {mutation.data.feedTotal} episodes in the feed,
+            stored {mutation.data.episodesInserted}, {mutation.data.matchesInserted} auto-matched,{" "}
+            {mutation.data.pendingMatches} pending review.
+          </p>
+          {mutation.data.episodesFailed > 0 ? (
+            <p className="text-xs text-destructive">
+              {mutation.data.episodesFailed} episodes failed to store:{" "}
+              {mutation.data.episodeErrors.join("; ")}
+            </p>
+          ) : null}
+        </div>
       ) : null}
+
       {mutation.isError ? (
         <p className="mt-3 text-sm text-destructive">{(mutation.error as Error).message}</p>
       ) : null}
