@@ -424,14 +424,30 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
           <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               Showing {rows.length} of {total} {noun}
+              {busy ? (
+                <span className="ml-2 inline-flex items-center gap-1 normal-case tracking-normal text-teal">
+                  <Loader2 className="size-3 animate-spin" aria-hidden />
+                  Updating results…
+                </span>
+              ) : null}
             </p>
-            <button
-              type="button"
-              onClick={toggleAll}
-              className="rounded-full border border-border px-3 py-2 text-xs font-semibold hover:bg-secondary"
-            >
-              {allVisibleSelected ? "Clear selection" : "Select all shown"}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={refresh}
+                disabled={busy}
+                className="rounded-full border border-border px-3 py-2 text-xs font-semibold hover:bg-secondary disabled:opacity-50"
+              >
+                Refresh
+              </button>
+              <button
+                type="button"
+                onClick={toggleAll}
+                className="rounded-full border border-border px-3 py-2 text-xs font-semibold hover:bg-secondary"
+              >
+                {allVisibleSelected ? "Clear selection" : "Select all shown"}
+              </button>
+            </div>
           </div>
 
           {selectedCount > 0 ? (
