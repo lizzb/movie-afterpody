@@ -73,6 +73,16 @@ export function matchEpisodeToMovies(
   const episodeNoYear = removeYear(episodeTitle);
   const episodeTokens = tokenSet(episodeNoYear);
 
+  // Description-aware signals (Pass C2): deterministic, no AI, no network.
+  const descRaw = (options.description ?? "")
+    .replace(/<[^>]*>/g, " ")
+    .slice(0, DESC_CHARS);
+  const descPadded = descRaw ? ` ${normalizeTitle(descRaw)} ` : "";
+  const descYears = new Set<number>(
+    descRaw ? (descRaw.match(YEAR_ALL_RE) ?? []).map((y) => Number(y)) : [],
+  );
+
+
   const candidates: MovieMatchCandidate[] = movies.map((movie) => {
     const movieTokens = tokenSet(movie.title);
     const movieLower = normalizeTitle(movie.title);
