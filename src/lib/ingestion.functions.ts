@@ -337,11 +337,15 @@ export const ingestPodcast = createServerFn({ method: "POST" })
 
     return {
       podcast: upsertedPodcast,
+      feedTotal: feed.episodeCount ?? 0,
       episodesFetched: episodes.length,
       episodesInserted: insertedEpisodes,
+      episodesFailed: episodeErrors.length,
+      episodeErrors: episodeErrors.slice(0, 10),
       matchesInserted: insertedMatches,
       pendingMatches,
     };
+
   });
 
 export const suggestEpisodeMatches = createServerFn({ method: "POST" })
