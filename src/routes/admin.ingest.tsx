@@ -119,7 +119,7 @@ function IngestPage() {
 
   return (
     <AppShell>
-      <main className="mx-auto w-full max-w-3xl px-5 pb-16 pt-8">
+      <main id="admin-top" className="mx-auto w-full max-w-3xl px-5 pb-16 pt-8">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="font-display text-3xl">Data ingestion</h1>
@@ -136,20 +136,29 @@ function IngestPage() {
           <div className="mt-6 h-40 animate-pulse rounded-2xl bg-muted" />
         ) : stats.data ? (
           <section className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <Stat label="Movies" value={stats.data.movies} />
+            <Stat
+              label="Movies"
+              value={stats.data.movies}
+              sub={`${stats.data.tmdbLinked} with TMDB data`}
+              href="#add-movie"
+            />
             <Stat label="Active shows" value={stats.data.podcasts} href="#coverage" />
             <Stat label="Parked shows" value={stats.data.parkedPodcasts} href="#coverage" />
-            <Stat label="Episodes" value={stats.data.episodes} />
+            <Stat label="Episodes" value={stats.data.episodes} href="#coverage" />
             <Stat label="Flagged as wrong" value={stats.data.flagged} href="#match-review" />
             <Stat label="Links to review" value={stats.data.linksToReview} href="#match-review" />
             <Stat label="Episode → movie links" value={stats.data.links} href="#match-review" />
             <Stat
               label="Unmatched episodes"
               value={stats.data.unmatchedEpisodes}
+              sub={`${stats.data.unmatchedEpisodesAll} incl. parked shows`}
               href="#unmatched-episodes"
             />
-            <Stat label="Not about a movie" value={stats.data.retiredEpisodes} href="#match-review" />
-            <Stat label="TMDB linked" value={stats.data.tmdbLinked} />
+            <Stat
+              label="Not about a movie"
+              value={stats.data.retiredEpisodes}
+              href="#unmatched-episodes"
+            />
           </section>
         ) : null}
 
@@ -166,6 +175,7 @@ function IngestPage() {
           </CollapsibleCard>
 
           <CollapsibleCard
+            id="build-movies"
             title="Build movies from episodes"
             description="Extract movie titles from unmatched episodes and create them from TMDB."
             storageKey="resolve"
@@ -177,7 +187,11 @@ function IngestPage() {
             id="unmatched-episodes"
             title="Unmatched episodes"
             description="Episodes with no movie attached, plus a recheck against existing movies."
-            badge={stats.data ? `${stats.data.unmatchedEpisodes}` : undefined}
+            badge={
+              stats.data
+                ? `${stats.data.unmatchedEpisodes} active / ${stats.data.unmatchedEpisodesAll} all`
+                : undefined
+            }
             storageKey="unmatched"
           >
             <UnmatchedEpisodesCard />
@@ -192,26 +206,27 @@ function IngestPage() {
             <PodcastCoverageCard onSuccess={() => stats.refetch()} />
           </CollapsibleCard>
 
-          <CollapsibleCard title="Enrich movies from TMDB" storageKey="enrich-all">
+          <CollapsibleCard id="enrich-movies" title="Enrich movies from TMDB" storageKey="enrich-all">
             <BulkEnrichCard onSuccess={() => stats.refetch()} />
           </CollapsibleCard>
 
-          <CollapsibleCard title="Backfill podcast cover art" storageKey="artwork">
+          <CollapsibleCard id="artwork" title="Backfill podcast cover art" storageKey="artwork">
             <BackfillArtworkCard onSuccess={() => stats.refetch()} />
           </CollapsibleCard>
 
-          <CollapsibleCard title="Ingest podcast" storageKey="ingest-podcast">
+          <CollapsibleCard id="ingest-podcast" title="Ingest podcast" storageKey="ingest-podcast">
             <IngestPodcastForm onSuccess={() => stats.refetch()} />
           </CollapsibleCard>
 
-          <CollapsibleCard title="Add movie from TMDB" storageKey="enrich-movie">
+          <CollapsibleCard id="add-movie" title="Add movie from TMDB" storageKey="enrich-movie">
             <EnrichMovieForm onSuccess={() => stats.refetch()} />
           </CollapsibleCard>
 
-          <CollapsibleCard title="Streaming availability + genres" storageKey="availability">
+          <CollapsibleCard id="availability" title="Streaming availability + genres" storageKey="availability">
             <RefreshAvailabilityForm onSuccess={() => stats.refetch()} />
           </CollapsibleCard>
         </section>
+
 
 
       </main>
