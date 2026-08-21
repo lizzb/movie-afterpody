@@ -389,11 +389,21 @@ function IngestPodcastForm({ onSuccess }: { onSuccess: () => void }) {
         </button>
       </form>
       {mutation.isSuccess ? (
-        <p className="mt-3 text-sm text-teal">
-          Fetched {mutation.data.episodesFetched} episodes, inserted {mutation.data.episodesInserted} new,{" "}
-          {mutation.data.matchesInserted} auto-matched, {mutation.data.pendingMatches} pending review.
-        </p>
+        <div className="mt-3 space-y-1 text-sm">
+          <p className="text-teal">
+            Fetched {mutation.data.episodesFetched} of {mutation.data.feedTotal} episodes in the feed,
+            stored {mutation.data.episodesInserted}, {mutation.data.matchesInserted} auto-matched,{" "}
+            {mutation.data.pendingMatches} pending review.
+          </p>
+          {mutation.data.episodesFailed > 0 ? (
+            <p className="text-xs text-destructive">
+              {mutation.data.episodesFailed} episodes failed to store:{" "}
+              {mutation.data.episodeErrors.join("; ")}
+            </p>
+          ) : null}
+        </div>
       ) : null}
+
       {mutation.isError ? (
         <p className="mt-3 text-sm text-destructive">{(mutation.error as Error).message}</p>
       ) : null}
@@ -490,12 +500,17 @@ function RefreshAvailabilityForm({ onSuccess }: { onSuccess: () => void }) {
     genres: number;
     failed: number;
     done: boolean;
+    batchFrom: number;
+    batchTo: number;
+    total: number;
+    failures: string[];
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const cancelRef = useRef(false);
 
   // Chained runs: each request stays small enough to finish, but pressing once
   // works through hundreds of movies, always starting with the stalest.
+  // `maxMovies = Infinity` is the "run until done" mode.
   const run = async (maxMovies: number, staleOnly: boolean) => {
     cancelRef.current = false;
     setRunning(true);
@@ -505,9 +520,11 @@ function RefreshAvailabilityForm({ onSuccess }: { onSuccess: () => void }) {
     let genres = 0;
     let failed = 0;
     let done = false;
+    const failures: string[] = [];
     try {
       while (checked < maxMovies && !cancelRef.current) {
         const limit = Math.min(AVAILABILITY_BATCH, maxMovies - checked);
+        const batchFrom = checked + 1;
         const result = await fn({
           data: {
             region: "US",
@@ -521,13 +538,26 @@ function RefreshAvailabilityForm({ onSuccess }: { onSuccess: () => void }) {
         offers += result.offersWritten;
         genres += result.genreLinks;
         failed += result.failed.length;
-        setProgress({ checked, offers, genres, failed, done: result.done });
+        for (const f of result.failed) if (failures.length < 10) failures.push(f);
+        setProgress({
+          checked,
+          offers,
+          genres,
+          failed,
+          done: result.done,
+          batchFrom,
+          batchTo: checked,
+          total: result.total,
+          failures: [...failures],
+        });
         if (result.done) {
           done = true;
           break;
         }
       }
-      setProgress({ checked, offers, genres, failed, done });
+      setProgress((p) =>
+        p ? { ...p, checked, offers, genres, failed, done, failures: [...failures] } : p,
+      );
       await queryClient.invalidateQueries({ queryKey: ["availability-freshness"] });
       onSuccess();
     } catch (e) {
@@ -536,6 +566,7 @@ function RefreshAvailabilityForm({ onSuccess }: { onSuccess: () => void }) {
       setRunning(false);
     }
   };
+
 
   const f = freshness.data;
 
@@ -583,6 +614,14 @@ function RefreshAvailabilityForm({ onSuccess }: { onSuccess: () => void }) {
         </button>
         <button
           type="button"
+          onClick={() => run(Number.POSITIVE_INFINITY, true)}
+          disabled={running}
+          className="rounded-full border border-border px-4 py-2 text-sm font-semibold disabled:opacity-50"
+        >
+          Run until done
+        </button>
+        <button
+          type="button"
           onClick={() => run(AVAILABILITY_BATCH, true)}
           disabled={running}
           className="rounded-full border border-border px-4 py-2 text-sm font-semibold disabled:opacity-50"
@@ -603,13 +642,20 @@ function RefreshAvailabilityForm({ onSuccess }: { onSuccess: () => void }) {
       </div>
 
       {progress ? (
-        <p className="mt-3 text-sm text-teal">
-          Checked {progress.checked} movies · {progress.offers} offers · {progress.genres} genre
-          links.
-          {progress.done ? " Everything in scope is up to date." : ""}
-          {progress.failed > 0 ? ` ${progress.failed} failed.` : ""}
-        </p>
+        <div className="mt-3 space-y-1 text-sm">
+          <p className="text-teal">
+            {running ? "Checking" : "Checked"} movies {progress.batchFrom}–
+            {Math.max(progress.batchTo, progress.batchFrom)} of {progress.total} · {progress.offers}{" "}
+            offers · {progress.genres} genre links.
+            {progress.done ? " Everything in scope is up to date." : ""}
+            {progress.failed > 0 ? ` ${progress.failed} failed.` : ""}
+          </p>
+          {progress.failures.length > 0 ? (
+            <p className="text-xs text-destructive">{progress.failures.join("; ")}</p>
+          ) : null}
+        </div>
       ) : null}
+
       {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
     </div>
   );
@@ -630,7 +676,8 @@ function ResolveEpisodesCard({ onSuccess }: { onSuccess: () => void }) {
     <div>
       <p className="mt-1 text-sm text-muted-foreground">
         Reads unmatched episode titles, extracts the movie name, looks it up on TMDB, creates the
-        movie with full metadata and links the episode. Runs 100 episodes at a time.
+        movie with full metadata and links the episode. Runs 100 episodes at a time and reports why
+        any episode was skipped.
       </p>
       <div className="mt-4 flex flex-wrap gap-3">
         <button
@@ -643,22 +690,37 @@ function ResolveEpisodesCard({ onSuccess }: { onSuccess: () => void }) {
         </button>
       </div>
 
-
       {resolve.isSuccess ? (
-        <div className="mt-3 space-y-1 text-sm">
+        <div className="mt-3 space-y-2 text-sm">
           <p className="text-teal">
-            Linked {resolve.data.linked} of {resolve.data.attempted} episodes ·{" "}
-            {resolve.data.moviesCreated} movies created · {resolve.data.remaining} still unmatched.
+            Linked {resolve.data.linked} of {resolve.data.attempted} attempted (
+            {resolve.data.pool} unmatched in scope) · {resolve.data.moviesCreated} movies created ·{" "}
+            {resolve.data.remaining} not attempted this run.
           </p>
-          {resolve.data.skipped.length > 0 ? (
+          {resolve.data.attempted < resolve.data.requested ? (
             <p className="text-xs text-muted-foreground">
-              Skipped (not about a movie): {resolve.data.skipped.join("; ")}
+              Only {resolve.data.attempted} episodes were available — the unmatched pool is smaller
+              than the requested {resolve.data.requested}.
             </p>
           ) : null}
-          {resolve.data.unresolved.length > 0 ? (
-            <p className="text-xs text-muted-foreground">
-              Needs a manual link: {resolve.data.unresolved.join("; ")}
-            </p>
+          {resolve.data.skipped > 0 ? (
+            <div className="rounded-xl border border-border/60 px-3 py-2">
+              <p className="text-xs font-semibold">
+                {resolve.data.skipped} skipped — why:
+              </p>
+              <ul className="mt-1 space-y-1">
+                {resolve.data.skipReasons.map((r) => (
+                  <li key={r.reason} className="text-xs text-muted-foreground">
+                    <span className="font-semibold text-foreground">{r.count}</span> · {r.label}
+                    {r.examples.length > 0 ? (
+                      <span className="block text-[11px] text-muted-foreground/80">
+                        e.g. {r.examples.join("; ")}
+                      </span>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
           ) : null}
         </div>
       ) : null}
@@ -668,6 +730,7 @@ function ResolveEpisodesCard({ onSuccess }: { onSuccess: () => void }) {
     </div>
   );
 }
+
 
 function UnmatchedEpisodesCard() {
   const fn = useServerFn(listUnmatchedEpisodes);
@@ -770,19 +833,34 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showParked, setShowParked] = useState(false);
+  const [incompleteOnly, setIncompleteOnly] = useState(false);
+  // Per-show sync outcomes so a failed feed is named instead of vanishing.
+  const [syncLog, setSyncLog] = useState<{ name: string; message: string; ok: boolean }[]>([]);
+  const [bulkRunning, setBulkRunning] = useState(false);
+  const bulkCancel = useRef(false);
 
   const refresh = async () => {
     await queryClient.invalidateQueries({ queryKey: ["podcast-coverage"] });
     onSuccess();
   };
 
-  const syncPodcast = async (podcastId: string) => {
+  const syncOne = async (podcastId: string, name: string) => {
+    const result = await sync({ data: { podcastId, maxEpisodes: 1000 } });
+    const note =
+      `stored ${result.episodesInserted} of ${result.episodesFetched} fetched` +
+      (result.feedTotal ? ` · feed reports ${result.feedTotal}` : "") +
+      (result.episodesFailed > 0 ? ` · ${result.episodesFailed} failed` : "");
+    setSyncLog((prev) => [{ name, message: note, ok: result.episodesFailed === 0 }, ...prev].slice(0, 25));
+  };
+
+  const syncPodcast = async (podcastId: string, name: string) => {
     setBusyId(podcastId);
     setError(null);
     try {
-      await sync({ data: { podcastId, maxEpisodes: 1000 } });
+      await syncOne(podcastId, name);
       await refresh();
     } catch (e) {
+      setSyncLog((prev) => [{ name, message: (e as Error).message, ok: false }, ...prev].slice(0, 25));
       setError((e as Error).message);
     } finally {
       setBusyId(null);
@@ -805,7 +883,32 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
   const all = coverage.data?.podcasts ?? [];
   const active = all.filter((p) => p.curationStatus === "active");
   const parked = all.filter((p) => p.curationStatus === "parked");
-  const visible = showParked ? parked : active;
+  const incompleteActive = active.filter((p) => p.incomplete);
+  const base = showParked ? parked : active;
+  const visible = incompleteOnly ? base.filter((p) => p.incomplete) : base;
+
+  // One press works through every active show that is behind its feed, keeping
+  // going after a failure and naming each result.
+  const syncAllIncomplete = async () => {
+    bulkCancel.current = false;
+    setBulkRunning(true);
+    setError(null);
+    setSyncLog([]);
+    for (const p of incompleteActive) {
+      if (bulkCancel.current) break;
+      setBusyId(p.podcastId);
+      try {
+        await syncOne(p.podcastId, p.name);
+      } catch (e) {
+        setSyncLog((prev) =>
+          [{ name: p.name, message: (e as Error).message, ok: false }, ...prev].slice(0, 25),
+        );
+      }
+    }
+    setBusyId(null);
+    setBulkRunning(false);
+    await refresh();
+  };
 
   const row = (p: (typeof all)[number]) => {
     const complete = p.feedTotal > 0 && p.stored >= p.feedTotal;
@@ -819,7 +922,7 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
           <p className="truncate text-sm font-medium">{p.name}</p>
           <p className={`text-xs ${complete ? "text-teal" : "text-muted-foreground"}`}>
             {p.stored} stored{p.feedTotal ? ` / ${p.feedTotal} in feed` : ""}
-            {complete ? " · complete" : ""}
+            {complete ? " · complete" : p.missing ? ` · ${p.missing} missing` : ""}
           </p>
           <p className="text-xs text-muted-foreground">
             {p.linked} linked · {p.unmatched} unmatched · {p.retired} not about a movie
@@ -829,7 +932,7 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
           <button
             type="button"
             onClick={() => toggleCuration(p.podcastId, isParked ? "active" : "parked")}
-            disabled={busyId === p.podcastId}
+            disabled={busyId === p.podcastId || bulkRunning}
             className={`rounded-full px-3 py-1.5 text-xs font-semibold disabled:opacity-50 ${
               isParked
                 ? "bg-teal text-primary-foreground"
@@ -840,8 +943,8 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
           </button>
           <button
             type="button"
-            onClick={() => syncPodcast(p.podcastId)}
-            disabled={busyId === p.podcastId || isParked}
+            onClick={() => syncPodcast(p.podcastId, p.name)}
+            disabled={busyId === p.podcastId || isParked || bulkRunning}
             className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
           >
             {busyId === p.podcastId ? "Working…" : "Sync episodes"}
@@ -859,7 +962,7 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
         time with nothing to re-ingest.
       </p>
 
-      <div className="mt-3 flex items-center gap-2 text-xs font-semibold">
+      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold">
         <button
           type="button"
           onClick={() => setShowParked(false)}
@@ -874,18 +977,67 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
         >
           Parked ({parked.length})
         </button>
+        <button
+          type="button"
+          onClick={() => setIncompleteOnly((v) => !v)}
+          className={`rounded-full px-3 py-1.5 ${incompleteOnly ? "bg-secondary" : "border border-border"}`}
+        >
+          Behind feed only
+        </button>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={syncAllIncomplete}
+          disabled={bulkRunning || incompleteActive.length === 0}
+          className="inline-flex items-center rounded-full bg-navy px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+        >
+          {bulkRunning
+            ? "Syncing shows…"
+            : `Sync all incomplete (${incompleteActive.length})`}
+        </button>
+        {bulkRunning ? (
+          <button
+            type="button"
+            onClick={() => {
+              bulkCancel.current = true;
+            }}
+            className="rounded-full border border-border px-4 py-2 text-sm font-semibold"
+          >
+            Stop after this show
+          </button>
+        ) : null}
       </div>
 
       {coverage.isLoading ? (
         <div className="mt-4 h-24 animate-pulse rounded-xl bg-muted" />
       ) : visible.length === 0 ? (
         <p className="mt-4 text-sm text-muted-foreground">
-          {showParked ? "No shows are parked." : "No active podcasts."}
+          {incompleteOnly
+            ? "Every show here matches its feed count."
+            : showParked
+              ? "No shows are parked."
+              : "No active podcasts."}
         </p>
       ) : (
         <ul className="mt-4 space-y-2">{visible.map(row)}</ul>
       )}
+
+      {syncLog.length > 0 ? (
+        <ul className="mt-4 space-y-1">
+          {syncLog.map((entry, i) => (
+            <li
+              key={`${entry.name}-${i}`}
+              className={`text-xs ${entry.ok ? "text-muted-foreground" : "text-destructive"}`}
+            >
+              <span className="font-semibold">{entry.name}</span>: {entry.message}
+            </li>
+          ))}
+        </ul>
+      ) : null}
       {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
     </div>
   );
+
 }

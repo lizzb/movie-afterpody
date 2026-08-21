@@ -249,6 +249,10 @@ export const ingestPodcast = createServerFn({ method: "POST" })
     let insertedEpisodes = 0;
     let insertedMatches = 0;
     let pendingMatches = 0;
+    // Surfaced instead of swallowed: a feed with 900 episodes that only stores 700
+    // should say why rather than looking like a coverage mystery.
+    const episodeErrors: string[] = [];
+
 
     for (const ep of episodes) {
       const epSlug = clients.episodeSlug(upsertedPodcast.slug, ep.title);
@@ -272,9 +276,10 @@ export const ingestPodcast = createServerFn({ method: "POST" })
         .single();
 
       if (epError || !upsertedEp) {
-        console.warn("Episode upsert failed:", epError?.message);
+        episodeErrors.push(`${ep.title}: ${epError?.message ?? "upsert returned no row"}`);
         continue;
       }
+
       insertedEpisodes += 1;
 
       try {
@@ -332,11 +337,15 @@ export const ingestPodcast = createServerFn({ method: "POST" })
 
     return {
       podcast: upsertedPodcast,
+      feedTotal: feed.episodeCount ?? 0,
       episodesFetched: episodes.length,
       episodesInserted: insertedEpisodes,
+      episodesFailed: episodeErrors.length,
+      episodeErrors: episodeErrors.slice(0, 10),
       matchesInserted: insertedMatches,
       pendingMatches,
     };
+
   });
 
 export const suggestEpisodeMatches = createServerFn({ method: "POST" })
@@ -1068,16 +1077,41 @@ export const resolveEpisodesToMovies = createServerFn({ method: "POST" })
 
     let linked = 0;
     let moviesCreated = 0;
-    const skipped: string[] = [];
-    const unresolved: string[] = [];
+
+    // Honest accounting: every attempted episode ends in exactly one bucket, so
+    // "linked 30 of 100" is always explained rather than silently short.
+    type SkipReason =
+      | "not_about_a_movie"
+      | "no_title_extracted"
+      | "no_tmdb_match"
+      | "already_rejected"
+      | "error";
+    const REASON_LABEL: Record<SkipReason, string> = {
+      not_about_a_movie: "Title looks like it isn't about a movie",
+      no_title_extracted: "No movie title could be extracted from the episode title",
+      no_tmdb_match: "TMDB had no confident match for the extracted title",
+      already_rejected: "The only TMDB match is a pair you already rejected",
+      error: "Errored during lookup",
+    };
+    const buckets = new Map<SkipReason, string[]>();
+    const note = (reason: SkipReason, detail: string) => {
+      const list = buckets.get(reason) ?? [];
+      list.push(detail);
+      buckets.set(reason, list);
+    };
 
     for (const ep of todo) {
       if (looksNonMovieEpisode(ep.title)) {
-        skipped.push(ep.title);
+        note("not_about_a_movie", ep.title);
         continue;
       }
       const candidates = extractMovieTitleCandidates(ep.title);
-      let done = false;
+      if (candidates.length === 0) {
+        note("no_title_extracted", ep.title);
+        continue;
+      }
+
+      let outcome: "linked" | SkipReason = "no_tmdb_match";
 
       for (const candidate of candidates) {
         try {
@@ -1087,7 +1121,10 @@ export const resolveEpisodesToMovies = createServerFn({ method: "POST" })
 
           const movie = await upsertMovieFromTmdb(supabaseAdmin, match, accentFor(match.title));
           if (movie.created) moviesCreated += 1;
-          if (rejected.has(`${ep.id}:${movie.id}`)) continue;
+          if (rejected.has(`${ep.id}:${movie.id}`)) {
+            outcome = "already_rejected";
+            continue;
+          }
 
           const { error } = await supabaseAdmin.from("episode_movies").upsert(
             {
@@ -1101,27 +1138,38 @@ export const resolveEpisodesToMovies = createServerFn({ method: "POST" })
           );
           if (error) throw error;
           linked += 1;
-          done = true;
+          outcome = "linked";
           break;
         } catch (err) {
-          unresolved.push(`${ep.title}: ${err instanceof Error ? err.message : String(err)}`);
-          done = true;
+          note("error", `${ep.title}: ${err instanceof Error ? err.message : String(err)}`);
+          outcome = "linked"; // already accounted for in the error bucket
           break;
         }
       }
 
-      if (!done) unresolved.push(`${ep.title}: no TMDB match`);
+      if (outcome !== "linked") note(outcome, ep.title);
     }
 
+    const skipReasons = [...buckets.entries()].map(([reason, titles]) => ({
+      reason,
+      label: REASON_LABEL[reason],
+      count: titles.length,
+      examples: titles.slice(0, 5),
+    }));
+    skipReasons.sort((a, b) => b.count - a.count);
+
     return {
+      pool: allUnlinked.length,
+      requested: data.limit,
       attempted: todo.length,
       linked,
       moviesCreated,
-      skipped: skipped.slice(0, 20),
-      unresolved: unresolved.slice(0, 20),
+      skipped: todo.length - linked,
+      skipReasons,
       remaining: Math.max(0, allUnlinked.length - todo.length),
     };
   });
+
 
 /** Cheap backfill: re-match still-unlinked episodes against movies already in the catalogue. */
 const RescanInput = ResolveInput.extend({
@@ -1341,6 +1389,10 @@ export const listPodcastCoverage = createServerFn({ method: "GET" })
         linked: linkedCount,
         retired,
         unmatched: own.length - linkedCount - retired,
+        /** Feed reports more episodes than we stored — a sync would fetch more. */
+        incomplete: (p.episode_count ?? 0) > own.length,
+        missing: Math.max(0, (p.episode_count ?? 0) - own.length),
+
       };
     });
 
