@@ -184,8 +184,9 @@ function IngestPage() {
           </CollapsibleCard>
 
           <CollapsibleCard
-            title="Episode coverage"
-            description="Stored episodes vs. what each feed reports."
+            id="coverage"
+            title="Episode coverage & show curation"
+            description="Coverage and progress per show; park shows you're not reviewing yet."
             storageKey="coverage"
           >
             <PodcastCoverageCard onSuccess={() => stats.refetch()} />
