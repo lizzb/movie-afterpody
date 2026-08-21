@@ -65,6 +65,16 @@ const QUALITY: { value: ProductionQuality; label: string }[] = [
 
 const minutes = (seconds: number | null) => (seconds ? `${Math.round(seconds / 60)} min` : null);
 
+/** Plain-English freshness so a wrong badge can be told from stale data. */
+function checkedAgo(iso: string): string {
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+  if (days <= 0) return "today";
+  if (days === 1) return "yesterday";
+  if (days < 30) return `${days} days ago`;
+  const months = Math.round(days / 30);
+  return months <= 1 ? "about a month ago" : `about ${months} months ago`;
+}
+
 /** Third-party ratings arrive with ingestion; the slots stay hidden until then. */
 type ExternalRatings = { imdb?: number | null; rottenTomatoes?: number | null };
 
