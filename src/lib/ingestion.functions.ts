@@ -393,6 +393,8 @@ export const suggestEpisodeMatches = createServerFn({ method: "POST" })
     );
 
     const term = data.search?.trim().toLowerCase();
+    // Words common across this catalogue's episode titles carry no signal.
+    const commonEpisodeWords = computeCommonEpisodeWords(episodes.map((ep) => ep.title));
 
     const all = episodes
       .filter((ep) => ep.disposition !== "not_about_a_movie")
@@ -405,9 +407,12 @@ export const suggestEpisodeMatches = createServerFn({ method: "POST" })
           ep.podcasts.name.toLowerCase().includes(term),
       )
       .map((ep) => {
-        const candidates = matchEpisodeToMovies(ep.title, movieList, { rejectionCountByMovie, description: ep.description }).filter(
-          (c) => !rejectedPairs.has(`${ep.id}:${c.movieId}`),
-        );
+        const candidates = matchEpisodeToMovies(ep.title, movieList, {
+          rejectionCountByMovie,
+          description: ep.description,
+          commonEpisodeWords,
+        }).filter((c) => !rejectedPairs.has(`${ep.id}:${c.movieId}`));
+
         const top = candidates[0];
         return {
           episodeId: ep.id,
