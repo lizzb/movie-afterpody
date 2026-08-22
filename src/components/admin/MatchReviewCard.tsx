@@ -262,10 +262,11 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
    */
   const bulk = useMutation({
     mutationFn: async (vars: {
-      action: "approve" | "reject" | "confirm" | "unlink";
+      action: "approve" | "reject" | "confirm" | "unlink" | "retire";
       pairs: { episodeId: string; movieId: string }[];
       flagged: { episodeId: string; movieId: string }[];
     }) => {
+
       const result = await bulkFn({ data: { action: vars.action, pairs: vars.pairs } });
       for (const pair of vars.flagged) {
         await resolveFlagsFn({
