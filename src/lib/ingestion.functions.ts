@@ -1699,6 +1699,13 @@ export const bulkMatchDecision = createServerFn({ method: "POST" })
           .eq("movie_id", pair.movieId)
           .maybeSingle();
 
+        if (data.action === "retire") {
+          // Retiring covers the whole episode: links removed, rejections recorded.
+          await retireEpisode(supabaseAdmin, context.userId, pair.episodeId);
+          succeeded += 1;
+          continue;
+        }
+
         if (data.action === "approve" || data.action === "confirm") {
           const { error } = await supabaseAdmin.from("episode_movies").upsert(
             {
@@ -1735,13 +1742,14 @@ export const bulkMatchDecision = createServerFn({ method: "POST" })
         }
 
         await logMatchAction(supabaseAdmin, context.userId, {
-          action: data.action === "unlink" ? "unlink" : data.action,
+          action: data.action,
           episodeId: pair.episodeId,
           movieId: pair.movieId,
           previousMethod: existing?.match_method ?? null,
           previousConfidence: existing ? Number(existing.match_confidence) : null,
         });
         succeeded += 1;
+
       } catch (e) {
         failed.push(e instanceof Error ? e.message : "unknown error");
       }
