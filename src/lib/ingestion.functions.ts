@@ -1625,9 +1625,10 @@ export const confirmEpisodeMatch = createServerFn({ method: "POST" })
  */
 async function retireEpisode(
   admin: Awaited<typeof import("@/integrations/supabase/client.server")>["supabaseAdmin"],
-  userId: string | null,
+  userId: string,
   episodeId: string,
 ): Promise<number> {
+
   const { data: links } = await admin
     .from("episode_movies")
     .select("movie_id, match_method, match_confidence")
