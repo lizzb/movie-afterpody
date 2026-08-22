@@ -402,6 +402,21 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
             ))}
           </select>
         ) : null}
+        {tab !== "flagged" ? (
+          <select
+            value={pageSize}
+            onChange={(e) => setPageSize(Number(e.target.value))}
+            aria-label="Rows per batch"
+            className="rounded-full border border-border bg-background px-3 py-2 text-sm"
+          >
+            {[50, 100, 200].map((n) => (
+              <option key={n} value={n}>
+                {n} at a time
+              </option>
+            ))}
+          </select>
+        ) : null}
+
         <button
           type="submit"
           disabled={busy}
