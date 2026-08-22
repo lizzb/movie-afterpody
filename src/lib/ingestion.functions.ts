@@ -1618,32 +1618,65 @@ export const confirmEpisodeMatch = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-/** Retires an episode from every review queue — it is not about a movie. */
+/**
+ * Retires an episode from every review queue — it is not about a movie.
+ * Its existing links are removed and recorded as rejections, otherwise the
+ * episode kept reappearing forever under "Existing links".
+ */
+async function retireEpisode(
+  admin: Awaited<typeof import("@/integrations/supabase/client.server")>["supabaseAdmin"],
+  userId: string | null,
+  episodeId: string,
+): Promise<number> {
+  const { data: links } = await admin
+    .from("episode_movies")
+    .select("movie_id, match_method, match_confidence")
+    .eq("episode_id", episodeId);
+
+  for (const link of links ?? []) {
+    await admin.from("episode_movies").delete().eq("episode_id", episodeId).eq("movie_id", link.movie_id);
+    await admin
+      .from("episode_match_rejections")
+      .upsert(
+        { episode_id: episodeId, movie_id: link.movie_id, rejected_by: userId },
+        { onConflict: "episode_id, movie_id" },
+      );
+    await logMatchAction(admin, userId, {
+      action: "unlink",
+      episodeId,
+      movieId: link.movie_id,
+      previousMethod: link.match_method,
+      previousConfidence: link.match_confidence === null ? null : Number(link.match_confidence),
+    });
+  }
+
+  const { error } = await admin
+    .from("podcast_episodes")
+    .update({ disposition: "not_about_a_movie" })
+    .eq("id", episodeId);
+  if (error) throw error;
+  await logMatchAction(admin, userId, { action: "not_about_a_movie", episodeId });
+  return (links ?? []).length;
+}
+
 export const markEpisodeNotAboutMovie = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data) => z.object({ episodeId: z.string().uuid() }).parse(data))
   .handler(async ({ data, context }) => {
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin
-      .from("podcast_episodes")
-      .update({ disposition: "not_about_a_movie" })
-      .eq("id", data.episodeId);
-    if (error) throw error;
-    await logMatchAction(supabaseAdmin, context.userId, {
-      action: "not_about_a_movie",
-      episodeId: data.episodeId,
-    });
-    return { ok: true };
+    const removed = await retireEpisode(supabaseAdmin, context.userId, data.episodeId);
+    return { ok: true, linksRemoved: removed };
   });
 
 const BulkDecisionInput = z.object({
-  action: z.enum(["approve", "reject", "confirm", "unlink"]),
+  action: z.enum(["approve", "reject", "confirm", "unlink", "retire"]),
   pairs: z
     .array(z.object({ episodeId: z.string().uuid(), movieId: z.string().uuid() }))
     .min(1)
     .max(200),
 });
+
 
 /** One request, many decisions — a failure on one row never aborts the batch. */
 export const bulkMatchDecision = createServerFn({ method: "POST" })
