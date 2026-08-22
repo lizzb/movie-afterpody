@@ -181,7 +181,10 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
       : tab === "proposed"
         ? (proposals.data?.total ?? 0)
         : (links.data?.total ?? 0);
-  const total = Math.max(0, rawTotal - Object.keys(done).length);
+  // `done` keys can belong to an older query, so subtracting them blindly used
+  // to print "Showing 41 of 0". The visible rows are always a lower bound.
+  const total = Math.max(rows.length, rawTotal - Object.keys(done).length);
+
   const active = tab === "flagged" ? flags : tab === "proposed" ? proposals : links;
   const loading = active.isLoading;
   const busy = active.isFetching;
