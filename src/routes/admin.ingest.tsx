@@ -900,6 +900,9 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [showParked, setShowParked] = useState(false);
   const [incompleteOnly, setIncompleteOnly] = useState(false);
+  const [showSearch, setShowSearch] = useState("");
+  const [sortBy, setSortBy] = useState<"name" | "episodes" | "missing">("name");
+
   // Per-show sync outcomes so a failed feed is named instead of vanishing.
   const [syncLog, setSyncLog] = useState<{ name: string; message: string; ok: boolean }[]>([]);
   const [bulkRunning, setBulkRunning] = useState(false);
