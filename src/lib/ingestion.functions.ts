@@ -1274,7 +1274,9 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
       const candidates = matchEpisodeToMovies(ep.title, movieList, {
         rejectionCountByMovie,
         description: ep.description,
+        commonEpisodeWords,
       }).filter((c) => !rejected.has(`${ep.id}:${c.movieId}`));
+
 
       // 1. No links at all — the original behaviour.
       if (existing.length === 0) {
