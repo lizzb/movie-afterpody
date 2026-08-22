@@ -1244,7 +1244,10 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
       else linksByEpisode.set(row.episode_id, [row]);
     }
 
+    const commonEpisodeWords = computeCommonEpisodeWords(episodes.map((ep) => ep.title));
+
     let linked = 0;
+
     let improved = 0;
     let extraAdded = 0;
     let stillUnlinked = 0;
