@@ -354,7 +354,10 @@ export const suggestEpisodeMatches = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { matchEpisodeToMovies } = await import("./providers/matching.server");
+    const { matchEpisodeToMovies, computeCommonEpisodeWords } = await import(
+      "./providers/matching.server"
+    );
+
     const { fetchAllEpisodes, fetchRejectionCountsByMovie, pageAll } = await import(
       "./ingestion-helpers.server"
     );
