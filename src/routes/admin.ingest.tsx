@@ -814,11 +814,7 @@ function UnmatchedEpisodesCard() {
         {rescan.isError ? (
           <p className="mt-2 text-sm text-destructive">{(rescan.error as Error).message}</p>
         ) : null}
-        {retire.isError || link.isError ? (
-          <p className="mt-2 text-sm text-destructive">
-            {((retire.error ?? link.error) as Error).message}
-          </p>
-        ) : null}
+        {rowError ? <p className="mt-2 text-sm text-destructive">{rowError}</p> : null}
       </div>
       {query.isLoading ? (
         <div className="mt-4 h-24 animate-pulse rounded-2xl bg-muted" />
@@ -840,34 +836,49 @@ function UnmatchedEpisodesCard() {
             </span>
           </p>
           <ul className="mt-3 space-y-2">
-            {query.data?.episodes.map((ep) => (
-              <li key={ep.episodeId} className="rounded-xl border border-border/60 px-3 py-2 text-sm">
-                <p className="font-medium">{ep.episodeTitle}</p>
-                <p className="text-xs text-muted-foreground">
-                  {ep.podcastName}
-                  {ep.releasedAt ? ` · ${ep.releasedAt}` : ""}
-                </p>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => retire.mutate({ data: { episodeId: ep.episodeId } })}
-                    disabled={retire.isPending || link.isPending}
-                    className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold hover:bg-secondary disabled:opacity-60"
+            {(query.data?.episodes ?? [])
+              .filter((ep) => !removed[ep.episodeId])
+              .map((ep) => {
+                const rowBusy = pendingId === ep.episodeId;
+                return (
+                  <li
+                    key={ep.episodeId}
+                    className={`rounded-xl border border-border/60 px-3 py-2 text-sm ${rowBusy ? "opacity-60" : ""}`}
                   >
-                    Not about a movie
-                  </button>
-                  <RelinkPicker
-                    disabled={retire.isPending || link.isPending}
-                    onPick={async (movieId) => {
-                      await link.mutateAsync({ data: { episodeId: ep.episodeId, movieId } });
-                    }}
-                  />
-                </div>
-              </li>
-            ))}
+                    <p className="font-medium">{ep.episodeTitle}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {ep.podcastName}
+                      {ep.releasedAt ? ` · ${ep.releasedAt}` : ""}
+                    </p>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void runRow(ep.episodeId, () =>
+                            retireFn({ data: { episodeId: ep.episodeId } }),
+                          )
+                        }
+                        disabled={rowBusy}
+                        className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold hover:bg-secondary disabled:opacity-60"
+                      >
+                        {rowBusy ? "Saving…" : "Not about a movie"}
+                      </button>
+                      <RelinkPicker
+                        disabled={rowBusy}
+                        onPick={async (movieId) => {
+                          await runRow(ep.episodeId, () =>
+                            linkFn({ data: { episodeId: ep.episodeId, movieId } }),
+                          );
+                        }}
+                      />
+                    </div>
+                  </li>
+                );
+              })}
           </ul>
         </>
       )}
+
     </div>
   );
 }
