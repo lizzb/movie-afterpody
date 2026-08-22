@@ -54,6 +54,9 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
   const [search, setSearch] = useState("");
   const [submitted, setSubmitted] = useState("");
   const [maxConfidence, setMaxConfidence] = useState<number>(0.8);
+  // One knob instead of endless refresh cycles: review 50, 100 or 200 at a time.
+  const [pageSize, setPageSize] = useState(50);
+
   const [selected, setSelected] = useState<Record<string, string>>({});
   const [done, setDone] = useState<Record<string, true>>({});
   const [error, setError] = useState<string | null>(null);
@@ -79,27 +82,30 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
   });
 
   const proposals = useQuery({
-    queryKey: ["match-suggestions", submitted, Math.round(maxConfidence * 100)],
+    queryKey: ["match-suggestions", submitted, Math.round(maxConfidence * 100), pageSize],
     queryFn: () =>
       suggestFn({
         data: {
           search: submitted || undefined,
           maxConfidence: Math.round(maxConfidence * 100),
-          limit: 40,
+          limit: pageSize,
         },
       }),
+
     enabled: tab === "proposed",
     retry: false,
     refetchOnWindowFocus: false,
   });
 
   const links = useQuery({
-    queryKey: ["episode-links", submitted, maxConfidence],
-    queryFn: () => linksFn({ data: { search: submitted || undefined, maxConfidence, limit: 50 } }),
+    queryKey: ["episode-links", submitted, maxConfidence, pageSize],
+    queryFn: () =>
+      linksFn({ data: { search: submitted || undefined, maxConfidence, limit: pageSize } }),
     enabled: tab === "existing",
     retry: false,
     refetchOnWindowFocus: false,
   });
+
 
   const term = submitted.toLowerCase();
 
@@ -175,7 +181,10 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
       : tab === "proposed"
         ? (proposals.data?.total ?? 0)
         : (links.data?.total ?? 0);
-  const total = Math.max(0, rawTotal - Object.keys(done).length);
+  // `done` keys can belong to an older query, so subtracting them blindly used
+  // to print "Showing 41 of 0". The visible rows are always a lower bound.
+  const total = Math.max(rows.length, rawTotal - Object.keys(done).length);
+
   const active = tab === "flagged" ? flags : tab === "proposed" ? proposals : links;
   const loading = active.isLoading;
   const busy = active.isFetching;
@@ -253,10 +262,11 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
    */
   const bulk = useMutation({
     mutationFn: async (vars: {
-      action: "approve" | "reject" | "confirm" | "unlink";
+      action: "approve" | "reject" | "confirm" | "unlink" | "retire";
       pairs: { episodeId: string; movieId: string }[];
       flagged: { episodeId: string; movieId: string }[];
     }) => {
+
       const result = await bulkFn({ data: { action: vars.action, pairs: vars.pairs } });
       for (const pair of vars.flagged) {
         await resolveFlagsFn({
@@ -300,14 +310,17 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
       return next;
     });
 
-  const runBulk = (action: "approve" | "reject" | "confirm" | "unlink") => {
-    const destructive = action === "reject" || action === "unlink";
-    if (
-      destructive &&
-      !window.confirm(`${action === "reject" ? "Reject" : "Unlink"} ${selectedCount} selected match(es)?`)
-    ) {
-      return;
-    }
+  const runBulk = (action: "approve" | "reject" | "confirm" | "unlink" | "retire") => {
+    const confirmText =
+      action === "reject"
+        ? `Reject ${selectedCount} selected match(es)?`
+        : action === "unlink"
+          ? `Unlink ${selectedCount} selected match(es)?`
+          : action === "retire"
+            ? `Mark ${selectedCount} selected episode(s) as not about a movie? Their links are removed.`
+            : null;
+    if (confirmText && !window.confirm(confirmText)) return;
+
     const chosen = rows.filter((r) => selected[r.episodeId] === r.movieId);
     if (chosen.length === 0) return;
     const pairs = chosen.map((r) => ({ episodeId: r.episodeId, movieId: r.movieId }));
@@ -389,6 +402,21 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
             ))}
           </select>
         ) : null}
+        {tab !== "flagged" ? (
+          <select
+            value={pageSize}
+            onChange={(e) => setPageSize(Number(e.target.value))}
+            aria-label="Rows per batch"
+            className="rounded-full border border-border bg-background px-3 py-2 text-sm"
+          >
+            {[50, 100, 200].map((n) => (
+              <option key={n} value={n}>
+                {n} at a time
+              </option>
+            ))}
+          </select>
+        ) : null}
+
         <button
           type="submit"
           disabled={busy}
@@ -459,17 +487,19 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
                     type="button"
                     disabled={bulk.isPending}
                     onClick={() => runBulk("approve")}
-                    className="rounded-full bg-teal px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-teal px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"
                   >
-                    Approve all
+                    <Check className="size-3.5" aria-hidden />
+                    Approve selected
                   </button>
                   <button
                     type="button"
                     disabled={bulk.isPending}
                     onClick={() => runBulk("reject")}
-                    className="rounded-full border border-border px-3 py-2 text-xs font-semibold disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs font-semibold disabled:opacity-50"
                   >
-                    Reject all
+                    <X className="size-3.5" aria-hidden />
+                    Reject selected
                   </button>
                 </>
               ) : (
@@ -481,7 +511,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
                     className="inline-flex items-center gap-1.5 rounded-full bg-teal px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"
                   >
                     <Check className="size-3.5" aria-hidden />
-                    Confirm all correct
+                    Confirm selected
                   </button>
                   <button
                     type="button"
@@ -490,10 +520,22 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
                     className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs font-semibold disabled:opacity-50"
                   >
                     <Unlink className="size-3.5" aria-hidden />
-                    Unlink all
+                    Unlink selected
                   </button>
                 </>
               )}
+              {/* Retiring an episode is the fastest way to clear ad reads and
+                  interview episodes out of every queue at once. */}
+              <button
+                type="button"
+                disabled={bulk.isPending}
+                onClick={() => runBulk("retire")}
+                className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs font-semibold disabled:opacity-50"
+              >
+                <Ban className="size-3.5" aria-hidden />
+                Not about a movie
+              </button>
+
               {bulk.isPending ? (
                 <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
                   <Loader2 className="size-3.5 animate-spin" aria-hidden />

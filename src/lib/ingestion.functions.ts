@@ -354,7 +354,10 @@ export const suggestEpisodeMatches = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { matchEpisodeToMovies } = await import("./providers/matching.server");
+    const { matchEpisodeToMovies, computeCommonEpisodeWords } = await import(
+      "./providers/matching.server"
+    );
+
     const { fetchAllEpisodes, fetchRejectionCountsByMovie, pageAll } = await import(
       "./ingestion-helpers.server"
     );
@@ -390,6 +393,8 @@ export const suggestEpisodeMatches = createServerFn({ method: "POST" })
     );
 
     const term = data.search?.trim().toLowerCase();
+    // Words common across this catalogue's episode titles carry no signal.
+    const commonEpisodeWords = computeCommonEpisodeWords(episodes.map((ep) => ep.title));
 
     const all = episodes
       .filter((ep) => ep.disposition !== "not_about_a_movie")
@@ -402,9 +407,12 @@ export const suggestEpisodeMatches = createServerFn({ method: "POST" })
           ep.podcasts.name.toLowerCase().includes(term),
       )
       .map((ep) => {
-        const candidates = matchEpisodeToMovies(ep.title, movieList, { rejectionCountByMovie, description: ep.description }).filter(
-          (c) => !rejectedPairs.has(`${ep.id}:${c.movieId}`),
-        );
+        const candidates = matchEpisodeToMovies(ep.title, movieList, {
+          rejectionCountByMovie,
+          description: ep.description,
+          commonEpisodeWords,
+        }).filter((c) => !rejectedPairs.has(`${ep.id}:${c.movieId}`));
+
         const top = candidates[0];
         return {
           episodeId: ep.id,
@@ -1201,7 +1209,10 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { fetchAllEpisodes, fetchRejectedPairs, fetchRejectionCountsByMovie, pageAll } =
       await import("./ingestion-helpers.server");
-    const { matchEpisodeToMovies } = await import("./providers/matching.server");
+    const { matchEpisodeToMovies, computeCommonEpisodeWords } = await import(
+      "./providers/matching.server"
+    );
+
 
     const episodes = (
       await fetchAllEpisodes(supabaseAdmin, { podcastId: data.podcastId })
@@ -1233,7 +1244,10 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
       else linksByEpisode.set(row.episode_id, [row]);
     }
 
+    const commonEpisodeWords = computeCommonEpisodeWords(episodes.map((ep) => ep.title));
+
     let linked = 0;
+
     let improved = 0;
     let extraAdded = 0;
     let stillUnlinked = 0;
@@ -1263,7 +1277,9 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
       const candidates = matchEpisodeToMovies(ep.title, movieList, {
         rejectionCountByMovie,
         description: ep.description,
+        commonEpisodeWords,
       }).filter((c) => !rejected.has(`${ep.id}:${c.movieId}`));
+
 
       // 1. No links at all — the original behaviour.
       if (existing.length === 0) {
@@ -1500,91 +1516,74 @@ export const listEpisodeLinks = createServerFn({ method: "POST" })
         search: z.string().optional(),
         maxConfidence: z.number().min(0).max(1).default(1),
         limit: z.number().int().min(1).max(200).default(50),
+        offset: z.number().int().min(0).default(0),
+        /** Parked shows are out of scope by default, matching the Proposed tab. */
+        includeParked: z.boolean().default(false),
       })
       .parse(data),
   )
   .handler(async ({ data, context }) => {
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { pageAll } = await import("./ingestion-helpers.server");
 
-    let query = supabaseAdmin
-      .from("episode_movies")
-      .select(
-        "episode_id, movie_id, match_method, match_confidence, podcast_episodes!inner(id, title, released_at, podcast_id, podcasts!inner(id, name)), movies!inner(id, title, release_year, slug)",
-        { count: "exact" },
-      )
-      .lte("match_confidence", data.maxConfidence)
-      .order("match_confidence", { ascending: true })
-      .limit(data.limit);
+    type LinkRow = {
+      episode_id: string;
+      movie_id: string;
+      match_method: string;
+      match_confidence: number;
+      podcast_episodes: {
+        title: string;
+        released_at: string | null;
+        podcast_id: string;
+        disposition: string;
+        podcasts: { id: string; name: string; curation_status: string };
+      };
+      movies: { id: string; title: string; release_year: number | null; slug: string };
+    };
 
-    if (data.podcastId) query = query.eq("podcast_episodes.podcast_id", data.podcastId);
-    const term = data.search?.trim();
-    if (term) {
-      // The placeholder promises episode, show and movie titles — so all three
-      // are resolved to ids here, including show names (previously missing).
-      const [{ data: movieHits }, { data: showHits }] = await Promise.all([
-        supabaseAdmin.from("movies").select("id").ilike("title", `%${term}%`).limit(200),
-        supabaseAdmin.from("podcasts").select("id").ilike("name", `%${term}%`).limit(50),
-      ]);
-      const showIds = (showHits ?? []).map((p) => p.id);
-      const epByTitle = await supabaseAdmin
-        .from("podcast_episodes")
-        .select("id")
-        .ilike("title", `%${term}%`)
-        .limit(1000);
-      const epByShow = showIds.length
-        ? await supabaseAdmin.from("podcast_episodes").select("id").in("podcast_id", showIds).limit(1000)
-        : { data: [] as { id: string }[] };
-
-      const movieIds = (movieHits ?? []).map((m) => m.id);
-      const epIds = [
-        ...new Set([...(epByTitle.data ?? []).map((e) => e.id), ...(epByShow.data ?? []).map((e) => e.id)]),
-      ];
-      const clauses = [
-        movieIds.length ? `movie_id.in.(${movieIds.join(",")})` : null,
-        epIds.length ? `episode_id.in.(${epIds.join(",")})` : null,
-      ].filter(Boolean);
-      query = clauses.length
-        ? query.or(clauses.join(","))
-        : query.eq("episode_id", "00000000-0000-0000-0000-000000000000");
-    }
-
-
-    const { data: rows, error, count } = await query.returns<
-      {
-        episode_id: string;
-        movie_id: string;
-        match_method: string;
-        match_confidence: number;
-        podcast_episodes: {
-          title: string;
-          released_at: string | null;
-          podcast_id: string;
-          podcasts: { id: string; name: string };
-        };
-        movies: { id: string; title: string; release_year: number | null; slug: string };
-      }[]
-    >();
-    if (error) throw error;
-
-    const filtered = term
-      ? (rows ?? []).filter(
-          (r) =>
-            r.movies.title.toLowerCase().includes(term.toLowerCase()) ||
-            r.podcast_episodes.title.toLowerCase().includes(term.toLowerCase()) ||
-            r.podcast_episodes.podcasts.name.toLowerCase().includes(term.toLowerCase()),
+    // Paged read + in-process filtering: the previous version pushed up to a
+    // thousand episode ids into an `or(...)` filter, which made the request URL
+    // too long and returned a bare "Bad Request" for short terms like "us".
+    const rows = await pageAll<LinkRow>((from, to) => {
+      let q = supabaseAdmin
+        .from("episode_movies")
+        .select(
+          "episode_id, movie_id, match_method, match_confidence, podcast_episodes!inner(title, released_at, podcast_id, disposition, podcasts!inner(id, name, curation_status)), movies!inner(id, title, release_year, slug)",
         )
-      : (rows ?? []);
+        .lte("match_confidence", data.maxConfidence)
+        .order("match_confidence", { ascending: true })
+        .order("episode_id", { ascending: true })
+        .range(from, to);
+      if (data.podcastId) q = q.eq("podcast_episodes.podcast_id", data.podcastId);
+      if (!data.includeParked) q = q.eq("podcast_episodes.podcasts.curation_status", "active");
+      return q.returns<LinkRow[]>();
+    });
+
+    const term = data.search?.trim().toLowerCase();
+    const filtered = rows
+      // Retired episodes are settled — they must not reappear as review work.
+      .filter((r) => r.podcast_episodes.disposition !== "not_about_a_movie")
+      .filter(
+        (r) =>
+          !term ||
+          r.movies.title.toLowerCase().includes(term) ||
+          r.podcast_episodes.title.toLowerCase().includes(term) ||
+          r.podcast_episodes.podcasts.name.toLowerCase().includes(term),
+      );
 
     return {
-      total: count ?? filtered.length,
-      links: filtered.map((r) => ({
+      // Same query that produced the rows, so the count can never disagree.
+      total: filtered.length,
+      offset: data.offset,
+      links: filtered.slice(data.offset, data.offset + data.limit).map((r) => ({
         episodeId: r.episode_id,
         movieId: r.movie_id,
         episodeTitle: r.podcast_episodes.title,
         releasedAt: r.podcast_episodes.released_at,
         podcastId: r.podcast_episodes.podcast_id,
         podcastName: r.podcast_episodes.podcasts.name,
+        parked: r.podcast_episodes.podcasts.curation_status === "parked",
         movieTitle: r.movies.title,
         movieYear: r.movies.release_year,
         movieSlug: r.movies.slug,
@@ -1593,6 +1592,7 @@ export const listEpisodeLinks = createServerFn({ method: "POST" })
       })),
     };
   });
+
 
 /** Marks an existing link as correct so it drops out of the review queue for good. */
 export const confirmEpisodeMatch = createServerFn({ method: "POST" })
@@ -1634,32 +1634,66 @@ export const confirmEpisodeMatch = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-/** Retires an episode from every review queue — it is not about a movie. */
+/**
+ * Retires an episode from every review queue — it is not about a movie.
+ * Its existing links are removed and recorded as rejections, otherwise the
+ * episode kept reappearing forever under "Existing links".
+ */
+async function retireEpisode(
+  admin: Awaited<typeof import("@/integrations/supabase/client.server")>["supabaseAdmin"],
+  userId: string,
+  episodeId: string,
+): Promise<number> {
+
+  const { data: links } = await admin
+    .from("episode_movies")
+    .select("movie_id, match_method, match_confidence")
+    .eq("episode_id", episodeId);
+
+  for (const link of links ?? []) {
+    await admin.from("episode_movies").delete().eq("episode_id", episodeId).eq("movie_id", link.movie_id);
+    await admin
+      .from("episode_match_rejections")
+      .upsert(
+        { episode_id: episodeId, movie_id: link.movie_id, rejected_by: userId },
+        { onConflict: "episode_id, movie_id" },
+      );
+    await logMatchAction(admin, userId, {
+      action: "unlink",
+      episodeId,
+      movieId: link.movie_id,
+      previousMethod: link.match_method,
+      previousConfidence: link.match_confidence === null ? null : Number(link.match_confidence),
+    });
+  }
+
+  const { error } = await admin
+    .from("podcast_episodes")
+    .update({ disposition: "not_about_a_movie" })
+    .eq("id", episodeId);
+  if (error) throw error;
+  await logMatchAction(admin, userId, { action: "not_about_a_movie", episodeId });
+  return (links ?? []).length;
+}
+
 export const markEpisodeNotAboutMovie = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data) => z.object({ episodeId: z.string().uuid() }).parse(data))
   .handler(async ({ data, context }) => {
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { error } = await supabaseAdmin
-      .from("podcast_episodes")
-      .update({ disposition: "not_about_a_movie" })
-      .eq("id", data.episodeId);
-    if (error) throw error;
-    await logMatchAction(supabaseAdmin, context.userId, {
-      action: "not_about_a_movie",
-      episodeId: data.episodeId,
-    });
-    return { ok: true };
+    const removed = await retireEpisode(supabaseAdmin, context.userId, data.episodeId);
+    return { ok: true, linksRemoved: removed };
   });
 
 const BulkDecisionInput = z.object({
-  action: z.enum(["approve", "reject", "confirm", "unlink"]),
+  action: z.enum(["approve", "reject", "confirm", "unlink", "retire"]),
   pairs: z
     .array(z.object({ episodeId: z.string().uuid(), movieId: z.string().uuid() }))
     .min(1)
     .max(200),
 });
+
 
 /** One request, many decisions — a failure on one row never aborts the batch. */
 export const bulkMatchDecision = createServerFn({ method: "POST" })
@@ -1680,6 +1714,13 @@ export const bulkMatchDecision = createServerFn({ method: "POST" })
           .eq("episode_id", pair.episodeId)
           .eq("movie_id", pair.movieId)
           .maybeSingle();
+
+        if (data.action === "retire") {
+          // Retiring covers the whole episode: links removed, rejections recorded.
+          await retireEpisode(supabaseAdmin, context.userId, pair.episodeId);
+          succeeded += 1;
+          continue;
+        }
 
         if (data.action === "approve" || data.action === "confirm") {
           const { error } = await supabaseAdmin.from("episode_movies").upsert(
@@ -1717,13 +1758,14 @@ export const bulkMatchDecision = createServerFn({ method: "POST" })
         }
 
         await logMatchAction(supabaseAdmin, context.userId, {
-          action: data.action === "unlink" ? "unlink" : data.action,
+          action: data.action,
           episodeId: pair.episodeId,
           movieId: pair.movieId,
           previousMethod: existing?.match_method ?? null,
           previousConfidence: existing ? Number(existing.match_confidence) : null,
         });
         succeeded += 1;
+
       } catch (e) {
         failed.push(e instanceof Error ? e.message : "unknown error");
       }

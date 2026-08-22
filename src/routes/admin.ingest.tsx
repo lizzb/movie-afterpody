@@ -758,14 +758,29 @@ function UnmatchedEpisodesCard() {
     await client.invalidateQueries({ queryKey: ["ingestion-stats"] });
     await client.invalidateQueries({ queryKey: ["podcast-coverage"] });
   };
-  const retire = useMutation({
-    mutationFn: useServerFn(markEpisodeNotAboutMovie),
-    onSuccess: refreshQueues,
-  });
-  const link = useMutation({
-    mutationFn: useServerFn(approveEpisodeMatch),
-    onSuccess: refreshQueues,
-  });
+  // Per-row state: one shared `isPending` used to grey out the whole list and
+  // made every action feel like it affected all episodes.
+  const [pendingId, setPendingId] = useState<string | null>(null);
+  const [removed, setRemoved] = useState<Record<string, true>>({});
+  const [rowError, setRowError] = useState<string | null>(null);
+  const retireFn = useServerFn(markEpisodeNotAboutMovie);
+  const linkFn = useServerFn(approveEpisodeMatch);
+
+  const runRow = async (episodeId: string, work: () => Promise<unknown>) => {
+    setPendingId(episodeId);
+    setRowError(null);
+    try {
+      await work();
+      // The row is settled — drop it now, let the queues catch up after.
+      setRemoved((prev) => ({ ...prev, [episodeId]: true }));
+      void refreshQueues();
+    } catch (e) {
+      setRowError((e as Error).message);
+    } finally {
+      setPendingId(null);
+    }
+  };
+
 
   return (
     <div>
@@ -799,11 +814,7 @@ function UnmatchedEpisodesCard() {
         {rescan.isError ? (
           <p className="mt-2 text-sm text-destructive">{(rescan.error as Error).message}</p>
         ) : null}
-        {retire.isError || link.isError ? (
-          <p className="mt-2 text-sm text-destructive">
-            {((retire.error ?? link.error) as Error).message}
-          </p>
-        ) : null}
+        {rowError ? <p className="mt-2 text-sm text-destructive">{rowError}</p> : null}
       </div>
       {query.isLoading ? (
         <div className="mt-4 h-24 animate-pulse rounded-2xl bg-muted" />
@@ -825,34 +836,49 @@ function UnmatchedEpisodesCard() {
             </span>
           </p>
           <ul className="mt-3 space-y-2">
-            {query.data?.episodes.map((ep) => (
-              <li key={ep.episodeId} className="rounded-xl border border-border/60 px-3 py-2 text-sm">
-                <p className="font-medium">{ep.episodeTitle}</p>
-                <p className="text-xs text-muted-foreground">
-                  {ep.podcastName}
-                  {ep.releasedAt ? ` · ${ep.releasedAt}` : ""}
-                </p>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => retire.mutate({ data: { episodeId: ep.episodeId } })}
-                    disabled={retire.isPending || link.isPending}
-                    className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold hover:bg-secondary disabled:opacity-60"
+            {(query.data?.episodes ?? [])
+              .filter((ep) => !removed[ep.episodeId])
+              .map((ep) => {
+                const rowBusy = pendingId === ep.episodeId;
+                return (
+                  <li
+                    key={ep.episodeId}
+                    className={`rounded-xl border border-border/60 px-3 py-2 text-sm ${rowBusy ? "opacity-60" : ""}`}
                   >
-                    Not about a movie
-                  </button>
-                  <RelinkPicker
-                    disabled={retire.isPending || link.isPending}
-                    onPick={async (movieId) => {
-                      await link.mutateAsync({ data: { episodeId: ep.episodeId, movieId } });
-                    }}
-                  />
-                </div>
-              </li>
-            ))}
+                    <p className="font-medium">{ep.episodeTitle}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {ep.podcastName}
+                      {ep.releasedAt ? ` · ${ep.releasedAt}` : ""}
+                    </p>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void runRow(ep.episodeId, () =>
+                            retireFn({ data: { episodeId: ep.episodeId } }),
+                          )
+                        }
+                        disabled={rowBusy}
+                        className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold hover:bg-secondary disabled:opacity-60"
+                      >
+                        {rowBusy ? "Saving…" : "Not about a movie"}
+                      </button>
+                      <RelinkPicker
+                        disabled={rowBusy}
+                        onPick={async (movieId) => {
+                          await runRow(ep.episodeId, () =>
+                            linkFn({ data: { episodeId: ep.episodeId, movieId } }),
+                          );
+                        }}
+                      />
+                    </div>
+                  </li>
+                );
+              })}
           </ul>
         </>
       )}
+
     </div>
   );
 }
@@ -874,6 +900,9 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [showParked, setShowParked] = useState(false);
   const [incompleteOnly, setIncompleteOnly] = useState(false);
+  const [showSearch, setShowSearch] = useState("");
+  const [sortBy, setSortBy] = useState<"name" | "episodes" | "missing">("name");
+
   // Per-show sync outcomes so a failed feed is named instead of vanishing.
   const [syncLog, setSyncLog] = useState<{ name: string; message: string; ok: boolean }[]>([]);
   const [bulkRunning, setBulkRunning] = useState(false);
@@ -974,7 +1003,18 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
   const parked = all.filter((p) => p.curationStatus === "parked");
   const incompleteActive = active.filter((p) => p.incomplete);
   const base = showParked ? parked : active;
-  const visible = incompleteOnly ? base.filter((p) => p.incomplete) : base;
+  const term = showSearch.trim().toLowerCase();
+  const visible = (incompleteOnly ? base.filter((p) => p.incomplete) : base)
+    .filter((p) => !term || p.name.toLowerCase().includes(term))
+    .slice()
+    .sort((a, b) =>
+      sortBy === "episodes"
+        ? b.stored - a.stored
+        : sortBy === "missing"
+          ? b.missing - a.missing
+          : a.name.localeCompare(b.name),
+    );
+
 
   // One press works through every active show that is behind its feed, keeping
   // going after a failure and naming each result.
@@ -1090,6 +1130,27 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
           Behind feed only
         </button>
       </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <input
+          value={showSearch}
+          onChange={(e) => setShowSearch(e.target.value)}
+          placeholder="Find a show"
+          aria-label="Find a show"
+          className="min-w-40 flex-1 rounded-full border border-border bg-background px-3 py-2 text-sm"
+        />
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+          aria-label="Sort shows"
+          className="rounded-full border border-border bg-background px-3 py-2 text-sm"
+        >
+          <option value="name">A–Z</option>
+          <option value="episodes">Most episodes</option>
+          <option value="missing">Most missing</option>
+        </select>
+      </div>
+
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <button
