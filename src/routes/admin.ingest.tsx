@@ -1000,7 +1000,18 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
   const parked = all.filter((p) => p.curationStatus === "parked");
   const incompleteActive = active.filter((p) => p.incomplete);
   const base = showParked ? parked : active;
-  const visible = incompleteOnly ? base.filter((p) => p.incomplete) : base;
+  const term = showSearch.trim().toLowerCase();
+  const visible = (incompleteOnly ? base.filter((p) => p.incomplete) : base)
+    .filter((p) => !term || p.name.toLowerCase().includes(term))
+    .slice()
+    .sort((a, b) =>
+      sortBy === "episodes"
+        ? b.stored - a.stored
+        : sortBy === "missing"
+          ? b.missing - a.missing
+          : a.name.localeCompare(b.name),
+    );
+
 
   // One press works through every active show that is behind its feed, keeping
   // going after a failure and naming each result.
