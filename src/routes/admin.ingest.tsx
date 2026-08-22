@@ -1132,6 +1132,27 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
+        <input
+          value={showSearch}
+          onChange={(e) => setShowSearch(e.target.value)}
+          placeholder="Find a show"
+          aria-label="Find a show"
+          className="min-w-40 flex-1 rounded-full border border-border bg-background px-3 py-2 text-sm"
+        />
+        <select
+          value={sortBy}
+          onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+          aria-label="Sort shows"
+          className="rounded-full border border-border bg-background px-3 py-2 text-sm"
+        >
+          <option value="name">A–Z</option>
+          <option value="episodes">Most episodes</option>
+          <option value="missing">Most missing</option>
+        </select>
+      </div>
+
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
         <button
           type="button"
           onClick={syncAllIncomplete}
