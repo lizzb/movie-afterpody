@@ -472,17 +472,19 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
                     type="button"
                     disabled={bulk.isPending}
                     onClick={() => runBulk("approve")}
-                    className="rounded-full bg-teal px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-teal px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"
                   >
-                    Approve all
+                    <Check className="size-3.5" aria-hidden />
+                    Approve selected
                   </button>
                   <button
                     type="button"
                     disabled={bulk.isPending}
                     onClick={() => runBulk("reject")}
-                    className="rounded-full border border-border px-3 py-2 text-xs font-semibold disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs font-semibold disabled:opacity-50"
                   >
-                    Reject all
+                    <X className="size-3.5" aria-hidden />
+                    Reject selected
                   </button>
                 </>
               ) : (
@@ -494,7 +496,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
                     className="inline-flex items-center gap-1.5 rounded-full bg-teal px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"
                   >
                     <Check className="size-3.5" aria-hidden />
-                    Confirm all correct
+                    Confirm selected
                   </button>
                   <button
                     type="button"
@@ -503,10 +505,22 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
                     className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs font-semibold disabled:opacity-50"
                   >
                     <Unlink className="size-3.5" aria-hidden />
-                    Unlink all
+                    Unlink selected
                   </button>
                 </>
               )}
+              {/* Retiring an episode is the fastest way to clear ad reads and
+                  interview episodes out of every queue at once. */}
+              <button
+                type="button"
+                disabled={bulk.isPending}
+                onClick={() => runBulk("retire")}
+                className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs font-semibold disabled:opacity-50"
+              >
+                <Ban className="size-3.5" aria-hidden />
+                Not about a movie
+              </button>
+
               {bulk.isPending ? (
                 <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
                   <Loader2 className="size-3.5 animate-spin" aria-hidden />
