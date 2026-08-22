@@ -310,14 +310,17 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
       return next;
     });
 
-  const runBulk = (action: "approve" | "reject" | "confirm" | "unlink") => {
-    const destructive = action === "reject" || action === "unlink";
-    if (
-      destructive &&
-      !window.confirm(`${action === "reject" ? "Reject" : "Unlink"} ${selectedCount} selected match(es)?`)
-    ) {
-      return;
-    }
+  const runBulk = (action: "approve" | "reject" | "confirm" | "unlink" | "retire") => {
+    const confirmText =
+      action === "reject"
+        ? `Reject ${selectedCount} selected match(es)?`
+        : action === "unlink"
+          ? `Unlink ${selectedCount} selected match(es)?`
+          : action === "retire"
+            ? `Mark ${selectedCount} selected episode(s) as not about a movie? Their links are removed.`
+            : null;
+    if (confirmText && !window.confirm(confirmText)) return;
+
     const chosen = rows.filter((r) => selected[r.episodeId] === r.movieId);
     if (chosen.length === 0) return;
     const pairs = chosen.map((r) => ({ episodeId: r.episodeId, movieId: r.movieId }));
