@@ -758,14 +758,29 @@ function UnmatchedEpisodesCard() {
     await client.invalidateQueries({ queryKey: ["ingestion-stats"] });
     await client.invalidateQueries({ queryKey: ["podcast-coverage"] });
   };
-  const retire = useMutation({
-    mutationFn: useServerFn(markEpisodeNotAboutMovie),
-    onSuccess: refreshQueues,
-  });
-  const link = useMutation({
-    mutationFn: useServerFn(approveEpisodeMatch),
-    onSuccess: refreshQueues,
-  });
+  // Per-row state: one shared `isPending` used to grey out the whole list and
+  // made every action feel like it affected all episodes.
+  const [pendingId, setPendingId] = useState<string | null>(null);
+  const [removed, setRemoved] = useState<Record<string, true>>({});
+  const [rowError, setRowError] = useState<string | null>(null);
+  const retireFn = useServerFn(markEpisodeNotAboutMovie);
+  const linkFn = useServerFn(approveEpisodeMatch);
+
+  const runRow = async (episodeId: string, work: () => Promise<unknown>) => {
+    setPendingId(episodeId);
+    setRowError(null);
+    try {
+      await work();
+      // The row is settled — drop it now, let the queues catch up after.
+      setRemoved((prev) => ({ ...prev, [episodeId]: true }));
+      void refreshQueues();
+    } catch (e) {
+      setRowError((e as Error).message);
+    } finally {
+      setPendingId(null);
+    }
+  };
+
 
   return (
     <div>
