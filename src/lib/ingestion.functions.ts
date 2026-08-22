@@ -1209,7 +1209,10 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { fetchAllEpisodes, fetchRejectedPairs, fetchRejectionCountsByMovie, pageAll } =
       await import("./ingestion-helpers.server");
-    const { matchEpisodeToMovies } = await import("./providers/matching.server");
+    const { matchEpisodeToMovies, computeCommonEpisodeWords } = await import(
+      "./providers/matching.server"
+    );
+
 
     const episodes = (
       await fetchAllEpisodes(supabaseAdmin, { podcastId: data.podcastId })
