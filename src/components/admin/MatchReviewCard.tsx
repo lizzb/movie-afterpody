@@ -94,12 +94,14 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
   });
 
   const links = useQuery({
-    queryKey: ["episode-links", submitted, maxConfidence],
-    queryFn: () => linksFn({ data: { search: submitted || undefined, maxConfidence, limit: 50 } }),
+    queryKey: ["episode-links", submitted, maxConfidence, pageSize],
+    queryFn: () =>
+      linksFn({ data: { search: submitted || undefined, maxConfidence, limit: pageSize } }),
     enabled: tab === "existing",
     retry: false,
     refetchOnWindowFocus: false,
   });
+
 
   const term = submitted.toLowerCase();
 
