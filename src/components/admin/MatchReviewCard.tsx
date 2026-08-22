@@ -54,6 +54,9 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
   const [search, setSearch] = useState("");
   const [submitted, setSubmitted] = useState("");
   const [maxConfidence, setMaxConfidence] = useState<number>(0.8);
+  // One knob instead of endless refresh cycles: review 50, 100 or 200 at a time.
+  const [pageSize, setPageSize] = useState(50);
+
   const [selected, setSelected] = useState<Record<string, string>>({});
   const [done, setDone] = useState<Record<string, true>>({});
   const [error, setError] = useState<string | null>(null);
