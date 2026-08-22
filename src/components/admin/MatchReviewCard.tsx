@@ -82,15 +82,16 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
   });
 
   const proposals = useQuery({
-    queryKey: ["match-suggestions", submitted, Math.round(maxConfidence * 100)],
+    queryKey: ["match-suggestions", submitted, Math.round(maxConfidence * 100), pageSize],
     queryFn: () =>
       suggestFn({
         data: {
           search: submitted || undefined,
           maxConfidence: Math.round(maxConfidence * 100),
-          limit: 40,
+          limit: pageSize,
         },
       }),
+
     enabled: tab === "proposed",
     retry: false,
     refetchOnWindowFocus: false,
