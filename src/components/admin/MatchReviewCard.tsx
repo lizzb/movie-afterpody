@@ -441,11 +441,14 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
         <p className="mt-4 text-sm text-destructive">{(queryError as Error).message}</p>
       ) : rows.length === 0 ? (
         <p className="mt-4 text-sm text-muted-foreground">
-          {tab === "flagged"
-            ? "Nothing flagged as wrong. Flags raised in the app land here."
-            : tab === "proposed"
-              ? "No proposals in this band."
-              : "No saved links match that filter."}
+          {/* A search that found nothing is not the same thing as an empty queue. */}
+          {submitted
+            ? `No ${noun} match “${submitted}”. Clear the search to see the rest of the queue.`
+            : tab === "flagged"
+              ? "Nothing flagged as wrong. Flags raised in the app land here."
+              : tab === "proposed"
+                ? `Queue clear — no proposals at or below ${Math.round(maxConfidence * 100)}% confidence.`
+                : "Queue clear — every saved link in this band has been reviewed."}
         </p>
       ) : (
         <>
