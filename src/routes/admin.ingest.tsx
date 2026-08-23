@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { MatchHistoryCard } from "@/components/admin/MatchHistoryCard";
+import { MatcherScoreCard } from "@/components/admin/MatcherScoreCard";
 import { MatchReviewCard, RelinkPicker } from "@/components/admin/MatchReviewCard";
 import { CollapsibleCard } from "@/components/admin/CollapsibleCard";
 import { useAuth } from "@/hooks/useAuth";
