@@ -7,6 +7,12 @@ export interface PodcastMovie {
   episodes: Episode[];
 }
 
+/** One episode in the full chronological feed, linked or not. */
+export interface PodcastEpisodeRow {
+  episode: Episode;
+  movies: { id: string; slug: string; title: string; release_year: number | null }[];
+}
+
 export interface PodcastEntry {
   podcast: Podcast;
   preferred: boolean;
@@ -15,6 +21,8 @@ export interface PodcastEntry {
   links: PodcastMetric[];
   episodeCount: number;
   movies: PodcastMovie[];
+  /** Every episode we store for this show, newest first, matched or not. */
+  allEpisodes: PodcastEpisodeRow[];
   /** Covered movies that are on the services you picked and you haven't watched. */
   streamableUnwatched: PodcastMovie[];
   /** Deterministic 0-100: how much use this show is to you right now. */
@@ -37,6 +45,33 @@ export function usePodcasts() {
     for (const m of catalog.metrics) {
       const prev = metricByPodcast.get(m.podcast_id);
       if (!prev || (m.rating_count ?? 0) > (prev.rating_count ?? 0)) metricByPodcast.set(m.podcast_id, m);
+    }
+
+    // Full episode feed: every stored episode for the show, with whatever
+    // movies it links to (often none) so nothing is hidden from the listener.
+    const movieById = new Map(catalog.movies.map((m) => [m.id, m]));
+    const linkedMoviesByEpisode = new Map<string, PodcastEpisodeRow["movies"]>();
+    for (const link of catalog.episodeMovies) {
+      const movie = movieById.get(link.movie_id);
+      if (!movie) continue;
+      const list = linkedMoviesByEpisode.get(link.episode_id) ?? [];
+      list.push({
+        id: movie.id,
+        slug: movie.slug,
+        title: movie.title,
+        release_year: movie.release_year,
+      });
+      linkedMoviesByEpisode.set(link.episode_id, list);
+    }
+
+    const episodesByPodcast = new Map<string, PodcastEpisodeRow[]>();
+    for (const episode of catalog.episodes) {
+      const list = episodesByPodcast.get(episode.podcast_id) ?? [];
+      list.push({ episode, movies: linkedMoviesByEpisode.get(episode.id) ?? [] });
+      episodesByPodcast.set(episode.podcast_id, list);
+    }
+    for (const list of episodesByPodcast.values()) {
+      list.sort((a, b) => (b.episode.released_at ?? "").localeCompare(a.episode.released_at ?? ""));
     }
 
     const byPodcast = new Map<string, Map<string, PodcastMovie>>();
@@ -104,7 +139,8 @@ export function usePodcasts() {
         preferred,
         metric,
         links: catalog.metrics.filter((m) => m.podcast_id === podcast.id && m.external_url),
-        episodeCount: catalog.episodes.filter((e) => e.podcast_id === podcast.id).length,
+        episodeCount: episodesByPodcast.get(podcast.id)?.length ?? 0,
+        allEpisodes: episodesByPodcast.get(podcast.id) ?? [],
         movies,
         streamableUnwatched,
         matchScore: Math.round(Math.min(score, 100)),

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { MatchHistoryCard } from "@/components/admin/MatchHistoryCard";
+import { MatcherScoreCard } from "@/components/admin/MatcherScoreCard";
 import { MatchReviewCard, RelinkPicker } from "@/components/admin/MatchReviewCard";
 import { CollapsibleCard } from "@/components/admin/CollapsibleCard";
 import { useAuth } from "@/hooks/useAuth";
@@ -166,6 +167,16 @@ function IngestPage() {
 
         <section className="mt-10 space-y-4">
           <MatchReviewCard onSuccess={() => stats.refetch()} />
+
+          <CollapsibleCard
+            id="matcher-score"
+            title="Score the matcher"
+            description="Precision, recall and signal lift measured against your own decisions."
+            storageKey="matcher-score"
+          >
+            <MatcherScoreCard />
+          </CollapsibleCard>
+
 
           <CollapsibleCard id="add-movie" title="Add movie from TMDB" storageKey="enrich-movie">
             <EnrichMovieForm onSuccess={() => stats.refetch()} />
