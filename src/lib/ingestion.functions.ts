@@ -1542,34 +1542,59 @@ export const listEpisodeLinks = createServerFn({ method: "POST" })
       movies: { id: string; title: string; release_year: number | null; slug: string };
     };
 
-    // Paged read + in-process filtering: the previous version pushed up to a
-    // thousand episode ids into an `or(...)` filter, which made the request URL
-    // too long and returned a bare "Bad Request" for short terms like "us".
-    const rows = await pageAll<LinkRow>((from, to) => {
+    const term = data.search?.trim();
+
+    // Server-side filtering. Never push episode ids into the URL — that is what
+    // returned a bare "Bad Request" for short terms like "us". PostgREST can't
+    // OR across three embedded tables in one clause, so run one ilike query per
+    // searchable column (episode title, show name, movie title) and merge.
+    const baseQuery = (from: number, to: number) => {
       let q = supabaseAdmin
         .from("episode_movies")
         .select(
           "episode_id, movie_id, match_method, match_confidence, podcast_episodes!inner(title, released_at, podcast_id, disposition, podcasts!inner(id, name, curation_status)), movies!inner(id, title, release_year, slug)",
         )
         .lte("match_confidence", data.maxConfidence)
+        // Retired episodes are settled — they must not reappear as review work.
+        .neq("podcast_episodes.disposition", "not_about_a_movie")
         .order("match_confidence", { ascending: true })
         .order("episode_id", { ascending: true })
         .range(from, to);
       if (data.podcastId) q = q.eq("podcast_episodes.podcast_id", data.podcastId);
       if (!data.includeParked) q = q.eq("podcast_episodes.podcasts.curation_status", "active");
-      return q.returns<LinkRow[]>();
-    });
+      return q;
+    };
 
-    const term = data.search?.trim().toLowerCase();
+    const pattern = term ? `%${term}%` : null;
+    const rows: LinkRow[] = pattern
+      ? (
+          await Promise.all([
+            pageAll<LinkRow>((f, t) =>
+              baseQuery(f, t).ilike("podcast_episodes.title", pattern).returns<LinkRow[]>(),
+            ),
+            pageAll<LinkRow>((f, t) =>
+              baseQuery(f, t).ilike("podcast_episodes.podcasts.name", pattern).returns<LinkRow[]>(),
+            ),
+            pageAll<LinkRow>((f, t) =>
+              baseQuery(f, t).ilike("movies.title", pattern).returns<LinkRow[]>(),
+            ),
+          ])
+        ).flat()
+      : await pageAll<LinkRow>((f, t) => baseQuery(f, t).returns<LinkRow[]>());
+
+    // Dedupe: a term can match episode, show and movie titles at once.
+    const seen = new Set<string>();
     const filtered = rows
-      // Retired episodes are settled — they must not reappear as review work.
-      .filter((r) => r.podcast_episodes.disposition !== "not_about_a_movie")
-      .filter(
-        (r) =>
-          !term ||
-          r.movies.title.toLowerCase().includes(term) ||
-          r.podcast_episodes.title.toLowerCase().includes(term) ||
-          r.podcast_episodes.podcasts.name.toLowerCase().includes(term),
+      .filter((r) => {
+        const key = `${r.episode_id}:${r.movie_id}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .sort(
+        (a, b) =>
+          Number(a.match_confidence) - Number(b.match_confidence) ||
+          a.episode_id.localeCompare(b.episode_id),
       );
 
     return {
