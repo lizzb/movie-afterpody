@@ -7,6 +7,12 @@ export interface PodcastMovie {
   episodes: Episode[];
 }
 
+/** One episode in the full chronological feed, linked or not. */
+export interface PodcastEpisodeRow {
+  episode: Episode;
+  movies: { id: string; slug: string; title: string; release_year: number | null }[];
+}
+
 export interface PodcastEntry {
   podcast: Podcast;
   preferred: boolean;
@@ -15,6 +21,8 @@ export interface PodcastEntry {
   links: PodcastMetric[];
   episodeCount: number;
   movies: PodcastMovie[];
+  /** Every episode we store for this show, newest first, matched or not. */
+  allEpisodes: PodcastEpisodeRow[];
   /** Covered movies that are on the services you picked and you haven't watched. */
   streamableUnwatched: PodcastMovie[];
   /** Deterministic 0-100: how much use this show is to you right now. */
