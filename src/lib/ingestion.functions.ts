@@ -2018,3 +2018,16 @@ export const resolveEpisodeFlags = createServerFn({ method: "POST" })
     if (error) throw error;
     return { ok: true };
   });
+
+/**
+ * Pass R3 — replays the current scoring rules over every approve/reject label
+ * and reports precision, recall and where the mistakes cluster. Database only.
+ */
+export const scoreMatcher = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    await requireAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { evaluateMatcher } = await import("./matcher-eval.server");
+    return evaluateMatcher(supabaseAdmin);
+  });
