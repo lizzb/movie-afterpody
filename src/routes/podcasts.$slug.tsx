@@ -78,6 +78,7 @@ function PodcastDetailPage() {
     streamableUnwatched,
     metric,
     episodeCount,
+    allEpisodes,
     reasons,
     links,
   } = entry;
