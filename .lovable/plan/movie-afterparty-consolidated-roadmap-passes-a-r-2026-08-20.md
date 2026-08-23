@@ -15,7 +15,36 @@ Full detail: `.lovable/plan/pass-r-shrink-working-set-2026-08-20.md`.
 
 - **R1 — Active / Parked curation — DONE (2026-08-21).** `podcast_curation` enum + `curation_status` on podcasts; Park / Re-activate per show in "Episode coverage & show curation" with Active/Parked tabs and a linked / unmatched / not-about-a-movie progress line; `activeOnly` scoping in `ingestion-helpers.server.ts` so suggest / rescan / resolve / unmatched are active-only; `data.ts` drops parked shows, their episodes and links from the app; stat tiles split into "Active shows" / "Parked shows" so nothing is silently invisible. Parked shows are also skipped by episode sync.
 - **R2 — Episode-level noise handling — ~20k — Priority 1.** Bulk "Retire remaining unmatched" on one show (marks every still-unmatched episode `not_about_a_movie`, logged in `match_actions`, undoable), plus the separately-labelled destructive "Delete episodes, keep the show".
-- **R3 — Score the matcher — ~25k — Priority 2.** `matcher-eval.server.ts` replays current scoring rules over the labelled approve/reject/confirm set in `match_actions` + `episode_match_rejections` and reports precision, recall and the confidence band where mistakes cluster. No TMDB calls.
+- **R3 — Score the matcher — DONE (2026-08-23).** `src/lib/matcher-eval.server.ts` + `scoreMatcher` server fn + "Score the matcher" admin card: replays live scoring over every non-undone approve/confirm/reject in `match_actions` plus `episode_match_rejections`, reporting precision/recall at the 25 threshold, precision per confidence band, the band where wrong matches cluster, and per-signal lift (how much more often each signal appears on approved vs rejected pairs). Database only, no TMDB calls.
+
+### New backlog passes (approved 2026-08-23, not scheduled)
+
+#### Pass W — Franchise and sequel disambiguation — ~30k — Priority 3
+Sequels whose titles contain the original ("Halloweentown" inside "Halloweentown II: Kalabar's Revenge", "Return to Halloweentown", "Halloweentown High"; the whole Lord of the Rings/Toy Story pattern) currently all match the base film, generating avoidable review work. Deterministic fixes, in order of value:
+
+1. **Longest-title-wins within a family.** Group candidate movies that share a normalised title prefix/stem. Score all of them, then keep only the longest title whose *entire* token set is covered by the episode title; suppress shorter family members to a sub-threshold score. "Halloweentown High" wins over "Halloweentown" whenever "high" is present.
+2. **Distinguisher tokens as a penalty, not noise.** Treat sequel markers in the episode title — roman numerals (II, III), digits (2, 3), "return to", "part", "chapter", "revenge", "high", subtitle after a colon — as evidence *against* the base title when the base title has none of them. Currently they only fail to help.
+3. **Symmetric coverage.** Require coverage of the *episode's* film-name span too, not just the movie's tokens, so a base title that covers only half of the named film scores lower than the sequel that covers all of it.
+4. **Franchise grouping via TMDB `belongs_to_collection`.** Store a `collection_id` on movies during enrichment; when two candidates share a collection, only the best-scoring one is ever proposed. Cheap: the field arrives in the enrich call we already make.
+5. **Year corroboration inside a family** — a sequel's year settles most remaining ties.
+
+Measurable with Pass R3 before/after (precision per band on the same labels).
+
+#### Pass X — Leaving-soon streaming windows — ~45k (or ~15k for the honest subset) — Priority 11
+**What the data supports:** TMDB `/watch/providers` (JustWatch-sourced) returns *current* availability only — no leave dates, no offer expiry, no "recently added". Neither does the free JustWatch surface. Real leave-date feeds exist only in paid/licensed products (JustWatch partner API, Reelgood, Watchmode "expiring" endpoints). So there are two honest options:
+
+- **X1 — Self-derived change detection (~15k, no new provider).** We already stamp `availability_checked_at`. Add an `availability_history` table (movie, service, offer type, first_seen, last_seen) written on every availability run. That gives real "Added in the last 30 days" and "Disappeared since <date>" signals, plus a "leaving soon" *heuristic* only if a provider ever exposes dates. Honest labels: "New on your services", "Was on Netflix until 12 Aug".
+- **X2 — Licensed expiry data (~45k + subscription cost).** Watchmode or Reelgood expiring-titles endpoint keyed per region, stored as `leaves_on` on `movie_availability`, surfaced as a "Leaving soon" filter on Tonight and Movies, a countdown badge on cards, and a sort option. Requires a paid API key and a scheduled refresh (ties to Pass L).
+
+Recommendation: build X1 first — it is free, needs no new vendor, and answers "what changed" — and only take X2 if true leave dates become a must.
+
+#### Pass Y — MPA / TV content-rating filters — ~25k — Priority 7b (folded into Pass H)
+Available from TMDB at no extra cost per movie beyond one call we can fold into enrichment: `/movie/{id}/release_dates` gives the US `certification` (G, PG, PG-13, R, NC-17, NR) and `/tv/{id}/content_ratings` gives TV ratings (TV-Y, TV-Y7, TV-G, TV-PG, TV-14, TV-MA) for Pass V.
+
+- Migration: `certification text` + `certification_system text` on `movies`, backfilled by a new "Backfill content ratings" admin action (chunked, resumable, same shape as availability sync).
+- Normalised ladder so movie and TV ratings sort together: TV-Y < TV-Y7 < G/TV-G < PG/TV-PG < PG-13/TV-14 < R/TV-MA < NC-17, with unrated handled explicitly (its own opt-in toggle, never silently included or excluded).
+- Filters: a max-rating chip row in the Movies filter sheet and the same allowance applied to Tonight; stored in `prefs` next to services and year range. Unrated titles show a small "NR" marker.
+
 
 
 ## Worth doing soon
