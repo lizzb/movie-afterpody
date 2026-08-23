@@ -47,6 +47,33 @@ export function usePodcasts() {
       if (!prev || (m.rating_count ?? 0) > (prev.rating_count ?? 0)) metricByPodcast.set(m.podcast_id, m);
     }
 
+    // Full episode feed: every stored episode for the show, with whatever
+    // movies it links to (often none) so nothing is hidden from the listener.
+    const movieById = new Map(catalog.movies.map((m) => [m.id, m]));
+    const linkedMoviesByEpisode = new Map<string, PodcastEpisodeRow["movies"]>();
+    for (const link of catalog.episodeMovies) {
+      const movie = movieById.get(link.movie_id);
+      if (!movie) continue;
+      const list = linkedMoviesByEpisode.get(link.episode_id) ?? [];
+      list.push({
+        id: movie.id,
+        slug: movie.slug,
+        title: movie.title,
+        release_year: movie.release_year,
+      });
+      linkedMoviesByEpisode.set(link.episode_id, list);
+    }
+
+    const episodesByPodcast = new Map<string, PodcastEpisodeRow[]>();
+    for (const episode of catalog.episodes) {
+      const list = episodesByPodcast.get(episode.podcast_id) ?? [];
+      list.push({ episode, movies: linkedMoviesByEpisode.get(episode.id) ?? [] });
+      episodesByPodcast.set(episode.podcast_id, list);
+    }
+    for (const list of episodesByPodcast.values()) {
+      list.sort((a, b) => (b.episode.released_at ?? "").localeCompare(a.episode.released_at ?? ""));
+    }
+
     const byPodcast = new Map<string, Map<string, PodcastMovie>>();
     let preferredIds = new Set<string>();
 
