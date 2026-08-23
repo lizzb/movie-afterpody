@@ -216,6 +216,55 @@ function PodcastDetailPage() {
             <CoveredList items={rest} view={view} />
           </section>
         ) : null}
+
+        <section className="mt-7">
+          <h2 className="font-display text-lg font-bold">
+            All episodes <span className="text-muted-foreground">({allEpisodes.length})</span>
+          </h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Newest first — every episode we store, whether a movie is linked to it or not.
+          </p>
+          {allEpisodes.length === 0 ? (
+            <p className="mt-3 rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+              No episodes stored for this show yet.
+            </p>
+          ) : (
+            <ol className="mt-3 space-y-2">
+              {allEpisodes.map(({ episode, movies: linked }) => (
+                <li
+                  key={episode.id}
+                  className="rounded-2xl border border-border bg-card p-3 shadow-card"
+                >
+                  <div className="flex items-baseline justify-between gap-3">
+                    <h3 className="min-w-0 text-sm font-semibold leading-snug">{episode.title}</h3>
+                    {episode.released_at ? (
+                      <span className="shrink-0 text-[11px] text-muted-foreground">
+                        {episode.released_at}
+                      </span>
+                    ) : null}
+                  </div>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs">
+                    {linked.length > 0 ? (
+                      linked.map((m) => (
+                        <Link
+                          key={m.id}
+                          to="/movies/$slug"
+                          params={{ slug: m.slug }}
+                          className="rounded-full border border-border bg-secondary px-2.5 py-1 font-semibold text-secondary-foreground hover:text-foreground"
+                        >
+                          {m.title}
+                          {m.release_year ? ` (${m.release_year})` : ""}
+                        </Link>
+                      ))
+                    ) : (
+                      <span className="text-muted-foreground">No movie linked yet</span>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ol>
+          )}
+        </section>
       </main>
     </AppShell>
   );
