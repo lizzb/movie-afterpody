@@ -1,0 +1,277 @@
+/**
+ * Pass R3 — "Score the matcher".
+ *
+ * Replays the current scoring rules over the labels admins have already
+ * produced (approve / confirm = positive, reject / retire = negative) and
+ * reports precision, recall and where the mistakes cluster. Database only:
+ * no TMDB calls, no AI, no tokens.
+ */
+import { matchEpisodeToMovies, computeCommonEpisodeWords } from "./providers/matching.server";
+import { pageAll, fetchRejectionCountsByMovie } from "./ingestion-helpers.server";
+import type { supabaseAdmin as Admin } from "@/integrations/supabase/client.server";
+
+type AdminClient = typeof Admin;
+
+export interface BandStat {
+  band: string;
+  min: number;
+  max: number;
+  positives: number;
+  negatives: number;
+  /** positives / (positives + negatives) inside the band. */
+  precision: number | null;
+}
+
+export interface SignalStat {
+  signal: string;
+  positiveRate: number;
+  negativeRate: number;
+  /** positiveRate - negativeRate: above 0 the signal predicts a good match. */
+  lift: number;
+  positives: number;
+  negatives: number;
+}
+
+export interface MatcherReport {
+  labelledPairs: number;
+  positives: number;
+  negatives: number;
+  scored: number;
+  unscored: number;
+  /** Precision/recall at the live 25-confidence suggestion threshold. */
+  threshold: number;
+  precisionAtThreshold: number | null;
+  recallAtThreshold: number | null;
+  bands: BandStat[];
+  /** Band holding the largest share of wrong-but-suggested pairs. */
+  worstBand: string | null;
+  signals: SignalStat[];
+  meanConfidencePositive: number | null;
+  meanConfidenceNegative: number | null;
+  generatedAt: string;
+}
+
+const BANDS: { band: string; min: number; max: number }[] = [
+  { band: "0–24 (below threshold)", min: 0, max: 24 },
+  { band: "25–39", min: 25, max: 39 },
+  { band: "40–54", min: 40, max: 54 },
+  { band: "55–69", min: 55, max: 69 },
+  { band: "70–79", min: 70, max: 79 },
+  { band: "80–89", min: 80, max: 89 },
+  { band: "90–100", min: 90, max: 100 },
+];
+
+const THRESHOLD = 25;
+
+/** Boolean-ish signals worth measuring against the labels. */
+const SIGNAL_TESTS: { signal: string; test: (s: Record<string, unknown>) => boolean }[] = [
+  { signal: "exact title", test: (s) => s["rule"] === "exact" },
+  { signal: "title contained", test: (s) => s["rule"] === "contained" },
+  { signal: "token/coverage rule", test: (s) => s["rule"] === "tokens" },
+  { signal: "weak rule", test: (s) => s["rule"] === "weak" },
+  { signal: "description-only rule", test: (s) => s["rule"] === "description" },
+  { signal: "full movie-title coverage", test: (s) => Number(s["coverage"] ?? 0) >= 1 },
+  { signal: "named in description", test: (s) => s["descTitle"] === true },
+  { signal: "year agrees", test: (s) => s["yearMatch"] === "same" },
+  { signal: "year mismatch", test: (s) => s["yearMatch"] === "mismatch" },
+  { signal: "generic one-word title", test: (s) => s["genericTitle"] === true },
+  { signal: "very short title", test: (s) => s["shortTitle"] === true },
+  { signal: "common-word title", test: (s) => s["commonWord"] === true },
+  { signal: "interview/bonus keyword", test: (s) => s["keywordSuppressed"] === true },
+  { signal: "description hit was promo", test: (s) => s["descPromo"] === true },
+  { signal: "rejected before", test: (s) => Number(s["rejectedBefore"] ?? 0) > 0 },
+];
+
+export async function evaluateMatcher(admin: AdminClient): Promise<MatcherReport> {
+  // Labels. Positives come from the action log (approve/confirm); negatives from
+  // the rejection table, which also absorbs "not about a movie" retirements.
+  const [actions, rejections, rejectionCountByMovie] = await Promise.all([
+    pageAll<{ action: string; episode_id: string; movie_id: string | null; undone_at: string | null }>(
+      (from, to) =>
+        admin
+          .from("match_actions")
+          .select("action, episode_id, movie_id, undone_at")
+          .in("action", ["approve", "confirm", "reject"])
+          .is("undone_at", null)
+          .range(from, to),
+    ),
+    pageAll<{ episode_id: string; movie_id: string }>((from, to) =>
+      admin.from("episode_match_rejections").select("episode_id, movie_id").range(from, to),
+    ),
+    fetchRejectionCountsByMovie(admin),
+  ]);
+
+  const label = new Map<string, boolean>();
+  for (const r of rejections) label.set(`${r.episode_id}:${r.movie_id}`, false);
+  for (const a of actions) {
+    if (!a.movie_id) continue;
+    const key = `${a.episode_id}:${a.movie_id}`;
+    if (a.action === "reject") {
+      if (!label.has(key)) label.set(key, false);
+    } else {
+      // A human approval outranks an earlier rejection of the same pair.
+      label.set(key, true);
+    }
+  }
+
+  const episodeIds = [...new Set([...label.keys()].map((k) => k.split(":")[0]!))];
+  const movieIds = [...new Set([...label.keys()].map((k) => k.split(":")[1]!))];
+
+  const [episodes, movies, allTitles] = await Promise.all([
+    chunkedIn<{ id: string; title: string; description: string | null }>(
+      episodeIds,
+      (ids) => admin.from("podcast_episodes").select("id, title, description").in("id", ids),
+    ),
+    chunkedIn<{ id: string; title: string; release_year: number | null }>(movieIds, (ids) =>
+      admin.from("movies").select("id, title, release_year").in("id", ids),
+    ),
+    pageAll<{ title: string }>((from, to) =>
+      admin.from("podcast_episodes").select("title").range(from, to),
+    ),
+  ]);
+
+  const commonEpisodeWords = computeCommonEpisodeWords(allTitles.map((t) => t.title));
+  const movieById = new Map(movies.map((m) => [m.id, m]));
+  const episodeById = new Map(episodes.map((e) => [e.id, e]));
+
+  const bandCounts = BANDS.map((b) => ({ ...b, positives: 0, negatives: 0 }));
+  const signalCounts = SIGNAL_TESTS.map((s) => ({ ...s, positives: 0, negatives: 0 }));
+
+  let positives = 0;
+  let negatives = 0;
+  let scored = 0;
+  let unscored = 0;
+  let tp = 0;
+  let fp = 0;
+  let fn = 0;
+  let sumPos = 0;
+  let sumNeg = 0;
+
+  // Group by episode so each episode is scored once against its labelled movies.
+  const byEpisode = new Map<string, { movieId: string; positive: boolean }[]>();
+  for (const [key, positive] of label) {
+    const [episodeId, movieId] = key.split(":") as [string, string];
+    const list = byEpisode.get(episodeId) ?? [];
+    list.push({ movieId, positive });
+    byEpisode.set(episodeId, list);
+  }
+
+  for (const [episodeId, pairs] of byEpisode) {
+    const episode = episodeById.get(episodeId);
+    if (!episode) {
+      unscored += pairs.length;
+      continue;
+    }
+    const candidateMovies = pairs
+      .map((p) => movieById.get(p.movieId))
+      .filter((m): m is { id: string; title: string; release_year: number | null } => Boolean(m));
+
+    const scores = matchEpisodeToMovies(episode.title, candidateMovies, {
+      rejectionCountByMovie,
+      description: episode.description,
+      commonEpisodeWords,
+    });
+    const byMovie = new Map(scores.map((c) => [c.movieId, c]));
+
+    for (const pair of pairs) {
+      if (pair.positive) positives += 1;
+      else negatives += 1;
+
+      const candidate = byMovie.get(pair.movieId);
+      // matchEpisodeToMovies drops anything under the suggestion threshold, so a
+      // missing candidate means "scored below 25" — still a data point.
+      const confidence = candidate?.confidence ?? 0;
+      if (!movieById.has(pair.movieId)) {
+        unscored += 1;
+        continue;
+      }
+      scored += 1;
+
+      if (pair.positive) sumPos += confidence;
+      else sumNeg += confidence;
+
+      const band = bandCounts.find((b) => confidence >= b.min && confidence <= b.max);
+      if (band) {
+        if (pair.positive) band.positives += 1;
+        else band.negatives += 1;
+      }
+
+      if (confidence >= THRESHOLD) {
+        if (pair.positive) tp += 1;
+        else fp += 1;
+      } else if (pair.positive) {
+        fn += 1;
+      }
+
+      const signals = (candidate?.signals ?? null) as Record<string, unknown> | null;
+      if (signals) {
+        for (const s of signalCounts) {
+          if (!s.test(signals)) continue;
+          if (pair.positive) s.positives += 1;
+          else s.negatives += 1;
+        }
+      }
+    }
+  }
+
+  const bands: BandStat[] = bandCounts.map((b) => ({
+    band: b.band,
+    min: b.min,
+    max: b.max,
+    positives: b.positives,
+    negatives: b.negatives,
+    precision: b.positives + b.negatives > 0 ? b.positives / (b.positives + b.negatives) : null,
+  }));
+
+  // Where the wrong-but-suggested pairs pile up: the band worth re-tuning next.
+  const suggestedBands = bands.filter((b) => b.min >= THRESHOLD && b.negatives > 0);
+  const worstBand =
+    suggestedBands.sort((a, b) => b.negatives - a.negatives)[0]?.band ?? null;
+
+  const signals: SignalStat[] = signalCounts
+    .filter((s) => s.positives + s.negatives > 0)
+    .map((s) => {
+      const positiveRate = positives > 0 ? s.positives / positives : 0;
+      const negativeRate = negatives > 0 ? s.negatives / negatives : 0;
+      return {
+        signal: s.signal,
+        positiveRate,
+        negativeRate,
+        lift: positiveRate - negativeRate,
+        positives: s.positives,
+        negatives: s.negatives,
+      };
+    })
+    .sort((a, b) => Math.abs(b.lift) - Math.abs(a.lift));
+
+  return {
+    labelledPairs: label.size,
+    positives,
+    negatives,
+    scored,
+    unscored,
+    threshold: THRESHOLD,
+    precisionAtThreshold: tp + fp > 0 ? tp / (tp + fp) : null,
+    recallAtThreshold: tp + fn > 0 ? tp / (tp + fn) : null,
+    bands,
+    worstBand,
+    signals,
+    meanConfidencePositive: positives > 0 ? sumPos / positives : null,
+    meanConfidenceNegative: negatives > 0 ? sumNeg / negatives : null,
+    generatedAt: new Date().toISOString(),
+  };
+}
+
+/** `.in()` on thousands of ids blows the URL limit — chunk it. */
+async function chunkedIn<T>(
+  ids: string[],
+  fetchChunk: (chunk: string[]) => PromiseLike<{ data: T[] | null; error: unknown }>,
+): Promise<T[]> {
+  const out: T[] = [];
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data, error } = await fetchChunk(ids.slice(i, i + 200));
+    if (error) throw error;
+    out.push(...(data ?? []));
+  }
+  return out;
+}
