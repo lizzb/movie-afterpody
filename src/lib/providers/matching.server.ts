@@ -6,6 +6,8 @@ export interface MatchSignals {
   tokenOverlap: number;
   /** Share of the movie's own words found in the episode title (0-1). */
   coverage: number;
+  /** Share of the episode's own words covered by the movie title (0-1). */
+  episodeCoverage: number;
   yearMatch: "same" | "near" | "mismatch" | "unknown";
   /** Movie title is a single short word — a common source of false positives. */
   genericTitle: boolean;
@@ -23,6 +25,10 @@ export interface MatchSignals {
   descTitle: boolean;
   /** Year agreement between the movie and years mentioned in the description. */
   descYear: "same" | "near" | "mismatch" | "unknown";
+  /** Episode names a sequel marker ("II", "3", "Return to") this movie lacks. */
+  distinguisherPenalty: boolean;
+  /** A longer/better title in the same franchise family beat this candidate. */
+  familySuppressed: boolean;
 }
 
 export interface MovieMatchCandidate {
@@ -33,6 +39,7 @@ export interface MovieMatchCandidate {
   reason: string;
   signals: MatchSignals;
 }
+
 
 export interface MatchOptions {
   /** Learned negative evidence: movieId → number of recorded rejections. */
@@ -200,9 +207,59 @@ function sentencesContaining(text: string, needle: string): string[] {
     .filter((s) => s.includes(` ${needle} `));
 }
 
+/**
+ * Sequel markers. When an episode title carries one of these and a candidate
+ * movie title does not, that is evidence *against* the candidate — the episode
+ * is about the sequel, not the base film.
+ */
+const DISTINGUISHER_TOKENS = new Set([
+  "ii",
+  "iii",
+  "iv",
+  "vi",
+  "vii",
+  "viii",
+  "ix",
+  "2",
+  "3",
+  "4",
+  "5",
+  "6",
+  "7",
+  "8",
+  "9",
+  "return",
+  "returns",
+  "part",
+  "chapter",
+  "revenge",
+  "sequel",
+  "reloaded",
+  "resurrection",
+  "resurrections",
+  "again",
+]);
+
+/** Internal per-candidate bookkeeping for the family post-pass. */
+interface ScoredCandidate extends MovieMatchCandidate {
+  movieTokens: Set<string>;
+  familyKey: string;
+  collectionKey: string | null;
+}
+
+function isSubset(a: Set<string>, b: Set<string>): boolean {
+  for (const t of a) if (!b.has(t)) return false;
+  return true;
+}
+
 export function matchEpisodeToMovies(
   episodeTitle: string,
-  movies: { id: string; title: string; release_year: number | null }[],
+  movies: {
+    id: string;
+    title: string;
+    release_year: number | null;
+    collection_id?: number | null;
+  }[],
   options: MatchOptions = {},
 ): MovieMatchCandidate[] {
   const rejectionCounts = options.rejectionCountByMovie ?? {};
@@ -212,6 +269,9 @@ export function matchEpisodeToMovies(
   const episodeCanonical = canonical(episodeClean);
   const episodeTokens = tokenSet(episodeCanonical);
   const keywordSuppressed = NON_FILM_KEYWORDS.some((re) => re.test(episodeTitle));
+  const episodeDistinguishers = new Set(
+    [...episodeTokens].filter((t) => DISTINGUISHER_TOKENS.has(t)),
+  );
 
   // Description-aware signals: deterministic, no AI, no network.
   const descRaw = (options.description ?? "")
@@ -222,12 +282,15 @@ export function matchEpisodeToMovies(
     descRaw ? (descRaw.match(YEAR_ALL_RE) ?? []).map((y) => Number(y)) : [],
   );
 
-  const candidates: MovieMatchCandidate[] = movies.map((movie) => {
+  const candidates: ScoredCandidate[] = movies.map((movie) => {
     const movieCanonical = canonical(movie.title);
     const movieTokens = tokenSet(movieCanonical);
     const similarity = jaccard(episodeTokens, movieTokens);
     const shared = [...movieTokens].filter((t) => episodeTokens.has(t)).length;
     const coverage = movieTokens.size ? shared / movieTokens.size : 0;
+    // Symmetric: how much of what the episode names this title accounts for.
+    const episodeCoverage = episodeTokens.size ? shared / episodeTokens.size : 0;
+
 
     let confidence = 0;
     let reason = "";
@@ -382,6 +445,26 @@ export function matchEpisodeToMovies(
       reason += " - episode looks like an interview/bonus";
     }
 
+    // Sequel markers the candidate lacks ("Halloweentown" against "…town II").
+    let distinguisherPenalty = false;
+    if (episodeDistinguishers.size > 0 && rule !== "exact") {
+      const missing = [...episodeDistinguishers].filter((t) => !movieTokens.has(t));
+      if (missing.length > 0 && coverage >= 0.5) {
+        distinguisherPenalty = true;
+        confidence = Math.max(0, confidence - 12);
+        reason += ` - episode says "${missing[0]}", title does not`;
+      }
+    }
+
+    // Symmetric coverage: a base title that only accounts for a small slice of
+    // what the episode names is weaker than one that accounts for all of it.
+    if (rule === "tokens" && coverage < 1 && episodeCoverage < 0.34) {
+      confidence = Math.max(0, confidence - 5);
+      reason += " - covers little of the episode title";
+    }
+
+    const familyKey = [...movieTokens][0] ?? movieCanonical;
+
     return {
       movieId: movie.id,
       title: movie.title,
@@ -392,6 +475,7 @@ export function matchEpisodeToMovies(
         rule,
         tokenOverlap: Math.round(similarity * 100) / 100,
         coverage: Math.round(coverage * 100) / 100,
+        episodeCoverage: Math.round(episodeCoverage * 100) / 100,
         yearMatch,
         genericTitle,
         shortTitle,
@@ -401,13 +485,110 @@ export function matchEpisodeToMovies(
         rejectedBefore,
         descTitle,
         descYear,
+        distinguisherPenalty,
+        familySuppressed: false,
       },
+      movieTokens,
+      familyKey,
+      collectionKey: movie.collection_id ? `c${movie.collection_id}` : null,
     };
   });
 
+  resolveFamilies(candidates, episodeDistinguishers);
+
   candidates.sort((a, b) => b.confidence - a.confidence);
-  return candidates.filter((c) => c.confidence >= 25);
+  return candidates
+    .filter((c) => c.confidence >= 25)
+    .map(({ movieTokens: _t, familyKey: _f, collectionKey: _c, ...rest }) => rest);
 }
+
+/** Best-first ordering inside a franchise family. */
+function betterInFamily(a: ScoredCandidate, b: ScoredCandidate): number {
+  if (b.confidence !== a.confidence) return b.confidence - a.confidence;
+  if (b.signals.coverage !== a.signals.coverage) return b.signals.coverage - a.signals.coverage;
+  if (b.signals.episodeCoverage !== a.signals.episodeCoverage) {
+    return b.signals.episodeCoverage - a.signals.episodeCoverage;
+  }
+  const rank = (c: ScoredCandidate) =>
+    c.signals.yearMatch === "same" ? 2 : c.signals.yearMatch === "near" ? 1 : 0;
+  return rank(b) - rank(a);
+}
+
+function suppress(candidate: ScoredCandidate, winner: ScoredCandidate) {
+  if (candidate.signals.rule === "exact") return;
+  candidate.confidence = Math.min(candidate.confidence, 20);
+  candidate.signals.familySuppressed = true;
+  candidate.reason += ` - superseded by "${winner.title}"`;
+}
+
+/**
+ * Franchise disambiguation. Sequels whose titles contain the original all match
+ * the base film, so within a family only the most specific title survives.
+ * Mutates the candidates in place.
+ */
+function resolveFamilies(candidates: ScoredCandidate[], episodeDistinguishers: Set<string>) {
+  // 1. Title-stem families: the most specific title wins. Built without a score
+  //    floor so a low-scoring sequel can still argue against the base film.
+  const byStem = new Map<string, ScoredCandidate[]>();
+  for (const c of candidates) {
+    const list = byStem.get(c.familyKey) ?? [];
+    list.push(c);
+    byStem.set(c.familyKey, list);
+  }
+  for (const group of byStem.values()) {
+    if (group.length < 2) continue;
+
+    // The episode names a sequel marker and a family sibling carries it: that
+    // sibling is the subject, so shorter titles without the marker stand aside.
+    if (episodeDistinguishers.size > 0) {
+      const marked = group.filter((c) =>
+        [...episodeDistinguishers].some((t) => c.movieTokens.has(t)),
+      );
+      for (const sibling of marked) {
+        for (const c of group) {
+          if (c === sibling || marked.includes(c)) continue;
+          // Subset only: "Halloweentown" inside "Halloweentown II: …".
+          if (isSubset(c.movieTokens, sibling.movieTokens)) suppress(c, sibling);
+        }
+      }
+    }
+
+
+    // Longest fully-covered title wins; anything whose words are a subset of it
+    // is a less specific match for the same episode.
+    const live = group.filter((c) => c.confidence >= 25);
+    const covered = live.filter((c) => c.signals.coverage === 1);
+    if (!covered.length) continue;
+    const winner = [...covered].sort((a, b) => {
+      if (b.movieTokens.size !== a.movieTokens.size) return b.movieTokens.size - a.movieTokens.size;
+      return betterInFamily(a, b);
+    })[0]!;
+    for (const c of live) {
+      if (c === winner) continue;
+      // An exact whole-title hit settles the family outright.
+      if (winner.signals.rule === "exact" || isSubset(c.movieTokens, winner.movieTokens)) {
+        suppress(c, winner);
+      }
+    }
+  }
+
+  // 2. TMDB collections: same franchise, so only the best-scoring entry stands.
+  const byCollection = new Map<string, ScoredCandidate[]>();
+  for (const c of candidates) {
+    if (!c.collectionKey || c.confidence < 25) continue;
+    const list = byCollection.get(c.collectionKey) ?? [];
+    list.push(c);
+    byCollection.set(c.collectionKey, list);
+  }
+  for (const group of byCollection.values()) {
+    if (group.length < 2) continue;
+    const sorted = [...group].sort(betterInFamily);
+    const winner = sorted[0]!;
+    for (const c of sorted.slice(1)) suppress(c, winner);
+  }
+}
+
+
 
 /**
  * Words appearing in more than `threshold` of episode titles carry no signal —

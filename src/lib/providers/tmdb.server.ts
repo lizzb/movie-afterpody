@@ -25,6 +25,8 @@ export interface TmdbMovieDetails {
   backdrop_path?: string | null;
   genres?: { id: number; name: string }[];
   imdb_id?: string | null;
+  /** Franchise the film belongs to, used to disambiguate sequels when matching. */
+  belongs_to_collection?: { id: number; name: string } | null;
 }
 
 export interface TmdbWatchProvider {
@@ -87,6 +89,7 @@ export interface MatchedTmdbMovie {
   posterUrl: string | null;
   backdropUrl: string | null;
   imdbId: string | null;
+  collectionId: number | null;
   confidence: number;
 }
 
@@ -157,6 +160,7 @@ export async function findBestTmdbMatch(
     posterUrl: tmdbPosterUrl(details.poster_path),
     backdropUrl: tmdbPosterUrl(details.backdrop_path, "w780"),
     imdbId: details.imdb_id ?? null,
+    collectionId: details.belongs_to_collection?.id ?? null,
     confidence: best.confidence,
   };
 }
@@ -184,6 +188,7 @@ export async function findTmdbByImdbId(apiKey: string, imdbId: string): Promise<
     posterUrl: tmdbPosterUrl(details.poster_path),
     backdropUrl: tmdbPosterUrl(details.backdrop_path, "w780"),
     imdbId: details.imdb_id ?? imdbId,
+    collectionId: details.belongs_to_collection?.id ?? null,
     confidence: 100,
   };
 }

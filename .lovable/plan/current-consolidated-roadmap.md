@@ -17,17 +17,6 @@ Bulk "Retire remaining unmatched" on one show (marks every still-unmatched episo
 
 ### New backlog passes (approved 2026-08-23, not scheduled)
 
-#### Pass W — Franchise and sequel disambiguation — ~30k — Priority 3
-Sequels whose titles contain the original ("Halloweentown" inside "Halloweentown II: Kalabar's Revenge", "Return to Halloweentown", "Halloweentown High"; the whole Lord of the Rings/Toy Story pattern) currently all match the base film, generating avoidable review work. Deterministic fixes, in order of value:
-
-1. **Longest-title-wins within a family.** Group candidate movies that share a normalised title prefix/stem. Score all of them, then keep only the longest title whose *entire* token set is covered by the episode title; suppress shorter family members to a sub-threshold score. "Halloweentown High" wins over "Halloweentown" whenever "high" is present.
-2. **Distinguisher tokens as a penalty, not noise.** Treat sequel markers in the episode title — roman numerals (II, III), digits (2, 3), "return to", "part", "chapter", "revenge", "high", subtitle after a colon — as evidence *against* the base title when the base title has none of them. Currently they only fail to help.
-3. **Symmetric coverage.** Require coverage of the *episode's* film-name span too, not just the movie's tokens, so a base title that covers only half of the named film scores lower than the sequel that covers all of it.
-4. **Franchise grouping via TMDB `belongs_to_collection`.** Store a `collection_id` on movies during enrichment; when two candidates share a collection, only the best-scoring one is ever proposed. Cheap: the field arrives in the enrich call we already make.
-5. **Year corroboration inside a family** — a sequel's year settles most remaining ties.
-
-**Ready to start — no blockers.** Pass R3 shipped 2026-08-23, so the measurement harness already exists. Procedure: (1) before changing any matching rule, open Match review → "Score the matcher" and record precision/recall at the 25 threshold plus precision per confidence band; (2) build the Pass W changes; (3) run "Score the matcher" again — it replays the *new* rules over the *same* recorded approve/confirm/reject labels, so the two runs are directly comparable. Success looks like precision rising in the 25–60 bands (where sequel confusion clusters) with recall at 25 unchanged or better.
-
 #### Pass X — Leaving-soon streaming windows — ~45k (or ~15k for the honest subset) — Priority 11
 **What the data supports:** TMDB `/watch/providers` (JustWatch-sourced) returns *current* availability only — no leave dates, no offer expiry, no "recently added". Neither does the free JustWatch surface. Real leave-date feeds exist only in paid/licensed products (JustWatch partner API, Reelgood, Watchmode "expiring" endpoints). So there are two honest options:
 
@@ -85,6 +74,9 @@ Top-billed cast and director from TMDB credits shown on the movie page, with an 
 ---
 
 # Already done
+
+### Pass W — Franchise and sequel disambiguation — shipped 2026-08-25
+`matching.server.ts` gained a franchise post-pass plus three new signals (`episodeCoverage`, `distinguisherPenalty`, `familySuppressed`): sequel markers in the episode title (II/III, digits, "return", "part", "chapter", "revenge") penalise a candidate that lacks them; within a title-stem family a sibling carrying the marker suppresses any title whose words are a subset of it; the longest fully-covered title wins, and an exact hit settles the family outright; symmetric coverage docks candidates that account for little of what the episode names; and candidates sharing a TMDB collection collapse to the best-scoring one. `collection_id` added to `movies` (indexed), read from `belongs_to_collection` in the enrich, add-movie and availability passes (availability never overwrites a known id with null) and selected into every candidate query. `matcher-eval.server.ts` reports lift for the three new signals, so before/after runs of "Score the matcher" compare directly.
 
 ### Milestone 1 — Schema, design system, Tonight feed — shipped 2026-08-14
 Relational catalog/user split, oklch "Cinema Neon" token system in `src/styles.css`, accents, deterministic `calculateCommentaryScore`, Tonight feed. Verified in the preview. Note: originally built on hand-seeded demo data, all of which has since been purged at your request.
