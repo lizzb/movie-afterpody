@@ -96,7 +96,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </header>
 
       {/* Mobile: slim account strip so sign-in state is always visible and reachable. */}
-      <div className="sticky top-0 z-20 flex items-center justify-between gap-2 border-b border-border/70 bg-background/90 px-4 pb-2 pt-[calc(env(safe-area-inset-top)+0.5rem)] backdrop-blur md:hidden">
+      <div className="sticky top-0 z-20 flex items-center justify-between gap-2 border-b border-border/70 bg-background/90 px-4 pb-2 pt-[calc(max(env(safe-area-inset-top),1rem)+0.5rem)] backdrop-blur md:hidden">
         <Link
           to="/"
           className="inline-flex items-center gap-1.5 font-display text-sm font-bold tracking-tight"
@@ -135,7 +135,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       {children}
 
-      <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-background/95 pb-[max(env(safe-area-inset-bottom),0.25rem)] backdrop-blur md:hidden">
         <ul className="mx-auto flex max-w-md">
           {TABS.map((tab) => (
             <li key={tab.to} className="flex-1">
