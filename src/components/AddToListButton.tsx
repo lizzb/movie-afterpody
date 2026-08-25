@@ -132,7 +132,6 @@ export function AddToListButton({
               }}
               className="z-[60] overflow-auto rounded-2xl border border-border bg-popover p-3 text-left shadow-poster"
               onClick={(event) => {
-                event.preventDefault();
                 event.stopPropagation();
               }}
             >
