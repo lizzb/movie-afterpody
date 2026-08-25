@@ -57,7 +57,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
   // One knob instead of endless refresh cycles: review 50, 100 or 200 at a time.
   const [pageSize, setPageSize] = useState(50);
 
-  const [selected, setSelected] = useState<Record<string, string>>({});
+  const [selected, setSelected] = useState<Record<string, true>>({});
   const [done, setDone] = useState<Record<string, true>>({});
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
@@ -74,8 +74,8 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
   const resolveFlagsFn = useServerFn(resolveEpisodeFlags);
 
   const flags = useQuery({
-    queryKey: ["flagged-links"],
-    queryFn: () => flagsFn({ data: { limit: 50 } }),
+    queryKey: ["flagged-links", submitted, pageSize],
+    queryFn: () => flagsFn({ data: { search: submitted || undefined, limit: pageSize } }),
     enabled: tab === "flagged",
     retry: false,
     refetchOnWindowFocus: false,
@@ -107,8 +107,6 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
   });
 
 
-  const term = submitted.toLowerCase();
-
   const rows = useMemo(() => {
     let out: {
       key: string;
@@ -124,15 +122,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
     }[];
 
     if (tab === "flagged") {
-      out = (flags.data?.flags ?? [])
-        .filter(
-          (f) =>
-            !term ||
-            f.episodeTitle.toLowerCase().includes(term) ||
-            f.podcastName.toLowerCase().includes(term) ||
-            f.movieTitle.toLowerCase().includes(term),
-        )
-        .map((f) => ({
+      out = (flags.data?.flags ?? []).map((f) => ({
           key: `${f.episodeId}:${f.movieId}`,
           episodeId: f.episodeId,
           movieId: f.movieId,
@@ -173,7 +163,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
     }
 
     return out.filter((r) => !done[r.key]);
-  }, [tab, term, flags.data, proposals.data, links.data, done]);
+  }, [tab, flags.data, proposals.data, links.data, done]);
 
   const rawTotal =
     tab === "flagged"
@@ -209,7 +199,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
     });
     setSelected((prev) => {
       const next = { ...prev };
-      for (const k of keys) delete next[k.split(":")[0]!];
+      for (const k of keys) delete next[k];
       return next;
     });
   };
@@ -290,23 +280,23 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
   });
 
   const selectedCount = Object.keys(selected).length;
-  const allVisibleSelected = rows.length > 0 && rows.every((r) => selected[r.episodeId] === r.movieId);
+  const allVisibleSelected = rows.length > 0 && rows.every((r) => selected[r.key]);
 
   const toggleAll = () => {
     if (allVisibleSelected) {
       setSelected({});
       return;
     }
-    const next: Record<string, string> = {};
-    for (const r of rows) next[r.episodeId] = r.movieId;
+    const next: Record<string, true> = {};
+    for (const r of rows) next[r.key] = true;
     setSelected(next);
   };
 
-  const toggleRow = (episodeId: string, movieId: string) =>
+  const toggleRow = (key: string) =>
     setSelected((prev) => {
       const next = { ...prev };
-      if (next[episodeId] === movieId) delete next[episodeId];
-      else next[episodeId] = movieId;
+      if (next[key]) delete next[key];
+      else next[key] = true;
       return next;
     });
 
@@ -321,7 +311,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
             : null;
     if (confirmText && !window.confirm(confirmText)) return;
 
-    const chosen = rows.filter((r) => selected[r.episodeId] === r.movieId);
+    const chosen = rows.filter((r) => selected[r.key]);
     if (chosen.length === 0) return;
     const pairs = chosen.map((r) => ({ episodeId: r.episodeId, movieId: r.movieId }));
     const flagged = chosen
@@ -361,7 +351,9 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
             }`}
           >
             {label}
-            {value === "flagged" && (flags.data?.total ?? 0) > 0 ? ` (${flags.data?.total})` : ""}
+            {value === "flagged" && (flags.data?.unfilteredTotal ?? flags.data?.total ?? 0) > 0
+              ? ` (${flags.data?.unfilteredTotal ?? flags.data?.total})`
+              : ""}
           </button>
         ))}
       </div>
@@ -402,20 +394,18 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
             ))}
           </select>
         ) : null}
-        {tab !== "flagged" ? (
-          <select
-            value={pageSize}
-            onChange={(e) => setPageSize(Number(e.target.value))}
-            aria-label="Rows per batch"
-            className="rounded-full border border-border bg-background px-3 py-2 text-sm"
-          >
-            {[50, 100, 200].map((n) => (
-              <option key={n} value={n}>
-                {n} at a time
-              </option>
-            ))}
-          </select>
-        ) : null}
+        <select
+          value={pageSize}
+          onChange={(e) => setPageSize(Number(e.target.value))}
+          aria-label="Rows per batch"
+          className="rounded-full border border-border bg-background px-3 py-2 text-sm"
+        >
+          {[50, 100, 200].map((n) => (
+            <option key={n} value={n}>
+              {n} at a time
+            </option>
+          ))}
+        </select>
 
         <button
           type="submit"
@@ -550,7 +540,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
 
           <ul className="mt-3 space-y-2">
             {rows.map((row) => {
-              const isSelected = selected[row.episodeId] === row.movieId;
+              const isSelected = Boolean(selected[row.key]);
               return (
                 <li
                   key={row.key}
@@ -566,12 +556,12 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
                     onClick={() => {
                       const text = typeof window !== "undefined" ? window.getSelection()?.toString() ?? "" : "";
                       if (text.trim().length > 0) return;
-                      toggleRow(row.episodeId, row.movieId);
+                      toggleRow(row.key);
                     }}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
-                        toggleRow(row.episodeId, row.movieId);
+                        toggleRow(row.key);
                       }
                     }}
                     aria-pressed={isSelected}

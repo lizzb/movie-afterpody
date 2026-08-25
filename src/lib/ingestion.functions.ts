@@ -2004,7 +2004,12 @@ export const undoMatchAction = createServerFn({ method: "POST" })
 export const listFlaggedLinks = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data) =>
-    z.object({ limit: z.number().int().min(1).max(200).default(50) }).parse(data),
+    z
+      .object({
+        limit: z.number().int().min(1).max(200).default(50),
+        search: z.string().optional(),
+      })
+      .parse(data),
   )
   .handler(async ({ data, context }) => {
     await requireAdmin(context);
@@ -2047,12 +2052,22 @@ export const listFlaggedLinks = createServerFn({ method: "POST" })
       ),
     ]);
     const live = new Set(liveLinks.map((l) => `${l.episode_id}:${l.movie_id}`));
-    const filtered = rows.filter(
+    const activeRows = rows.filter(
       (r) => live.has(`${r.episode_id}:${r.movie_id}`) && r.podcast_episodes.podcasts.curation_status === "active",
     );
+    const term = data.search?.trim().toLowerCase();
+    const filtered = term
+      ? activeRows.filter(
+          (r) =>
+            r.podcast_episodes.title.toLowerCase().includes(term) ||
+            r.podcast_episodes.podcasts.name.toLowerCase().includes(term) ||
+            r.movies.title.toLowerCase().includes(term),
+        )
+      : activeRows;
 
     return {
       total: filtered.length,
+      unfilteredTotal: activeRows.length,
       flags: filtered.slice(0, data.limit).map((r) => ({
         flagId: r.id,
         episodeId: r.episode_id,
