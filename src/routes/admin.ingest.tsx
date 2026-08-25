@@ -12,6 +12,7 @@ import {
   availabilityFreshness,
   backfillPodcastArtwork,
   bootstrapAdmin,
+  backfillContentRatings,
   enrichAllMovies,
   enrichMovie,
   ingestPodcast,
@@ -196,6 +197,14 @@ function IngestPage() {
           </CollapsibleCard>
 
           <CollapsibleCard
+            id="content-ratings"
+            title="Backfill content ratings"
+            storageKey="content-ratings"
+          >
+            <BackfillRatingsCard onSuccess={() => stats.refetch()} />
+          </CollapsibleCard>
+
+          <CollapsibleCard
             id="availability"
             title="Streaming availability + genres"
             storageKey="availability"
@@ -310,6 +319,68 @@ function BulkEnrichCard({ onSuccess }: { onSuccess: () => void }) {
           {mutation.data.lowConfidence.length > 0 ? (
             <p className="text-xs text-muted-foreground">
               Needs a manual check: {mutation.data.lowConfidence.join("; ")}
+            </p>
+          ) : null}
+          {mutation.data.failed.length > 0 ? (
+            <p className="text-xs text-destructive">{mutation.data.failed.join("; ")}</p>
+          ) : null}
+        </div>
+      ) : null}
+      {mutation.isError ? (
+        <p className="mt-3 text-sm text-destructive">{(mutation.error as Error).message}</p>
+      ) : null}
+    </div>
+  );
+}
+
+/** Pass Y — chunked, resumable MPA/TV rating backfill (stalest first). */
+function BackfillRatingsCard({ onSuccess }: { onSuccess: () => void }) {
+  const fn = useServerFn(backfillContentRatings);
+  const [runUntilDone, setRunUntilDone] = useState(false);
+  const mutation = useMutation({
+    mutationFn: fn,
+    onSuccess: (result) => {
+      onSuccess();
+      if (runUntilDone && result.remaining > 0) mutation.mutate({ data: { limit: 60 } });
+    },
+  });
+
+  return (
+    <div>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Reads the US certification for every movie with a TMDB id (TV ratings for series), 60 per
+        run, never-checked titles first then the stalest. Press again — or use run until done — to
+        keep going.
+      </p>
+      <div className="mt-4 flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          onClick={() => mutation.mutate({ data: { limit: 60 } })}
+          disabled={mutation.isPending}
+          className="inline-flex items-center rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+        >
+          {mutation.isPending ? "Fetching ratings…" : "Backfill next 60"}
+        </button>
+        <label className="flex min-h-11 items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={runUntilDone}
+            onChange={(e) => setRunUntilDone(e.target.checked)}
+            className="size-4 accent-coral"
+          />
+          Run until done
+        </label>
+      </div>
+      {mutation.isSuccess ? (
+        <div className="mt-3 space-y-1 text-sm">
+          <p className="text-teal">
+            Checked {mutation.data.updated} of {mutation.data.attempted}; {mutation.data.rated} had a
+            rating on file. {mutation.data.remaining} never-checked movies remain of{" "}
+            {mutation.data.totalWithTmdb}.
+          </p>
+          {mutation.data.missingTmdb > 0 ? (
+            <p className="text-xs text-muted-foreground">
+              {mutation.data.missingTmdb} movies have no TMDB id yet — enrich them first.
             </p>
           ) : null}
           {mutation.data.failed.length > 0 ? (
