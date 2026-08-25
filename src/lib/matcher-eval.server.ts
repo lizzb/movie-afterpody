@@ -122,8 +122,8 @@ export async function evaluateMatcher(admin: AdminClient): Promise<MatcherReport
       episodeIds,
       (ids) => admin.from("podcast_episodes").select("id, title, description").in("id", ids),
     ),
-    chunkedIn<{ id: string; title: string; release_year: number | null }>(movieIds, (ids) =>
-      admin.from("movies").select("id, title, release_year").in("id", ids),
+    chunkedIn<{ id: string; title: string; release_year: number | null; collection_id: number | null }>(movieIds, (ids) =>
+      admin.from("movies").select("id, title, release_year, collection_id").in("id", ids),
     ),
     pageAll<{ title: string }>((from, to) =>
       admin.from("podcast_episodes").select("title").range(from, to),
@@ -164,7 +164,7 @@ export async function evaluateMatcher(admin: AdminClient): Promise<MatcherReport
     }
     const candidateMovies = pairs
       .map((p) => movieById.get(p.movieId))
-      .filter((m): m is { id: string; title: string; release_year: number | null } => Boolean(m));
+      .filter((m): m is { id: string; title: string; release_year: number | null; collection_id: number | null } => Boolean(m));
 
     const scores = matchEpisodeToMovies(episode.title, candidateMovies, {
       rejectionCountByMovie,

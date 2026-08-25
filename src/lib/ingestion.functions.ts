@@ -243,7 +243,7 @@ export const ingestPodcast = createServerFn({ method: "POST" })
     if (podcastError || !upsertedPodcast) throw podcastError || new Error("Failed to upsert podcast");
 
     const episodes = await clients.getEpisodesByFeedUrl(apiKey, apiSecret, feed.url, data.maxEpisodes);
-    const { data: movies } = await clients.supabaseAdmin.from("movies").select("id, title, release_year");
+    const { data: movies } = await clients.supabaseAdmin.from("movies").select("id, title, release_year, collection_id");
     const movieList = movies ?? [];
 
     let insertedEpisodes = 0;
@@ -367,8 +367,8 @@ export const suggestEpisodeMatches = createServerFn({ method: "POST" })
     let episodes = await fetchAllEpisodes(supabaseAdmin, { podcastId: data.podcastId });
     if (data.episodeId) episodes = episodes.filter((ep) => ep.id === data.episodeId);
 
-    const movieList = await pageAll<{ id: string; title: string; release_year: number | null }>(
-      (from, to) => supabaseAdmin.from("movies").select("id, title, release_year").range(from, to),
+    const movieList = await pageAll<{ id: string; title: string; release_year: number | null; collection_id: number | null }>(
+      (from, to) => supabaseAdmin.from("movies").select("id, title, release_year, collection_id").range(from, to),
     );
 
     const [existingLinks, rejections, rejectionCountByMovie] = await Promise.all([
@@ -581,6 +581,7 @@ export const enrichMovie = createServerFn({ method: "POST" })
       backdrop_url: match.backdropUrl,
       imdb_id: match.imdbId,
       tmdb_id: match.tmdbId,
+      collection_id: match.collectionId,
     };
 
     if (movieId) {
@@ -751,7 +752,11 @@ export const refreshAvailability = createServerFn({ method: "POST" })
         // is distinguishable from "never checked".
         await supabaseAdmin
           .from("movies")
-          .update({ availability_checked_at: checkedAt })
+          .update({
+            availability_checked_at: checkedAt,
+            // Free franchise signal: the detail call is already made here.
+            collection_id: details?.belongs_to_collection?.id ?? null,
+          })
           .eq("id", movie.id);
 
         updated += 1;
@@ -957,6 +962,7 @@ export const enrichAllMovies = createServerFn({ method: "POST" })
               backdrop_url: match.backdropUrl,
               imdb_id: match.imdbId,
               tmdb_id: match.tmdbId,
+              collection_id: match.collectionId,
             })
             .eq("id", movie.id);
           if (error) failed.push(`${movie.title}: ${error.message}`);
@@ -1219,8 +1225,8 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
     ).filter((ep) => ep.disposition !== "not_about_a_movie");
     const rejected = await fetchRejectedPairs(supabaseAdmin);
     const rejectionCountByMovie = await fetchRejectionCountsByMovie(supabaseAdmin);
-    const movieList = await pageAll<{ id: string; title: string; release_year: number | null }>(
-      (from, to) => supabaseAdmin.from("movies").select("id, title, release_year").range(from, to),
+    const movieList = await pageAll<{ id: string; title: string; release_year: number | null; collection_id: number | null }>(
+      (from, to) => supabaseAdmin.from("movies").select("id, title, release_year, collection_id").range(from, to),
     );
 
     type LinkRow = {
