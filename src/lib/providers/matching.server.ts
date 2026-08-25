@@ -561,7 +561,10 @@ function resolveFamilies(candidates: ScoredCandidate[]) {
     })[0]!;
     for (const c of group) {
       if (c === winner) continue;
-      if (isSubset(c.movieTokens, winner.movieTokens)) suppress(c, winner);
+      // An exact whole-title hit settles the family outright.
+      if (winner.signals.rule === "exact" || isSubset(c.movieTokens, winner.movieTokens)) {
+        suppress(c, winner);
+      }
     }
   }
 }
