@@ -378,6 +378,7 @@ export type Database = {
           accent: string
           availability_checked_at: string | null
           backdrop_url: string | null
+          collection_id: number | null
           created_at: string
           id: string
           imdb_id: string | null
@@ -396,6 +397,7 @@ export type Database = {
           accent?: string
           availability_checked_at?: string | null
           backdrop_url?: string | null
+          collection_id?: number | null
           created_at?: string
           id?: string
           imdb_id?: string | null
@@ -414,6 +416,7 @@ export type Database = {
           accent?: string
           availability_checked_at?: string | null
           backdrop_url?: string | null
+          collection_id?: number | null
           created_at?: string
           id?: string
           imdb_id?: string | null
