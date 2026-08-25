@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Sparkles } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { FilterBar } from "@/components/FilterBar";
@@ -32,12 +32,18 @@ export const Route = createFileRoute("/")({
 function TonightPage() {
   const { catalog, entries, prefs, isLoading } = useDiscovery();
   const view = prefs.viewModes["tonight"] ?? "rows";
+  const [visibleCount, setVisibleCount] = useState(10);
 
   // Tonight never suggests "Not interested" titles, regardless of the filter.
   const results = useMemo(
     () => applyFilters(entries, prefs.filters, { alwaysHideNotInterested: true }),
     [entries, prefs.filters],
   );
+  const visibleResults = results.slice(0, visibleCount);
+
+  useEffect(() => {
+    setVisibleCount(10);
+  }, [prefs.filters]);
 
   return (
     <AppShell>
@@ -46,7 +52,7 @@ function TonightPage() {
           <PageHeader
             icon={Sparkles}
             eyebrow="Tonight"
-            title="Pick a movie. Get the afterparty."
+            title="What to watch, and what to play after."
           />
         </div>
 
@@ -72,7 +78,7 @@ function TonightPage() {
 
         <div className="mt-3 flex items-center justify-between gap-3">
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            Ranked by Commentary Score
+            Showing {Math.min(visibleResults.length, results.length)} of {results.length} matches
           </p>
           <ViewToggle surface="tonight" value={view} />
         </div>
@@ -99,11 +105,21 @@ function TonightPage() {
                 : "mt-3 space-y-2.5"
             }
           >
-            {results.map((entry) => (
+            {visibleResults.map((entry) => (
               <MovieCard key={entry.movie.id} entry={entry} view={view} />
             ))}
           </ul>
         )}
+
+        {!isLoading && visibleResults.length < results.length ? (
+          <button
+            type="button"
+            onClick={() => setVisibleCount((count) => count + 10)}
+            className="mt-4 w-full rounded-full border border-border bg-card px-4 py-3 text-sm font-semibold text-foreground shadow-card transition-colors hover:bg-secondary"
+          >
+            Load more suggestions
+          </button>
+        ) : null}
       </main>
     </AppShell>
   );

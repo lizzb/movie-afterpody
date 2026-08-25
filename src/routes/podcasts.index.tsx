@@ -74,7 +74,7 @@ function PodcastsPage() {
     <AppShell>
       <main className="mx-auto w-full max-w-3xl px-4 pb-16 pt-4">
         <div className="mb-3">
-          <PageHeader icon={Mic} eyebrow="Discover" title="Shows worth subscribing to." />
+          <PageHeader icon={Mic} eyebrow="Shows" title="Browse all podcasts" />
         </div>
 
         <div className="flex items-center gap-2">

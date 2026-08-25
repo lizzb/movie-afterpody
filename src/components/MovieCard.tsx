@@ -38,7 +38,7 @@ function coveringPodcasts(episodes: EpisodeEntry[]) {
   );
 }
 
-function WatchedButton({ slug, watched }: { slug: string; watched: boolean }) {
+function WatchedButton({ slug, title, watched }: { slug: string; title: string; watched: boolean }) {
   return (
     <button
       type="button"
@@ -49,7 +49,7 @@ function WatchedButton({ slug, watched }: { slug: string; watched: boolean }) {
         e.preventDefault();
         e.stopPropagation();
         prefsActions.toggleWatched(slug, !watched);
-        toast(watched ? "Marked as not watched" : "Marked as watched", {
+        toast(watched ? `Marked as not watched: ${title}` : `Mark as watched: ${title}`, {
           action: {
             label: "Undo",
             onClick: () => prefsActions.toggleWatched(slug, watched),
@@ -68,7 +68,7 @@ function WatchedButton({ slug, watched }: { slug: string; watched: boolean }) {
 }
 
 /** Pass H — "Not interested": excluded from Tonight, optionally hidden in Movies. */
-function NotInterestedButton({ slug, off }: { slug: string; off: boolean }) {
+function NotInterestedButton({ slug, title, off }: { slug: string; title: string; off: boolean }) {
   return (
     <button
       type="button"
@@ -79,7 +79,7 @@ function NotInterestedButton({ slug, off }: { slug: string; off: boolean }) {
         e.preventDefault();
         e.stopPropagation();
         prefsActions.toggleNotInterested(slug, !off);
-        toast(off ? "Back in your suggestions" : "Won't suggest this again", {
+        toast(off ? `Back in suggestions: ${title}` : `Not interested: ${title}`, {
           action: {
             label: "Undo",
             onClick: () => prefsActions.toggleNotInterested(slug, off),
@@ -152,13 +152,13 @@ function MovieRow({ entry }: { entry: MovieEntry }) {
   return (
     <li
       className={`relative overflow-visible rounded-2xl border border-border bg-card shadow-card transition-shadow hover:shadow-lg ${
-        dim ? "opacity-60" : ""
+        dim ? "opacity-45 saturate-50" : ""
       }`}
     >
       <div className="absolute right-2.5 top-2.5 z-10 flex items-center gap-1.5">
-        <NotInterestedButton slug={movie.slug} off={notInterested} />
-        <WatchedButton slug={movie.slug} watched={watched} />
-        <AddToListButton movieSlug={movie.slug} />
+        <NotInterestedButton slug={movie.slug} title={movie.title} off={notInterested} />
+        <WatchedButton slug={movie.slug} title={movie.title} watched={watched} />
+        <AddToListButton movieSlug={movie.slug} movieTitle={movie.title} />
       </div>
       <Link to="/movies/$slug" params={{ slug: movie.slug }} className="flex items-start gap-3 p-3">
         <Artwork
@@ -218,7 +218,7 @@ function MovieTile({ entry }: { entry: MovieEntry }) {
   const dim = usePrefs().dimWatched && watched;
 
   return (
-    <li className={`relative ${dim ? "opacity-60" : ""}`}>
+    <li className={`relative ${dim ? "opacity-45 saturate-50" : ""}`}>
       <Link to="/movies/$slug" params={{ slug: movie.slug }} className="group block">
         <div className="relative">
           <Artwork
@@ -252,9 +252,9 @@ function MovieTile({ entry }: { entry: MovieEntry }) {
         </div>
       </Link>
       <div className="absolute right-1.5 top-1.5 z-10 flex flex-col gap-1.5">
-        <WatchedButton slug={movie.slug} watched={watched} />
-        <AddToListButton movieSlug={movie.slug} />
-        <NotInterestedButton slug={movie.slug} off={notInterested} />
+        <WatchedButton slug={movie.slug} title={movie.title} watched={watched} />
+        <AddToListButton movieSlug={movie.slug} movieTitle={movie.title} />
+        <NotInterestedButton slug={movie.slug} title={movie.title} off={notInterested} />
       </div>
     </li>
   );

@@ -7,7 +7,7 @@ import { Artwork } from "@/components/Artwork";
 import { BrandBadge } from "@/components/BrandBadge";
 import { accentFor, accentSoft, toAccent } from "@/lib/accents";
 import { formatWatchedOn, useLists } from "@/lib/lists";
-import { prefsActions } from "@/lib/prefs";
+import { prefsActions, usePrefs } from "@/lib/prefs";
 
 export const Route = createFileRoute("/lists/")({
   head: () => ({
@@ -34,13 +34,14 @@ type Tab = "lists" | "history";
 
 function ListsPage() {
   const { lists, history, isLoading } = useLists();
+  const prefs = usePrefs();
   const [tab, setTab] = useState<Tab>("lists");
   const [name, setName] = useState("");
 
   return (
     <AppShell>
       <main className="mx-auto w-full max-w-3xl px-4 pb-16 pt-4">
-        <PageHeader icon={Bookmark} eyebrow="Saved" title="Lists & history" />
+        <PageHeader icon={Bookmark} eyebrow="Lists" title="Watchlists & History" />
 
         <div className="mt-5 flex gap-1.5">
           {(
@@ -134,7 +135,7 @@ function ListsPage() {
                             <Link
                               to="/movies/$slug"
                               params={{ slug: movie.slug }}
-                              className="flex items-center gap-3 rounded-xl border border-border/70 p-2.5 transition-colors hover:bg-secondary"
+                              className={`flex items-center gap-3 rounded-xl border border-border/70 p-2.5 transition-colors hover:bg-secondary ${prefs.dimWatched && watched ? "opacity-45 saturate-50" : ""}`}
                             >
                               <Artwork
                                 src={movie.poster_url}

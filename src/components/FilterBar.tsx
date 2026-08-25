@@ -19,6 +19,7 @@ interface Props {
   services: StreamingService[];
   mySlugs: string[];
   resultCount: number;
+  variant?: "tonight" | "movies";
   /** Tonight never shows "Not interested" titles, so hide that control there. */
   showNotInterested?: boolean;
 }
@@ -71,12 +72,43 @@ const SORTS: { key: SortKey; label: string }[] = [
   { key: "availability", label: "Availability" },
 ];
 
+function sortLabel(key: SortKey) {
+  return SORTS.find((sort) => sort.key === key)?.label ?? "Commentary score";
+}
+
+function RuntimeSlider({ value }: { value: number }) {
+  const min = 70;
+  const max = RUNTIME_CEILING;
+  const percent = ((value - min) / Math.max(1, max - min)) * 100;
+
+  return (
+    <div className="relative h-12 touch-none">
+      <div className="absolute top-1/2 h-3 w-full -translate-y-1/2 rounded-full bg-muted" />
+      <div
+        className="absolute top-1/2 h-3 -translate-y-1/2 rounded-full bg-coral"
+        style={{ width: `${percent}%` }}
+      />
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={5}
+        value={value}
+        aria-label="Max runtime"
+        onChange={(e) => prefsActions.setFilters({ maxRuntime: Number(e.target.value) })}
+        className="absolute inset-0 h-12 w-full appearance-none bg-transparent [&::-moz-range-thumb]:size-8 [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-coral [&::-moz-range-thumb]:bg-card [&::-moz-range-track]:bg-transparent [&::-webkit-slider-runnable-track]:h-3 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-transparent [&::-webkit-slider-thumb]:-mt-2.5 [&::-webkit-slider-thumb]:size-8 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-coral [&::-webkit-slider-thumb]:bg-card [&::-webkit-slider-thumb]:shadow-card"
+      />
+    </div>
+  );
+}
+
 export function FilterBar({
   filters,
   genres,
   services,
   mySlugs,
   resultCount,
+  variant = "tonight",
   showNotInterested = false,
 }: Props) {
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -94,6 +126,7 @@ export function FilterBar({
             .join(", ")} +${selected.length - 2}`;
 
   const visibleServices = services.filter((s) => mySlugs.includes(s.slug));
+  const isMovies = variant === "movies";
 
   const grouped = useMemo(() => {
     const needle = term.trim().toLowerCase();
@@ -117,7 +150,7 @@ export function FilterBar({
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 sm:flex sm:justify-between">
         <h2 className="flex min-w-0 items-center gap-1.5 truncate text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">
           <SlidersHorizontal className="size-3.5 shrink-0" aria-hidden />
-          Tonight&rsquo;s parameters
+          {isMovies ? "Movie filters" : "Tonight’s parameters"}
         </h2>
         <button
           type="button"
@@ -129,42 +162,35 @@ export function FilterBar({
         </button>
       </div>
 
-      <div className="mt-2 grid gap-x-4 gap-y-2 sm:grid-cols-2">
-        <label className="block">
-          <span className="flex items-baseline justify-between text-[11px] font-semibold text-muted-foreground">
-            Max runtime
-            <span className="font-bold text-foreground">
-              {filters.maxRuntime >= RUNTIME_CEILING ? "Any" : `${filters.maxRuntime}m`}
+      {!isMovies ? (
+        <div className="mt-2 grid gap-x-4 gap-y-2 sm:grid-cols-2">
+          <label className="block">
+            <span className="flex items-baseline justify-between text-[11px] font-semibold text-muted-foreground">
+              Max runtime
+              <span className="font-bold text-foreground">
+                {filters.maxRuntime >= RUNTIME_CEILING ? "Any" : `${filters.maxRuntime}m`}
+              </span>
             </span>
-          </span>
-          <input
-            type="range"
-            min={70}
-            max={RUNTIME_CEILING}
-            step={5}
-            value={filters.maxRuntime}
-            onChange={(e) => prefsActions.setFilters({ maxRuntime: Number(e.target.value) })}
-            // 44px grab area with a larger visible handle (Pass D).
-            className="mt-0.5 h-11 w-full appearance-none bg-transparent accent-coral [&::-moz-range-thumb]:size-7 [&::-moz-range-track]:h-2.5 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-muted [&::-webkit-slider-runnable-track]:h-2.5 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-muted [&::-webkit-slider-thumb]:-mt-2.5 [&::-webkit-slider-thumb]:size-7 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-coral [&::-webkit-slider-thumb]:bg-card"
-          />
-        </label>
+            <RuntimeSlider value={filters.maxRuntime} />
+          </label>
 
-        <div>
-          <span className="flex items-baseline justify-between text-[11px] font-semibold text-muted-foreground">
-            Era
-            <span className="font-bold text-foreground">
-              {filters.yearMin}&ndash;{filters.yearMax}
+          <div>
+            <span className="flex items-baseline justify-between text-[11px] font-semibold text-muted-foreground">
+              Era
+              <span className="font-bold text-foreground">
+                {filters.yearMin}&ndash;{filters.yearMax}
+              </span>
             </span>
-          </span>
-          <YearRange
-            min={YEAR_FLOOR}
-            max={YEAR_CEILING}
-            from={filters.yearMin}
-            to={filters.yearMax}
-            onChange={({ from, to }) => prefsActions.setFilters({ yearMin: from, yearMax: to })}
-          />
+            <YearRange
+              min={YEAR_FLOOR}
+              max={YEAR_CEILING}
+              from={filters.yearMin}
+              to={filters.yearMax}
+              onChange={({ from, to }) => prefsActions.setFilters({ yearMin: from, yearMax: to })}
+            />
+          </div>
         </div>
-      </div>
+      ) : null}
 
       <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
         <button
@@ -179,6 +205,15 @@ export function FilterBar({
           <SlidersHorizontal className="size-3" aria-hidden />
           {summary}
         </button>
+        {isMovies ? (
+          <button
+            type="button"
+            onClick={() => setSheetOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Sort: {sortLabel(filters.sortBy)}
+          </button>
+        ) : null}
         <Chip
           active={filters.onlyMyServices}
           onClick={() => prefsActions.setFilters({ onlyMyServices: !filters.onlyMyServices })}
@@ -228,7 +263,7 @@ export function FilterBar({
           />
           <div className="relative z-10 max-h-[80vh] w-full overflow-y-auto rounded-t-3xl border border-border bg-popover p-5 shadow-poster sm:max-w-lg sm:rounded-3xl">
             <div className="flex items-center justify-between gap-3">
-              <h3 className="font-display text-lg font-bold">Filters &amp; sort</h3>
+              <h3 className="font-display text-lg font-bold">Filters &amp; Sort</h3>
               <button
                 type="button"
                 onClick={() => setSheetOpen(false)}
@@ -252,6 +287,38 @@ export function FilterBar({
                 className="w-full rounded-full border border-border bg-background py-2 pl-9 pr-4 text-base sm:text-sm"
               />
             </label>
+
+            {isMovies ? (
+              <div className="mt-4 grid gap-x-4 gap-y-2 sm:grid-cols-2">
+                <label className="block">
+                  <span className="flex items-baseline justify-between text-[11px] font-semibold text-muted-foreground">
+                    Max runtime
+                    <span className="font-bold text-foreground">
+                      {filters.maxRuntime >= RUNTIME_CEILING ? "Any" : `${filters.maxRuntime}m`}
+                    </span>
+                  </span>
+                  <RuntimeSlider value={filters.maxRuntime} />
+                </label>
+
+                <div>
+                  <span className="flex items-baseline justify-between text-[11px] font-semibold text-muted-foreground">
+                    Era
+                    <span className="font-bold text-foreground">
+                      {filters.yearMin}&ndash;{filters.yearMax}
+                    </span>
+                  </span>
+                  <YearRange
+                    min={YEAR_FLOOR}
+                    max={YEAR_CEILING}
+                    from={filters.yearMin}
+                    to={filters.yearMax}
+                    onChange={({ from, to }) =>
+                      prefsActions.setFilters({ yearMin: from, yearMax: to })
+                    }
+                  />
+                </div>
+              </div>
+            ) : null}
 
             {(["Genres", "Eras", "Vibes"] as const).map((section) =>
               grouped[section]!.length > 0 ? (
