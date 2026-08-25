@@ -333,11 +333,11 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
       <div className="mt-4 inline-flex flex-wrap rounded-full border border-border p-1">
         {(
           [
-            ["flagged", "Flagged"],
-            ["proposed", "Proposed"],
-            ["existing", "Existing links"],
+            ["flagged", "Flagged", flags.data?.unfilteredTotal ?? flags.data?.total ?? 0],
+            ["proposed", "Proposed", proposals.data?.unfilteredTotal ?? proposals.data?.total ?? 0],
+            ["existing", "Existing links", links.data?.unfilteredTotal ?? links.data?.total ?? 0],
           ] as const
-        ).map(([value, label]) => (
+        ).map(([value, label, count]) => (
           <button
             key={value}
             type="button"
@@ -346,17 +346,26 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
               setSelected({});
               setNote(null);
             }}
-            className={`rounded-full px-4 py-2 text-sm font-semibold ${
+            className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold ${
               tab === value ? "bg-primary text-primary-foreground" : "text-muted-foreground"
             }`}
           >
             {label}
-            {value === "flagged" && (flags.data?.unfilteredTotal ?? flags.data?.total ?? 0) > 0
-              ? ` (${flags.data?.unfilteredTotal ?? flags.data?.total})`
-              : ""}
+            {count > 0 ? (
+              <span
+                className={`inline-flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-xs font-bold tabular-nums ${
+                  tab === value
+                    ? "bg-primary-foreground/20 text-primary-foreground"
+                    : "bg-secondary text-secondary-foreground"
+                }`}
+              >
+                {count}
+              </span>
+            ) : null}
           </button>
         ))}
       </div>
+
 
       <form
         className="mt-4 flex flex-wrap items-center gap-2"
