@@ -749,15 +749,18 @@ export const refreshAvailability = createServerFn({ method: "POST" })
         }
 
         // Stamped even when nothing is streaming, so "checked, nothing available"
-        // is distinguishable from "never checked".
+        // is distinguishable from "never checked". The franchise id rides along
+        // free — the detail call is already made above.
+        const collectionId = details?.belongs_to_collection?.id ?? null;
         await supabaseAdmin
           .from("movies")
-          .update({
-            availability_checked_at: checkedAt,
-            // Free franchise signal: the detail call is already made here.
-            collection_id: details?.belongs_to_collection?.id ?? null,
-          })
+          .update(
+            collectionId
+              ? { availability_checked_at: checkedAt, collection_id: collectionId }
+              : { availability_checked_at: checkedAt },
+          )
           .eq("id", movie.id);
+
 
         updated += 1;
       } catch (err) {
