@@ -1,11 +1,13 @@
 import { Link } from "@tanstack/react-router";
-import { Check, Eye, Timer } from "lucide-react";
+import { Check, Eye, EyeOff, Timer } from "lucide-react";
+import { toast } from "sonner";
 import { AddToListButton } from "@/components/AddToListButton";
 import { Artwork } from "@/components/Artwork";
 import { BrandBadge } from "@/components/BrandBadge";
 import { ScorePill } from "@/components/ScorePill";
 import type { EpisodeEntry, MovieEntry } from "@/lib/discovery";
-import { prefsActions, type ViewMode } from "@/lib/prefs";
+import { prefsActions, usePrefs, type ViewMode } from "@/lib/prefs";
+import { isUnrated, ratingLabel } from "@/lib/ratings";
 
 export function MovieCard({ entry, view = "rows" }: { entry: MovieEntry; view?: ViewMode }) {
   return view === "tiles" ? <MovieTile entry={entry} /> : <MovieRow entry={entry} />;
@@ -47,6 +49,12 @@ function WatchedButton({ slug, watched }: { slug: string; watched: boolean }) {
         e.preventDefault();
         e.stopPropagation();
         prefsActions.toggleWatched(slug, !watched);
+        toast(watched ? "Marked as not watched" : "Marked as watched", {
+          action: {
+            label: "Undo",
+            onClick: () => prefsActions.toggleWatched(slug, watched),
+          },
+        });
       }}
       className={`grid size-8 place-items-center rounded-full border transition-colors ${
         watched
@@ -56,6 +64,48 @@ function WatchedButton({ slug, watched }: { slug: string; watched: boolean }) {
     >
       {watched ? <Check className="size-4" aria-hidden /> : <Eye className="size-4" aria-hidden />}
     </button>
+  );
+}
+
+/** Pass H — "Not interested": excluded from Tonight, optionally hidden in Movies. */
+function NotInterestedButton({ slug, off }: { slug: string; off: boolean }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={off}
+      aria-label={off ? "Interested again" : "Not interested"}
+      title={off ? "Not interested — tap to undo" : "Not interested"}
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        prefsActions.toggleNotInterested(slug, !off);
+        toast(off ? "Back in your suggestions" : "Won't suggest this again", {
+          action: {
+            label: "Undo",
+            onClick: () => prefsActions.toggleNotInterested(slug, off),
+          },
+        });
+      }}
+      className={`grid size-8 place-items-center rounded-full border transition-colors ${
+        off
+          ? "border-transparent bg-secondary text-foreground"
+          : "border-border bg-card/90 text-muted-foreground hover:text-foreground"
+      }`}
+    >
+      <EyeOff className="size-4" aria-hidden />
+    </button>
+  );
+}
+
+/** Certification marker; unrated titles read "NR" rather than disappearing. */
+function RatingPill({ value }: { value: string | null | undefined }) {
+  return (
+    <span
+      title={isUnrated(value) ? "No content rating on file" : `Rated ${value}`}
+      className="inline-flex items-center rounded-full border border-border px-2 py-1 text-[10px] font-bold text-muted-foreground"
+    >
+      {ratingLabel(value)}
+    </span>
   );
 }
 
@@ -96,11 +146,17 @@ function PodcastStrip({ episodes }: { episodes: EpisodeEntry[] }) {
 }
 
 function MovieRow({ entry }: { entry: MovieEntry }) {
-  const { movie, score, genres, services, episodes, watched } = entry;
+  const { movie, score, genres, services, episodes, watched, notInterested } = entry;
+  const dim = usePrefs().dimWatched && watched;
 
   return (
-    <li className="relative overflow-visible rounded-2xl border border-border bg-card shadow-card transition-shadow hover:shadow-lg">
+    <li
+      className={`relative overflow-visible rounded-2xl border border-border bg-card shadow-card transition-shadow hover:shadow-lg ${
+        dim ? "opacity-60" : ""
+      }`}
+    >
       <div className="absolute right-2.5 top-2.5 z-10 flex items-center gap-1.5">
+        <NotInterestedButton slug={movie.slug} off={notInterested} />
         <WatchedButton slug={movie.slug} watched={watched} />
         <AddToListButton movieSlug={movie.slug} />
       </div>
@@ -113,7 +169,7 @@ function MovieRow({ entry }: { entry: MovieEntry }) {
           className="w-16 text-base"
         />
         <div className="min-w-0 flex-1">
-          <h3 className="pr-20 font-display text-base font-bold leading-snug">
+          <h3 className="pr-28 font-display text-base font-bold leading-snug">
             {movie.title}
             {movie.release_year ? (
               <span className="font-normal text-muted-foreground"> {movie.release_year}</span>
@@ -122,6 +178,7 @@ function MovieRow({ entry }: { entry: MovieEntry }) {
 
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] font-semibold">
             <ScorePill value={score.score} />
+            <RatingPill value={movie.certification} />
             {movie.runtime_minutes ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-1 text-secondary-foreground">
                 <Timer className="size-3" aria-hidden />
@@ -157,10 +214,11 @@ function MovieRow({ entry }: { entry: MovieEntry }) {
 }
 
 function MovieTile({ entry }: { entry: MovieEntry }) {
-  const { movie, score, services, episodes, watched } = entry;
+  const { movie, score, services, episodes, watched, notInterested } = entry;
+  const dim = usePrefs().dimWatched && watched;
 
   return (
-    <li className="relative">
+    <li className={`relative ${dim ? "opacity-60" : ""}`}>
       <Link to="/movies/$slug" params={{ slug: movie.slug }} className="group block">
         <div className="relative">
           <Artwork
@@ -176,7 +234,11 @@ function MovieTile({ entry }: { entry: MovieEntry }) {
         </div>
         <h3 className="mt-2 line-clamp-2 text-sm font-semibold leading-snug">{movie.title}</h3>
         <p className="mt-0.5 text-[11px] text-muted-foreground">
-          {[movie.release_year, movie.runtime_minutes ? `${movie.runtime_minutes}m` : null]
+          {[
+            movie.release_year,
+            movie.runtime_minutes ? `${movie.runtime_minutes}m` : null,
+            ratingLabel(movie.certification),
+          ]
             .filter(Boolean)
             .join(" · ")}
         </p>
@@ -192,6 +254,7 @@ function MovieTile({ entry }: { entry: MovieEntry }) {
       <div className="absolute right-1.5 top-1.5 z-10 flex flex-col gap-1.5">
         <WatchedButton slug={movie.slug} watched={watched} />
         <AddToListButton movieSlug={movie.slug} />
+        <NotInterestedButton slug={movie.slug} off={notInterested} />
       </div>
     </li>
   );

@@ -200,3 +200,52 @@ export function isImdbId(value: string): boolean {
 export function slugFromTmdbMovie(title: string): string {
   return slugify(title);
 }
+
+/* ---------------------------------------------------------------------------
+ * Content ratings (MPA for movies, TV parental guidelines for series).
+ * Both live behind existing TMDB detail endpoints, so no new provider.
+ * ------------------------------------------------------------------------ */
+
+interface TmdbReleaseDatesResponse {
+  results?: {
+    iso_3166_1?: string;
+    release_dates?: { certification?: string; type?: number }[];
+  }[];
+}
+
+interface TmdbContentRatingsResponse {
+  results?: { iso_3166_1?: string; rating?: string }[];
+}
+
+export interface TmdbCertification {
+  certification: string | null;
+  system: string | null;
+}
+
+/** US certification for a movie, e.g. "PG-13". Null when TMDB has none. */
+export async function getTmdbMovieCertification(
+  apiKey: string,
+  tmdbId: number,
+): Promise<TmdbCertification> {
+  const data = (await tmdbFetch(
+    `/movie/${tmdbId}/release_dates`,
+    apiKey,
+  )) as TmdbReleaseDatesResponse;
+  const us = (data.results ?? []).find((r) => r.iso_3166_1 === "US");
+  // Theatrical/digital entries can be blank; take the first non-empty value.
+  const cert = (us?.release_dates ?? [])
+    .map((r) => (r.certification ?? "").trim())
+    .find((value) => value.length > 0);
+  return { certification: cert ?? null, system: cert ? "MPA" : null };
+}
+
+/** US TV parental rating for a series, e.g. "TV-MA". */
+export async function getTmdbTvCertification(
+  apiKey: string,
+  tmdbId: number,
+): Promise<TmdbCertification> {
+  const data = (await tmdbFetch(`/tv/${tmdbId}/content_ratings`, apiKey)) as TmdbContentRatingsResponse;
+  const us = (data.results ?? []).find((r) => r.iso_3166_1 === "US");
+  const cert = (us?.rating ?? "").trim();
+  return { certification: cert || null, system: cert ? "US-TV" : null };
+}

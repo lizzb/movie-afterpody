@@ -1,8 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Check, Heart } from "lucide-react";
+import { Check, Heart, Settings as SettingsIcon } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Artwork } from "@/components/Artwork";
 import { BrandBadge } from "@/components/BrandBadge";
+import { PageHeader } from "@/components/PageHeader";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -50,16 +51,31 @@ function SettingsPage() {
 
   return (
     <AppShell>
-      <main className="mx-auto w-full max-w-3xl px-5 pb-16 pt-8">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h1 className="font-display text-3xl font-bold">Your setup</h1>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Everything here is yours to change — recommendations update immediately.
-            </p>
-          </div>
-          <ThemeToggle className="mt-1 shrink-0" />
-        </div>
+      <main className="mx-auto w-full max-w-3xl px-4 pb-16 pt-4">
+        <PageHeader
+          icon={SettingsIcon}
+          eyebrow="Setup"
+          title="Your setup"
+          actions={<ThemeToggle className="shrink-0" />}
+        />
+
+        <section className="mt-5 rounded-2xl border border-border bg-card p-4 shadow-card">
+          <h2 className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">
+            App settings
+          </h2>
+          <SettingToggle
+            label="Lock the layout"
+            hint="Keeps the page fixed so a stray drag cannot zoom or pan. Turn off to allow pinch zoom."
+            on={prefs.viewportLock}
+            onChange={(on) => prefsActions.setViewportLock(on)}
+          />
+          <SettingToggle
+            label="Dim watched items"
+            hint="Fades movies you have already marked as watched."
+            on={prefs.dimWatched}
+            onChange={(on) => prefsActions.setDimWatched(on)}
+          />
+        </section>
 
         <section className="mt-5 flex items-center justify-between gap-3 rounded-2xl border border-border bg-card p-4 shadow-card">
           <div className="min-w-0">
@@ -189,5 +205,34 @@ function SettingsPage() {
         </section>
       </main>
     </AppShell>
+  );
+}
+
+/** Row-style switch used by the App settings block. */
+function SettingToggle({
+  label,
+  hint,
+  on,
+  onChange,
+}: {
+  label: string;
+  hint: string;
+  on: boolean;
+  onChange: (on: boolean) => void;
+}) {
+  return (
+    <label className="mt-3 flex min-h-11 cursor-pointer items-start justify-between gap-3">
+      <span className="min-w-0">
+        <span className="block text-sm font-semibold">{label}</span>
+        <span className="mt-0.5 block text-xs text-muted-foreground">{hint}</span>
+      </span>
+      <input
+        type="checkbox"
+        checked={on}
+        onChange={(event) => onChange(event.target.checked)}
+        aria-label={label}
+        className="mt-1 size-5 shrink-0 accent-coral"
+      />
+    </label>
   );
 }

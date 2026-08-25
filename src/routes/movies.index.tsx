@@ -1,11 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { Mic, Search } from "lucide-react";
+import { Clapperboard, Mic, Search } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { CatalogAddCard } from "@/components/CatalogAddCard";
+import { FilterBar } from "@/components/FilterBar";
 import { MovieCard } from "@/components/MovieCard";
+import { PageHeader } from "@/components/PageHeader";
 import { ViewToggle } from "@/components/ViewToggle";
-import { useDiscovery } from "@/lib/discovery";
+import { applyFilters, useDiscovery } from "@/lib/discovery";
 
 export const Route = createFileRoute("/movies/")({
   head: () => ({
@@ -35,10 +37,10 @@ function MoviesPage() {
 
   const results = useMemo(() => {
     const needle = term.trim().toLowerCase();
-    return entries
-      .filter((e) => !needle || e.movie.title.toLowerCase().includes(needle))
-      .sort((a, b) => a.movie.title.localeCompare(b.movie.title));
-  }, [entries, term]);
+    return applyFilters(entries, prefs.filters).filter(
+      (e) => !needle || e.movie.title.toLowerCase().includes(needle),
+    );
+  }, [entries, prefs.filters, term]);
 
   const showMatches = useMemo(() => {
     const needle = term.trim().toLowerCase();
@@ -50,12 +52,8 @@ function MoviesPage() {
 
   return (
     <AppShell>
-      <main className="mx-auto w-full max-w-3xl px-5 pb-16 pt-8">
-        <h1 className="font-display text-3xl font-bold">All movies</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Every movie a catalogued podcast episode has covered — plus anything added by hand. Search
-          for something missing and you can pull it in from TMDB.
-        </p>
+      <main className="mx-auto w-full max-w-3xl px-4 pb-16 pt-4">
+        <PageHeader icon={Clapperboard} eyebrow="Browse" title="All movies" />
 
         <div className="mt-4 flex items-center gap-2">
           <label className="relative block flex-1">
@@ -68,10 +66,21 @@ function MoviesPage() {
             onChange={(e) => setTerm(e.target.value)}
             placeholder="Search titles"
             aria-label="Search movies"
-            className="w-full rounded-full border border-border bg-card py-2.5 pl-9 pr-4 text-sm shadow-card"
+            className="w-full rounded-full border border-border bg-card py-2.5 pl-9 pr-4 text-base shadow-card sm:text-sm"
           />
           </label>
           <ViewToggle surface="movies" value={view} />
+        </div>
+
+        <div className="mt-3">
+          <FilterBar
+            filters={prefs.filters}
+            genres={catalog?.genres ?? []}
+            services={catalog?.services ?? []}
+            mySlugs={prefs.serviceSlugs}
+            resultCount={results.length}
+            showNotInterested
+          />
         </div>
 
         {showMatches.length > 0 ? (

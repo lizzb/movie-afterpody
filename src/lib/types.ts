@@ -33,6 +33,9 @@ export interface Movie {
   accent: string;
   /** When TMDB watch providers were last checked for this movie. */
   availability_checked_at?: string | null;
+  /** US content rating, e.g. "PG-13" or "TV-MA". Null when unrated/unknown. */
+  certification?: string | null;
+  certification_system?: string | null;
 }
 
 export interface MovieGenre {

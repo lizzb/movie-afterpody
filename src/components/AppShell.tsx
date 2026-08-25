@@ -1,9 +1,29 @@
 import { Link } from "@tanstack/react-router";
-import { Bookmark, Clapperboard, Database, Mic, Settings, Sparkles, UserRound } from "lucide-react";
-import type { ReactNode } from "react";
+import { Bookmark, Clapperboard, Database, Mic, Popcorn, Settings, Sparkles, UserRound } from "lucide-react";
+import { useEffect, type ReactNode } from "react";
 import { ThemeToggle, useThemeClass } from "@/components/ThemeToggle";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
+import { usePrefs } from "@/lib/prefs";
+
+/**
+ * Pass G — viewport lock. On by default: keeps the layout fixed so a stray
+ * two-finger drag cannot zoom or pan. The Setup toggle restores pinch zoom for
+ * accessibility (iOS Safari only honours the lock inside an installed app).
+ */
+function useViewportLock(locked: boolean) {
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const meta = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
+    if (!meta) return;
+    meta.setAttribute(
+      "content",
+      locked
+        ? "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+        : "width=device-width, initial-scale=1, viewport-fit=cover",
+    );
+  }, [locked]);
+}
 
 const TABS = [
   { to: "/", label: "Tonight", icon: Sparkles },
@@ -15,6 +35,8 @@ const TABS = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   useThemeClass();
+  const prefs = usePrefs();
+  useViewportLock(prefs.viewportLock);
   const { userId, user } = useAuth();
   const isAdmin = useIsAdmin();
   const accountLabel = userId ? (user?.email ?? "Signed in") : "Sign in";
@@ -24,7 +46,11 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Desktop only: mobile relies on each page's own H1 plus the bottom nav. */}
       <header className="sticky top-0 z-20 hidden border-b border-border/70 bg-background/85 backdrop-blur md:block">
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-5 py-2.5">
-          <Link to="/" className="font-display text-base font-bold tracking-tight">
+          <Link
+            to="/"
+            className="inline-flex items-center gap-2 font-display text-base font-bold tracking-tight"
+          >
+            <Popcorn className="size-5 text-coral" aria-hidden />
             Movie&nbsp;Afterparty
           </Link>
           <nav className="flex items-center gap-1">
@@ -71,7 +97,11 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       {/* Mobile: slim account strip so sign-in state is always visible and reachable. */}
       <div className="sticky top-0 z-20 flex items-center justify-between gap-2 border-b border-border/70 bg-background/90 px-4 py-2 backdrop-blur md:hidden">
-        <Link to="/" className="font-display text-sm font-bold tracking-tight">
+        <Link
+          to="/"
+          className="inline-flex items-center gap-1.5 font-display text-sm font-bold tracking-tight"
+        >
+          <Popcorn className="size-4 text-coral" aria-hidden />
           Movie&nbsp;Afterparty
         </Link>
         <div className="flex items-center gap-1.5">

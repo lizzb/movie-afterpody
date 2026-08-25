@@ -1,9 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo } from "react";
-import { Info, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { FilterBar } from "@/components/FilterBar";
 import { MovieCard } from "@/components/MovieCard";
+import { PageHeader } from "@/components/PageHeader";
 import { ViewToggle } from "@/components/ViewToggle";
 import { applyFilters, useDiscovery } from "@/lib/discovery";
 
@@ -32,28 +33,22 @@ function TonightPage() {
   const { catalog, entries, prefs, isLoading } = useDiscovery();
   const view = prefs.viewModes["tonight"] ?? "rows";
 
-  const results = useMemo(() => applyFilters(entries, prefs.filters), [entries, prefs.filters]);
+  // Tonight never suggests "Not interested" titles, regardless of the filter.
+  const results = useMemo(
+    () => applyFilters(entries, prefs.filters, { alwaysHideNotInterested: true }),
+    [entries, prefs.filters],
+  );
 
   return (
     <AppShell>
       <main className="mx-auto w-full max-w-3xl px-4 pb-16 pt-4">
-        <header className="mb-3 flex items-end justify-between gap-3">
-          <div className="min-w-0">
-            <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
-              <Sparkles className="size-3" aria-hidden />
-              Tonight
-            </p>
-            <h1 className="mt-1 font-display text-2xl font-bold leading-tight sm:text-3xl">
-              What to watch — and what to play after.
-            </h1>
-          </div>
-          <span
-            title="Commentary Score ranks by how much good podcast conversation is waiting once the credits roll."
-            className="mb-1 shrink-0 text-muted-foreground"
-          >
-            <Info className="size-4" aria-hidden />
-          </span>
-        </header>
+        <div className="mb-3">
+          <PageHeader
+            icon={Sparkles}
+            eyebrow="Tonight"
+            title="Pick a movie. Get the afterparty."
+          />
+        </div>
 
         {!isLoading && (catalog?.availability.length ?? 0) === 0 ? (
           <p className="mb-3 rounded-2xl border border-dashed border-border bg-card p-3 text-xs text-muted-foreground">

@@ -2,7 +2,15 @@ import { useMemo, useState } from "react";
 import { Check, RotateCcw, Search, SlidersHorizontal, X } from "lucide-react";
 import { BrandBadge } from "@/components/BrandBadge";
 import { YearRange } from "@/components/YearRange";
-import { prefsActions, RUNTIME_CEILING, YEAR_CEILING, YEAR_FLOOR, type Filters } from "@/lib/prefs";
+import {
+  prefsActions,
+  RUNTIME_CEILING,
+  YEAR_CEILING,
+  YEAR_FLOOR,
+  type Filters,
+  type SortKey,
+} from "@/lib/prefs";
+import { RATING_LADDER, RATING_MAX } from "@/lib/ratings";
 import type { Genre, StreamingService } from "@/lib/types";
 
 interface Props {
@@ -11,6 +19,8 @@ interface Props {
   services: StreamingService[];
   mySlugs: string[];
   resultCount: number;
+  /** Tonight never shows "Not interested" titles, so hide that control there. */
+  showNotInterested?: boolean;
 }
 
 function Chip({
@@ -52,7 +62,23 @@ function group(genre: Genre): "Eras" | "Vibes" | "Genres" {
  * opens a sheet, and a single wrapped row of toggles. Keeps results above the
  * fold while letting the vibe vocabulary grow without bound.
  */
-export function FilterBar({ filters, genres, services, mySlugs, resultCount }: Props) {
+const SORTS: { key: SortKey; label: string }[] = [
+  { key: "commentary", label: "Commentary score" },
+  { key: "episodes", label: "Episode count" },
+  { key: "runtime", label: "Shortest runtime" },
+  { key: "year", label: "Newest" },
+  { key: "title", label: "Title A-Z" },
+  { key: "availability", label: "Availability" },
+];
+
+export function FilterBar({
+  filters,
+  genres,
+  services,
+  mySlugs,
+  resultCount,
+  showNotInterested = false,
+}: Props) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [term, setTerm] = useState("");
 
@@ -118,7 +144,8 @@ export function FilterBar({ filters, genres, services, mySlugs, resultCount }: P
             step={5}
             value={filters.maxRuntime}
             onChange={(e) => prefsActions.setFilters({ maxRuntime: Number(e.target.value) })}
-            className="mt-0.5 h-1 w-full accent-coral"
+            // 44px grab area with a larger visible handle (Pass D).
+            className="mt-0.5 h-11 w-full appearance-none bg-transparent accent-coral [&::-moz-range-thumb]:size-7 [&::-moz-range-track]:h-2.5 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-muted [&::-webkit-slider-runnable-track]:h-2.5 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-muted [&::-webkit-slider-thumb]:-mt-2.5 [&::-webkit-slider-thumb]:size-7 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-coral [&::-webkit-slider-thumb]:bg-card"
           />
         </label>
 
@@ -176,6 +203,16 @@ export function FilterBar({ filters, genres, services, mySlugs, resultCount }: P
         >
           Unwatched
         </Chip>
+        {showNotInterested ? (
+          <Chip
+            active={filters.hideNotInterested}
+            onClick={() =>
+              prefsActions.setFilters({ hideNotInterested: !filters.hideNotInterested })
+            }
+          >
+            Hide not interested
+          </Chip>
+        ) : null}
         <span className="ml-auto text-[11px] font-semibold text-muted-foreground">
           {resultCount} match{resultCount === 1 ? "" : "es"}
         </span>
@@ -191,7 +228,7 @@ export function FilterBar({ filters, genres, services, mySlugs, resultCount }: P
           />
           <div className="relative z-10 max-h-[80vh] w-full overflow-y-auto rounded-t-3xl border border-border bg-popover p-5 shadow-poster sm:max-w-lg sm:rounded-3xl">
             <div className="flex items-center justify-between gap-3">
-              <h3 className="font-display text-lg font-bold">Genres &amp; vibes</h3>
+              <h3 className="font-display text-lg font-bold">Filters &amp; sort</h3>
               <button
                 type="button"
                 onClick={() => setSheetOpen(false)}
@@ -212,7 +249,7 @@ export function FilterBar({ filters, genres, services, mySlugs, resultCount }: P
                 onChange={(e) => setTerm(e.target.value)}
                 placeholder="Search genres and vibes"
                 aria-label="Search genres and vibes"
-                className="w-full rounded-full border border-border bg-background py-2 pl-9 pr-4 text-sm"
+                className="w-full rounded-full border border-border bg-background py-2 pl-9 pr-4 text-base sm:text-sm"
               />
             </label>
 
@@ -236,6 +273,58 @@ export function FilterBar({ filters, genres, services, mySlugs, resultCount }: P
                 </div>
               ) : null,
             )}
+
+            <div className="mt-5">
+              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                Sort by
+              </p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {SORTS.map((sort) => (
+                  <Chip
+                    key={sort.key}
+                    active={filters.sortBy === sort.key}
+                    onClick={() => prefsActions.setFilters({ sortBy: sort.key })}
+                  >
+                    {sort.label}
+                  </Chip>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-5">
+              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                Highest rating allowed
+              </p>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {RATING_LADDER.map((step) => (
+                  <Chip
+                    key={step.label}
+                    active={filters.maxRating === step.rank}
+                    onClick={() => prefsActions.setFilters({ maxRating: step.rank })}
+                  >
+                    {step.label}
+                  </Chip>
+                ))}
+                <Chip
+                  active={filters.maxRating >= RATING_MAX}
+                  onClick={() => prefsActions.setFilters({ maxRating: RATING_MAX })}
+                >
+                  Any
+                </Chip>
+              </div>
+              <div className="mt-2">
+                <Chip
+                  active={filters.allowUnrated}
+                  onClick={() => prefsActions.setFilters({ allowUnrated: !filters.allowUnrated })}
+                >
+                  Include unrated (NR)
+                </Chip>
+              </div>
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                Movie and TV ratings share one ladder. Unrated titles are only included when this is
+                on.
+              </p>
+            </div>
 
             {visibleServices.length > 0 ? (
               <div className="mt-5">

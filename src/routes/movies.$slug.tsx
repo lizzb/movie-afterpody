@@ -16,6 +16,7 @@ import { BrandBadge } from "@/components/BrandBadge";
 import { ScorePill } from "@/components/ScorePill";
 import { FlagMatchButton } from "@/components/FlagMatchButton";
 import { useDiscovery, type EpisodeEntry } from "@/lib/discovery";
+import { isUnrated, ratingLabel } from "@/lib/ratings";
 import { prefsActions } from "@/lib/prefs";
 import type { EpisodeRating, ListeningStatus, ProductionQuality } from "@/lib/types";
 
@@ -151,6 +152,19 @@ function MovieDetailPage() {
                   <dd>{movie.release_year}</dd>
                 </div>
               ) : null}
+              <div className="inline-flex items-center gap-1">
+                <dt className="sr-only">Content rating</dt>
+                <dd
+                  title={
+                    isUnrated(movie.certification)
+                      ? "No content rating on file"
+                      : `Rated ${movie.certification}`
+                  }
+                  className="rounded-full border border-border px-1.5 text-[10px] font-bold"
+                >
+                  {ratingLabel(movie.certification)}
+                </dd>
+              </div>
               {external.imdb != null ? (
                 <div className="inline-flex items-center gap-1 text-gold">
                   <Star className="size-3.5" aria-hidden />
