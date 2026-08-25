@@ -25,19 +25,30 @@ Bulk "Retire remaining unmatched" on one show (marks every still-unmatched episo
 
 Recommendation: build X1 first — it is free, needs no new vendor, and answers "what changed" — and only take X2 if true leave dates become a must.
 
-#### Pass Y — MPA / TV content-rating filters — ~25k — Priority 7b (folded into Pass H)
-Available from TMDB at no extra cost per movie beyond one call we can fold into enrichment: `/movie/{id}/release_dates` gives the US `certification` (G, PG, PG-13, R, NC-17, NR) and `/tv/{id}/content_ratings` gives TV ratings (TV-Y, TV-Y7, TV-G, TV-PG, TV-14, TV-MA) for Pass V.
+#### Pass Y — MPA / TV content-rating filters — folded into Pass H (see "Worth doing soon")
+Approved 2026-08-23, absorbed into Pass H on 2026-08-25 so the filter sheet is only built once. Detail lives under Pass H.
 
-- Migration: `certification text` + `certification_system text` on `movies`, backfilled by a new "Backfill content ratings" admin action (chunked, resumable, same shape as availability sync).
-- Normalised ladder so movie and TV ratings sort together: TV-Y < TV-Y7 < G/TV-G < PG/TV-PG < PG-13/TV-14 < R/TV-MA < NC-17, with unrated handled explicitly (its own opt-in toggle, never silently included or excluded).
-- Filters: a max-rating chip row in the Movies filter sheet and the same allowance applied to Tonight; stored in `prefs` next to services and year range. Unrated titles show a small "NR" marker.
 
 
 
 ## Worth doing soon
 
-### Pass D — Header consistency + info sheet — ~30k — Priority 4
-Same header template across Movies, Shows, Lists, Setup; popcorn icon beside the app title; an info sheet explaining the app, Commentary Score and Match score, with per-page description paragraphs moved into it to reclaim vertical space.
+### Pass D — Header/title consistency + info sheet + home-screen icon — ~35k — Priority 4
+- Adopt the Tonight header template (icon + small-caps eyebrow, then title) on Movies, Shows, Lists and Setup, with identical font sizes/spacing so all five pages read as one family.
+- Popcorn icon to the left of the "Movie Afterparty" wordmark in both the desktop header and the mobile strip in `AppShell`.
+- Info icon opens a real explanation sheet: what the app is, how Commentary Score is computed, what Match score means, what the confidence bands imply. The per-page description paragraphs move into that sheet to reclaim vertical space on mobile.
+- Tagline options to pick from at build time (no em-dash): (1) "What to watch, and what to play after." (2) "Pick a movie. Get the afterparty." (3) "Tonight's movie plus its best commentary episode."
+- iPhone home-screen icon: 180x180 PNG plus an `apple-touch-icon` link and a web app manifest (name, short_name, theme/background colour, standalone display, 192/512 icons) in the root route head. Without `apple-touch-icon` iOS falls back to a page screenshot. "Add to Home Screen" in Safari is the correct route; anything else is just a bookmark.
+- Touch targets on the Tonight parameters: 44px minimum invisible hit padding around each `YearRange` handle and the runtime slider handle, a slightly larger visible handle, a wider track.
+
+### Pass O — Watchlist controls: layering and instant feedback — ~20k — Priority 5 (build after Pass S1's optimistic work)
+- The add-to-list popover overlaps the card below it: move it to a portalled, edge-aware placement with a correct stacking context so it never sits under or across a neighbouring card, and flips upward near the bottom of the viewport and above the fixed bottom nav.
+- Checkmark feedback on Tonight, Movies and movie detail becomes optimistic: the control flips on tap and reconciles after the write, with a `sonner` undo snackbar on add/remove.
+- Same treatment for the watched/eye control so all card-level toggles behave identically.
+
+### Pass T5 — Show list search / filter / sort — ~15k — Priority 5b
+Episode coverage & show curation gains name search, Active / Parked / Behind-feed filters (search, A-Z and missing-count sort already exist, so this completes the set), and sort by stored episode count, unmatched count, and missing-vs-feed. Deferred: sort by external rating, which depends on Pass M landing a per-show ratings cache.
+
 
 ### Pass E — Card cleanup — ~20k — Priority 5
 Drop the redundant "Watched" badge now that the eye/check control exists, and shrink the commentary badge to icon + number with the label on tap. Recommended option: "N episodes" text with the score as a thin accent bar on the card edge.
@@ -45,8 +56,19 @@ Drop the redundant "Watched" badge now that the eye/check control exists, and sh
 ### Pass F — Destructive actions and undo feedback — ~25k — Priority 6
 Confirmation dialog before deleting a watchlist plus an undo snackbar (~8 second soft delete), the same snackbar for following a show ("Following <show name>" + Undo) which also clears up the heart ambiguity. `alert-dialog` and `sonner` are both present but unused for this.
 
-### Pass H — Discovery controls, completed — ~35k — Priority 7
-Filter/sort behind a bottom sheet: sort by episode count, runtime, year, title, availability; filter by genre, runtime, service, watched/unwatched. Adds "Not interested" on movie cards and Tonight. A compact `FilterBar` already exists, so this is an extension rather than new ground.
+### Pass H — Discovery controls, completed (absorbs Pass Y) — ~55k — Priority 7
+Extends the existing compact `FilterBar` rather than replacing it.
+- Filter/sort panel behind one button: bottom sheet on mobile, popover on desktop.
+- Sort: episode count, runtime, year, title, availability.
+- Filter: genre, runtime band, streaming service, watched/unwatched, hide "Not interested".
+- New "Not interested" action on movie cards and Tonight, stored in `prefs`, excluded from Tonight and optionally hidden in Movies.
+- Same panel shape reused on Shows for episode count / missing count / A-Z.
+
+**Pass Y inside Pass H — MPA / TV content-rating filters (~25k of the 55k)**
+- Data: `/movie/{id}/release_dates` for the US `certification`, `/tv/{id}/content_ratings` for TV ratings (used by Pass V). Folded into the existing enrichment call path, no new provider.
+- Migration: `certification text` + `certification_system text` on `movies`, plus a chunked, resumable "Backfill content ratings" admin action shaped like availability sync (staleness-first queue, per-run progress reporting).
+- Normalised ladder so movie and TV ratings sort together: TV-Y < TV-Y7 < G/TV-G < PG/TV-PG < PG-13/TV-14 < R/TV-MA < NC-17. Unrated is explicit — its own opt-in toggle, never silently included or excluded — with a small "NR" marker on cards.
+- Filters: max-rating chip row in the Movies filter sheet, same allowance applied to Tonight, stored in `prefs` beside services and year range.
 
 ### Pass Z — Admin queue reset and matcher replay — ~25k — Priority 7c
 Admin-only maintenance action that purges current non-manual proposed/weak saved links from active shows, keeps human labels (`match_actions`, `episode_match_rejections`, `not_about_a_movie`) intact, then reruns the current matcher over the now-unmatched active episodes. Best practice: dry-run first with counts by link type and confidence band, require a confirmation phrase, never delete manual/confirmed links, never touch parked shows unless explicitly opted in, and log a single maintenance action for audit/undo context. Useful after major matcher changes, but risky enough to keep behind a guarded tool rather than a routine workflow.
@@ -60,13 +82,19 @@ Episode rows get truncated descriptions with expand, consistent title/date/durat
 ## Backlog (wider-audience or large-volume — hold until the engine is trustworthy)
 
 ### Pass G — App settings block — ~15k — Priority 10
-Viewport lock (default on, with an accessibility opt-out to re-enable zoom) and a dim-watched-items toggle on Setup.
+New "App settings" block on Setup: viewport lock (default on) with an accessibility opt-out that re-enables pinch zoom, remembered in `prefs`; plus a dim-watched/listened-items toggle.
+
+**Why "standard apps ship zoom enabled" and yet never zoom by accident** (answered 2026-08-25):
+- Native iOS/Android apps have no pinch-to-zoom at all unless a screen opts in, so the "professional app" behaviour being compared against is usually native, where the gesture does not exist.
+- Real websites keep zoom enabled (WCAG 1.4.4 requires 200% scaling; iOS Safari ignores `user-scalable=no` outside installed home-screen apps) but avoid accidental zoom by construction: no horizontal overflow, 16px+ input font sizes so iOS never focus-auto-zooms, `touch-action` on interactive/scrolling regions so fast or two-finger drags do not become page gestures, and no nested scroll containers competing with page scroll.
+- The accidental zoom/pan seen in this and other generated apps is almost always one of: an element wider than the viewport creating pannable overflow, sub-16px inputs, or a scroll container missing `overscroll-behavior`/`touch-action`.
+- So the pass is two-part: fix the causes (overflow audit, 16px inputs, `touch-action`/`overscroll-behavior` on scrollers) and still ship the lock as an explicit setting, which is only fully effective inside an installed home-screen app (Pass D adds the manifest).
 
 ### Pass L — Scheduled refresh — ~40k — Priority 11
 Server-side scheduled refresh (feeds daily, availability weekly, staggered) with a visible "last synced" per podcast/movie and manual override retained. Explicitly backlogged: automating volume before the matcher is accurate multiplies review work.
 
 ### Pass M — External ratings, user-controlled — ~60k — Priority 12
-Per-user choice of which ratings to show, cached in the `podcast_external_metrics` shape extended to movies. Realistic sources: TMDB (already integrated), OMDb (IMDb / Metascore), Trakt; Podcast Index (integrated), Apple Podcasts (unofficial), Podchaser (paid). Letterboxd has no public API; Spotify has no ratings. Admin show curation should eventually sort by highest/most-rated podcasts once a reliable rating source is cached; until then it stays A–Z / episode count / missing count.
+Per-user choice of which ratings to show, cached in the `podcast_external_metrics` shape extended to movies. Realistic sources: TMDB (already integrated), OMDb (IMDb / Metascore), Trakt; Podcast Index (integrated), Apple Podcasts (unofficial), Podchaser (paid). Letterboxd has no public API; Spotify has no ratings. **Dependency:** Pass T5's "sort shows by highest external rating" is blocked on this pass landing a per-show ratings cache; until then show curation sorting stays A–Z / episode count / unmatched / missing count.
 
 ### Pass N — Tags/vibes and people-based discovery — ~70k — Priority 13
 Shared tag system for movies and shows (curated starter tags, user-proposed, emoji allowed, character cap, tag filtering) plus TMDB person search leading to an actor page filtered to titles with commentary coverage.
