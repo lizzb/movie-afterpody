@@ -554,11 +554,11 @@ function resolveFamilies(candidates: ScoredCandidate[], episodeDistinguishers: S
   for (const group of byStem.values()) {
     if (group.length < 2) continue;
 
-    // The episode names a sequel marker and a family sibling carries all of
-    // them: that sibling is the subject, so the base title stands aside.
+    // The episode names a sequel marker and a family sibling carries it: that
+    // sibling is the subject, so the base title stands aside.
     if (episodeDistinguishers.size > 0) {
       const marked = group.filter(
-        (c) => [...episodeDistinguishers].every((t) => c.movieTokens.has(t)) && c.confidence >= 25,
+        (c) => [...episodeDistinguishers].some((t) => c.movieTokens.has(t)) && c.confidence >= 25,
       );
       const best = [...marked].sort(betterInFamily)[0];
       if (best) {
