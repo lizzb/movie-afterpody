@@ -527,10 +527,10 @@ function suppress(candidate: ScoredCandidate, winner: ScoredCandidate) {
  * Mutates the candidates in place.
  */
 function resolveFamilies(candidates: ScoredCandidate[], episodeDistinguishers: Set<string>) {
-  // 1. Title-stem families: the most specific title wins.
+  // 1. Title-stem families: the most specific title wins. Built without a score
+  //    floor so a low-scoring sequel can still argue against the base film.
   const byStem = new Map<string, ScoredCandidate[]>();
   for (const c of candidates) {
-    if (c.confidence < 25) continue;
     const list = byStem.get(c.familyKey) ?? [];
     list.push(c);
     byStem.set(c.familyKey, list);
@@ -539,18 +539,20 @@ function resolveFamilies(candidates: ScoredCandidate[], episodeDistinguishers: S
     if (group.length < 2) continue;
 
     // The episode names a sequel marker and a family sibling carries it: that
-    // sibling is the subject, so titles without the marker stand aside.
+    // sibling is the subject, so shorter titles without the marker stand aside.
     if (episodeDistinguishers.size > 0) {
-      const marked = group.filter(
-        (c) => [...episodeDistinguishers].some((t) => c.movieTokens.has(t)) && c.confidence >= 25,
+      const marked = group.filter((c) =>
+        [...episodeDistinguishers].some((t) => c.movieTokens.has(t)),
       );
-      const best = [...marked].sort(betterInFamily)[0];
-      if (best) {
+      for (const sibling of marked) {
         for (const c of group) {
-          if (c !== best && !marked.includes(c)) suppress(c, best);
+          if (c === sibling || marked.includes(c)) continue;
+          // Subset only: "Halloweentown" inside "Halloweentown II: …".
+          if (isSubset(c.movieTokens, sibling.movieTokens)) suppress(c, sibling);
         }
       }
     }
+
 
     // Longest fully-covered title wins; anything whose words are a subset of it
     // is a less specific match for the same episode.
