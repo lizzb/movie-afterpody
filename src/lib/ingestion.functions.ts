@@ -1622,6 +1622,23 @@ export const listEpisodeLinks = createServerFn({ method: "POST" })
       return q;
     };
 
+    // Unfiltered queue size for the same band/podcast/parked filters, so the tab
+    // badge stays stable while the search box narrows the visible rows.
+    const countUnfiltered = async () => {
+      let q = supabaseAdmin
+        .from("episode_movies")
+        .select(
+          "episode_id, podcast_episodes!inner(disposition, podcast_id, podcasts!inner(curation_status))",
+          { count: "exact", head: true },
+        )
+        .lte("match_confidence", data.maxConfidence)
+        .neq("podcast_episodes.disposition", "not_about_a_movie");
+      if (data.podcastId) q = q.eq("podcast_episodes.podcast_id", data.podcastId);
+      if (!data.includeParked) q = q.eq("podcast_episodes.podcasts.curation_status", "active");
+      const { count } = await q;
+      return count ?? 0;
+    };
+
     const pattern = term ? `%${term}%` : null;
     const rows: LinkRow[] = pattern
       ? (
@@ -1638,6 +1655,7 @@ export const listEpisodeLinks = createServerFn({ method: "POST" })
           ])
         ).flat()
       : await pageAll<LinkRow>((f, t) => baseQuery(f, t).returns<LinkRow[]>());
+
 
     // Dedupe: a term can match episode, show and movie titles at once.
     const seen = new Set<string>();
