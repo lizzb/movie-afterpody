@@ -207,9 +207,59 @@ function sentencesContaining(text: string, needle: string): string[] {
     .filter((s) => s.includes(` ${needle} `));
 }
 
+/**
+ * Sequel markers. When an episode title carries one of these and a candidate
+ * movie title does not, that is evidence *against* the candidate — the episode
+ * is about the sequel, not the base film.
+ */
+const DISTINGUISHER_TOKENS = new Set([
+  "ii",
+  "iii",
+  "iv",
+  "vi",
+  "vii",
+  "viii",
+  "ix",
+  "2",
+  "3",
+  "4",
+  "5",
+  "6",
+  "7",
+  "8",
+  "9",
+  "return",
+  "returns",
+  "part",
+  "chapter",
+  "revenge",
+  "sequel",
+  "reloaded",
+  "resurrection",
+  "resurrections",
+  "again",
+]);
+
+/** Internal per-candidate bookkeeping for the family post-pass. */
+interface ScoredCandidate extends MovieMatchCandidate {
+  movieTokens: Set<string>;
+  familyKey: string;
+  collectionKey: string | null;
+}
+
+function isSubset(a: Set<string>, b: Set<string>): boolean {
+  for (const t of a) if (!b.has(t)) return false;
+  return true;
+}
+
 export function matchEpisodeToMovies(
   episodeTitle: string,
-  movies: { id: string; title: string; release_year: number | null }[],
+  movies: {
+    id: string;
+    title: string;
+    release_year: number | null;
+    collection_id?: number | null;
+  }[],
   options: MatchOptions = {},
 ): MovieMatchCandidate[] {
   const rejectionCounts = options.rejectionCountByMovie ?? {};
@@ -219,6 +269,9 @@ export function matchEpisodeToMovies(
   const episodeCanonical = canonical(episodeClean);
   const episodeTokens = tokenSet(episodeCanonical);
   const keywordSuppressed = NON_FILM_KEYWORDS.some((re) => re.test(episodeTitle));
+  const episodeDistinguishers = new Set(
+    [...episodeTokens].filter((t) => DISTINGUISHER_TOKENS.has(t)),
+  );
 
   // Description-aware signals: deterministic, no AI, no network.
   const descRaw = (options.description ?? "")
@@ -229,12 +282,15 @@ export function matchEpisodeToMovies(
     descRaw ? (descRaw.match(YEAR_ALL_RE) ?? []).map((y) => Number(y)) : [],
   );
 
-  const candidates: MovieMatchCandidate[] = movies.map((movie) => {
+  const candidates: ScoredCandidate[] = movies.map((movie) => {
     const movieCanonical = canonical(movie.title);
     const movieTokens = tokenSet(movieCanonical);
     const similarity = jaccard(episodeTokens, movieTokens);
     const shared = [...movieTokens].filter((t) => episodeTokens.has(t)).length;
     const coverage = movieTokens.size ? shared / movieTokens.size : 0;
+    // Symmetric: how much of what the episode names this title accounts for.
+    const episodeCoverage = episodeTokens.size ? shared / episodeTokens.size : 0;
+
 
     let confidence = 0;
     let reason = "";
