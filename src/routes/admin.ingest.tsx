@@ -224,7 +224,7 @@ function IngestPage() {
             id="coverage"
             title="Episode coverage & show curation"
             description="Coverage and progress per show; park shows you're not reviewing yet."
-            storageKey="coverage"
+            storageKey="coverage-v2"
             defaultOpen
           >
             <PodcastCoverageCard onSuccess={() => stats.refetch()} />
