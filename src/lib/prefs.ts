@@ -20,6 +20,8 @@ import { EMPTY_USER_DATA } from "./types";
  * The values below are *seed defaults for this device* — not application rules.
  */
 
+export type SortKey = "commentary" | "episodes" | "runtime" | "year" | "title" | "availability";
+
 export interface Filters {
   onlyMyServices: boolean;
   serviceSlugs: string[];
@@ -30,6 +32,13 @@ export interface Filters {
   hideWatched: boolean;
   commentaryOnly: boolean;
   preferredOnly: boolean;
+  /** Ladder rank ceiling (see lib/ratings). RATING_MAX allows everything. */
+  maxRating: number;
+  /** Unrated titles are opt-in, never silently in or out. */
+  allowUnrated: boolean;
+  /** Hide anything marked "Not interested" (always excluded from Tonight). */
+  hideNotInterested: boolean;
+  sortBy: SortKey;
 }
 
 export interface LocalList {
@@ -57,6 +66,11 @@ export interface Prefs {
   watchedDates: Record<string, string>;
   lists: LocalList[];
   filters: Filters;
+  /** Movies you never want suggested. Excluded from Tonight unconditionally. */
+  notInterestedSlugs: string[];
+  /** Pass G app settings. */
+  viewportLock: boolean;
+  dimWatched: boolean;
 }
 
 export const YEAR_FLOOR = 1970;
@@ -145,7 +159,14 @@ export const DEFAULT_PREFS: Prefs = {
     hideWatched: false,
     commentaryOnly: true,
     preferredOnly: false,
+    maxRating: 7,
+    allowUnrated: true,
+    hideNotInterested: true,
+    sortBy: "commentary",
   },
+  notInterestedSlugs: [],
+  viewportLock: true,
+  dimWatched: false,
 };
 
 const KEY = "afterparty.prefs.v1";
@@ -167,6 +188,7 @@ function hydrate() {
         watchedDates: { ...(parsed.watchedDates ?? {}) },
         viewModes: { ...(parsed.viewModes ?? {}) },
         lists: parsed.lists ?? DEFAULT_PREFS.lists,
+        notInterestedSlugs: parsed.notInterestedSlugs ?? [],
         filters: { ...DEFAULT_PREFS.filters, ...(parsed.filters ?? {}) },
       };
     }
@@ -278,6 +300,15 @@ export const prefsActions = {
         l.id === id ? { ...l, movieSlugs: toggle(l.movieSlugs, movieSlug, on) } : l,
       ),
     });
+  },
+  toggleNotInterested(slug: string, on?: boolean) {
+    write({ ...current, notInterestedSlugs: toggle(current.notInterestedSlugs, slug, on) });
+  },
+  setViewportLock(on: boolean) {
+    write({ ...current, viewportLock: on });
+  },
+  setDimWatched(on: boolean) {
+    write({ ...current, dimWatched: on });
   },
   setFilters(patch: Partial<Filters>) {
     write({ ...current, filters: { ...current.filters, ...patch } });
