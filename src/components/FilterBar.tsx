@@ -144,7 +144,8 @@ export function FilterBar({
             step={5}
             value={filters.maxRuntime}
             onChange={(e) => prefsActions.setFilters({ maxRuntime: Number(e.target.value) })}
-            className="mt-0.5 h-1 w-full accent-coral"
+            // 44px grab area with a larger visible handle (Pass D).
+            className="mt-0.5 h-11 w-full appearance-none bg-transparent accent-coral [&::-moz-range-thumb]:size-7 [&::-moz-range-track]:h-2.5 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-muted [&::-webkit-slider-runnable-track]:h-2.5 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-muted [&::-webkit-slider-thumb]:-mt-2.5 [&::-webkit-slider-thumb]:size-7 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-coral [&::-webkit-slider-thumb]:bg-card"
           />
         </label>
 
