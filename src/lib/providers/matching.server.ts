@@ -6,6 +6,8 @@ export interface MatchSignals {
   tokenOverlap: number;
   /** Share of the movie's own words found in the episode title (0-1). */
   coverage: number;
+  /** Share of the episode's own words covered by the movie title (0-1). */
+  episodeCoverage: number;
   yearMatch: "same" | "near" | "mismatch" | "unknown";
   /** Movie title is a single short word — a common source of false positives. */
   genericTitle: boolean;
@@ -23,6 +25,10 @@ export interface MatchSignals {
   descTitle: boolean;
   /** Year agreement between the movie and years mentioned in the description. */
   descYear: "same" | "near" | "mismatch" | "unknown";
+  /** Episode names a sequel marker ("II", "3", "Return to") this movie lacks. */
+  distinguisherPenalty: boolean;
+  /** A longer/better title in the same franchise family beat this candidate. */
+  familySuppressed: boolean;
 }
 
 export interface MovieMatchCandidate {
@@ -33,6 +39,7 @@ export interface MovieMatchCandidate {
   reason: string;
   signals: MatchSignals;
 }
+
 
 export interface MatchOptions {
   /** Learned negative evidence: movieId → number of recorded rejections. */
