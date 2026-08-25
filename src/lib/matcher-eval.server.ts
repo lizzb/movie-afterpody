@@ -80,7 +80,11 @@ const SIGNAL_TESTS: { signal: string; test: (s: Record<string, unknown>) => bool
   { signal: "interview/bonus keyword", test: (s) => s["keywordSuppressed"] === true },
   { signal: "description hit was promo", test: (s) => s["descPromo"] === true },
   { signal: "rejected before", test: (s) => Number(s["rejectedBefore"] ?? 0) > 0 },
+  { signal: "sequel marker missing from title", test: (s) => s["distinguisherPenalty"] === true },
+  { signal: "beaten by a franchise sibling", test: (s) => s["familySuppressed"] === true },
+  { signal: "covers most of the episode title", test: (s) => Number(s["episodeCoverage"] ?? 0) >= 0.5 },
 ];
+
 
 export async function evaluateMatcher(admin: AdminClient): Promise<MatcherReport> {
   // Labels. Positives come from the action log (approve/confirm); negatives from
