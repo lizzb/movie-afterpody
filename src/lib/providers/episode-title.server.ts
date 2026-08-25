@@ -18,6 +18,8 @@ const NOISE_SUFFIXES = [
 
 const SKIP_PATTERNS = [
   /\btrailer\b/i,
+  /\bintroducing\b/i,
+  /\blisten now\b/i,
   /\bannouncement\b/i,
   /\bq\s*&\s*a\b/i,
   /\bmailbag\b/i,
@@ -35,6 +37,11 @@ export interface ExtractedTitle {
 /** True when the episode is almost certainly not about a single movie. */
 export function looksNonMovieEpisode(episodeTitle: string): boolean {
   return SKIP_PATTERNS.some((re) => re.test(episodeTitle));
+}
+
+export function hasUsableEpisodeTitle(episodeTitle: string): boolean {
+  const title = episodeTitle.trim();
+  return title.length > 0 && !/^untitled episode\b/i.test(title);
 }
 
 function stripNoise(input: string): string {
@@ -64,6 +71,7 @@ function stripNoise(input: string): string {
  * Returns ordered candidate movie titles for a podcast episode title, best first.
  */
 export function extractMovieTitleCandidates(episodeTitle: string): ExtractedTitle[] {
+  if (!hasUsableEpisodeTitle(episodeTitle)) return [];
   const cleaned = stripNoise(episodeTitle);
   if (!cleaned) return [];
 

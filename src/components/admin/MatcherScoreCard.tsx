@@ -70,6 +70,10 @@ export function MatcherScoreCard() {
 
           <div>
             <h3 className="font-display text-base font-bold">Precision by confidence band</h3>
+            <p className="text-xs text-muted-foreground">
+              Higher bands should be mostly right; a low-precision high band means the rules are too trusting.
+              A low band with many approved pairs means the rules are too cautious.
+            </p>
             <ul className="mt-2 space-y-1">
               {report.bands.map((b) => (
                 <li key={b.band} className="flex items-center justify-between gap-3 text-xs">
@@ -86,7 +90,8 @@ export function MatcherScoreCard() {
             <h3 className="font-display text-base font-bold">Signals ranked by lift</h3>
             <p className="text-xs text-muted-foreground">
               Lift is how much more often a signal appears on approved matches than rejected ones.
-              Positive lift earns weight; negative lift should cost it.
+              Positive lift earns weight; negative lift should cost it. For example, if “common-word title”
+              is negative, one-word movies like Girls/Big/After need stronger corroboration before being suggested.
             </p>
             <ul className="mt-2 space-y-1">
               {report.signals.map((s) => (

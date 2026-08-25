@@ -140,6 +140,7 @@ export interface TmdbMatchLike {
   posterUrl: string | null;
   backdropUrl: string | null;
   imdbId: string | null;
+  collectionId?: number | null;
   confidence: number;
 }
 
@@ -160,6 +161,7 @@ export async function upsertMovieFromTmdb(
     backdrop_url: match.backdropUrl,
     imdb_id: match.imdbId,
     tmdb_id: match.tmdbId,
+    collection_id: match.collectionId ?? null,
   };
 
   const { data: byTmdb } = await admin

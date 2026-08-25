@@ -30,6 +30,13 @@ export interface PodcastIndexEpisode {
   guid?: string;
 }
 
+export function episodeTitleForStorage(ep: PodcastIndexEpisode): { title: string; fallback: boolean } {
+  const title = ep.title?.trim();
+  if (title) return { title, fallback: false };
+  const suffix = ep.id ? String(ep.id) : ep.guid?.slice(0, 8) || "unknown";
+  return { title: `Untitled episode ${suffix}`, fallback: true };
+}
+
 export interface PodcastIndexSearchResponse {
   feeds?: PodcastIndexFeed[];
   count?: number;
@@ -127,7 +134,7 @@ export function podcastSlug(name: string): string {
 
 export function episodeSlug(podcastSlug: string, title: string): string {
   const base = slugify(title).slice(0, 60);
-  return `${podcastSlug}-${base}`;
+  return `${podcastSlug}-${base || "untitled-episode"}`;
 }
 
 export function bestArtwork(feed: PodcastIndexFeed): string | null {
