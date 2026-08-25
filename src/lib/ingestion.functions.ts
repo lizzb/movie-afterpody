@@ -1675,7 +1675,9 @@ export const listEpisodeLinks = createServerFn({ method: "POST" })
     return {
       // Same query that produced the rows, so the count can never disagree.
       total: filtered.length,
+      unfilteredTotal: pattern ? await countUnfiltered() : filtered.length,
       offset: data.offset,
+
       links: filtered.slice(data.offset, data.offset + data.limit).map((r) => ({
         episodeId: r.episode_id,
         movieId: r.movie_id,
