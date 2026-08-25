@@ -20,6 +20,7 @@ const SKIP_PATTERNS = [
   /\btrailer\b/i,
   /\bintroducing\b/i,
   /\blisten now\b/i,
+  /\binterview(s|ed)?\b/i,
   /\bannouncement\b/i,
   /\bq\s*&\s*a\b/i,
   /\bmailbag\b/i,
