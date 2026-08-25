@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
 import { Ban, Check, Flag, Loader2, Search, Unlink, X } from "lucide-react";
@@ -73,12 +73,14 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
   const retireFn = useServerFn(markEpisodeNotAboutMovie);
   const resolveFlagsFn = useServerFn(resolveEpisodeFlags);
 
+  // All three run so every tab can show its queue size, and previous data is
+  // kept while a new search loads so the badges never flicker to zero.
   const flags = useQuery({
     queryKey: ["flagged-links", submitted, pageSize],
     queryFn: () => flagsFn({ data: { search: submitted || undefined, limit: pageSize } }),
-    enabled: tab === "flagged",
     retry: false,
     refetchOnWindowFocus: false,
+    placeholderData: keepPreviousData,
   });
 
   const proposals = useQuery({
@@ -91,20 +93,20 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
           limit: pageSize,
         },
       }),
-
-    enabled: tab === "proposed",
     retry: false,
     refetchOnWindowFocus: false,
+    placeholderData: keepPreviousData,
   });
 
   const links = useQuery({
     queryKey: ["episode-links", submitted, maxConfidence, pageSize],
     queryFn: () =>
       linksFn({ data: { search: submitted || undefined, maxConfidence, limit: pageSize } }),
-    enabled: tab === "existing",
     retry: false,
     refetchOnWindowFocus: false,
+    placeholderData: keepPreviousData,
   });
+
 
 
   const rows = useMemo(() => {
@@ -333,11 +335,11 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
       <div className="mt-4 inline-flex flex-wrap rounded-full border border-border p-1">
         {(
           [
-            ["flagged", "Flagged"],
-            ["proposed", "Proposed"],
-            ["existing", "Existing links"],
+            ["flagged", "Flagged", flags.data?.unfilteredTotal ?? flags.data?.total ?? 0],
+            ["proposed", "Proposed", proposals.data?.unfilteredTotal ?? proposals.data?.total ?? 0],
+            ["existing", "Existing links", links.data?.unfilteredTotal ?? links.data?.total ?? 0],
           ] as const
-        ).map(([value, label]) => (
+        ).map(([value, label, count]) => (
           <button
             key={value}
             type="button"
@@ -346,17 +348,26 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
               setSelected({});
               setNote(null);
             }}
-            className={`rounded-full px-4 py-2 text-sm font-semibold ${
+            className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold ${
               tab === value ? "bg-primary text-primary-foreground" : "text-muted-foreground"
             }`}
           >
             {label}
-            {value === "flagged" && (flags.data?.unfilteredTotal ?? flags.data?.total ?? 0) > 0
-              ? ` (${flags.data?.unfilteredTotal ?? flags.data?.total})`
-              : ""}
+            {count > 0 ? (
+              <span
+                className={`inline-flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-xs font-bold tabular-nums ${
+                  tab === value
+                    ? "bg-primary-foreground/20 text-primary-foreground"
+                    : "bg-secondary text-secondary-foreground"
+                }`}
+              >
+                {count}
+              </span>
+            ) : null}
           </button>
         ))}
       </div>
+
 
       <form
         className="mt-4 flex flex-wrap items-center gap-2"
