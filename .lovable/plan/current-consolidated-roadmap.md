@@ -1,6 +1,6 @@
-# Movie Afterparty — consolidated roadmap (passes A–R)
+# Movie Afterparty — current consolidated roadmap
 
-Pass R (shrink the working set) is approved and parked in the backlog below — not being implemented now.
+**This is the only active plan file.** Everything in `.lovable/plan/archive/` is historical and superseded — read it for background only. When a pass ships, its entry moves to "Already done" below with a `— shipped YYYY-MM-DD` stamp in the same edit.
 
 Priority reflects the app's current state: a personal tool for one user, refining the match engine on a small data set. Anything aimed at a wider audience or large-scale automatic ingestion is deliberately low priority. Token estimates are build-cost ballparks.
 
@@ -10,12 +10,10 @@ Priority reflects the app's current state: a personal tool for one user, refinin
 
 ## Do next
 
-### Pass R — Shrink the working set without losing work — split into R1/R2/R3
-Full detail: `.lovable/plan/pass-r-shrink-working-set-2026-08-20.md`.
+### Pass R2 — Episode-level noise handling — ~20k — Priority 1
+The only remaining piece of Pass R (R1 and R3 both shipped — see "Already done"). Original detail: `.lovable/plan/archive/pass-r-shrink-working-set-2026-08-20.md`.
 
-- **R1 — Active / Parked curation — DONE (2026-08-21).** `podcast_curation` enum + `curation_status` on podcasts; Park / Re-activate per show in "Episode coverage & show curation" with Active/Parked tabs and a linked / unmatched / not-about-a-movie progress line; `activeOnly` scoping in `ingestion-helpers.server.ts` so suggest / rescan / resolve / unmatched are active-only; `data.ts` drops parked shows, their episodes and links from the app; stat tiles split into "Active shows" / "Parked shows" so nothing is silently invisible. Parked shows are also skipped by episode sync.
-- **R2 — Episode-level noise handling — ~20k — Priority 1.** Bulk "Retire remaining unmatched" on one show (marks every still-unmatched episode `not_about_a_movie`, logged in `match_actions`, undoable), plus the separately-labelled destructive "Delete episodes, keep the show".
-- **R3 — Score the matcher — DONE (2026-08-23).** `src/lib/matcher-eval.server.ts` + `scoreMatcher` server fn + "Score the matcher" admin card: replays live scoring over every non-undone approve/confirm/reject in `match_actions` plus `episode_match_rejections`, reporting precision/recall at the 25 threshold, precision per confidence band, the band where wrong matches cluster, and per-signal lift (how much more often each signal appears on approved vs rejected pairs). Database only, no TMDB calls.
+Bulk "Retire remaining unmatched" on one show (marks every still-unmatched episode `not_about_a_movie`, logged in `match_actions`, undoable), plus the separately-labelled destructive "Delete episodes, keep the show".
 
 ### New backlog passes (approved 2026-08-23, not scheduled)
 
