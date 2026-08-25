@@ -494,7 +494,7 @@ export function matchEpisodeToMovies(
     };
   });
 
-  resolveFamilies(candidates);
+  resolveFamilies(candidates, episodeDistinguishers);
 
   candidates.sort((a, b) => b.confidence - a.confidence);
   return candidates
@@ -526,7 +526,7 @@ function suppress(candidate: ScoredCandidate, winner: ScoredCandidate) {
  * the base film, so within a family only the most specific title survives.
  * Mutates the candidates in place.
  */
-function resolveFamilies(candidates: ScoredCandidate[]) {
+function resolveFamilies(candidates: ScoredCandidate[], episodeDistinguishers: Set<string>) {
   // 1. TMDB collections: same franchise, so only the best-scoring entry stands.
   const byCollection = new Map<string, ScoredCandidate[]>();
   for (const c of candidates) {
@@ -553,6 +553,21 @@ function resolveFamilies(candidates: ScoredCandidate[]) {
   }
   for (const group of byStem.values()) {
     if (group.length < 2) continue;
+
+    // The episode names a sequel marker and a family sibling carries all of
+    // them: that sibling is the subject, so the base title stands aside.
+    if (episodeDistinguishers.size > 0) {
+      const marked = group.filter(
+        (c) => [...episodeDistinguishers].every((t) => c.movieTokens.has(t)) && c.confidence >= 25,
+      );
+      const best = [...marked].sort(betterInFamily)[0];
+      if (best) {
+        for (const c of group) {
+          if (c !== best && !marked.includes(c)) suppress(c, best);
+        }
+      }
+    }
+
     const covered = group.filter((c) => c.signals.coverage === 1);
     if (!covered.length) continue;
     const winner = [...covered].sort((a, b) => {
