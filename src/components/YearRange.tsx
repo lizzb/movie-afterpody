@@ -12,12 +12,12 @@ interface Props {
  * mobile without growing the visual footprint much.
  */
 const THUMB =
-  "pointer-events-none absolute inset-0 h-11 w-full appearance-none bg-transparent " +
-  "[&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:size-7 " +
+  "pointer-events-none absolute inset-0 h-12 w-full appearance-none bg-transparent " +
+  "[&::-webkit-slider-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:size-8 " +
   "[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full " +
   "[&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-coral " +
   "[&::-webkit-slider-thumb]:bg-card [&::-webkit-slider-thumb]:shadow-card " +
-  "[&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:size-7 " +
+  "[&::-moz-range-thumb]:pointer-events-auto [&::-moz-range-thumb]:size-8 " +
   "[&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:rounded-full " +
   "[&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-coral [&::-moz-range-thumb]:bg-card";
 
@@ -28,10 +28,10 @@ export function YearRange({ min, max, from, to, onChange }: Props) {
   const right = ((to - min) / span) * 100;
 
   return (
-    <div className="relative h-11 touch-none">
-      <div className="absolute top-1/2 h-2.5 w-full -translate-y-1/2 rounded-full bg-muted" />
+    <div className="relative h-12 touch-none">
+      <div className="absolute top-1/2 h-3 w-full -translate-y-1/2 rounded-full bg-muted" />
       <div
-        className="absolute top-1/2 h-2.5 -translate-y-1/2 rounded-full bg-coral"
+        className="absolute top-1/2 h-3 -translate-y-1/2 rounded-full bg-coral"
         style={{ left: `${left}%`, right: `${100 - right}%` }}
       />
       <input
