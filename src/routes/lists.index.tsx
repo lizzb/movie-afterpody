@@ -34,6 +34,7 @@ type Tab = "lists" | "history";
 
 function ListsPage() {
   const { lists, history, isLoading } = useLists();
+  const { prefs } = useLists();
   const [tab, setTab] = useState<Tab>("lists");
   const [name, setName] = useState("");
 
@@ -134,7 +135,7 @@ function ListsPage() {
                             <Link
                               to="/movies/$slug"
                               params={{ slug: movie.slug }}
-                              className="flex items-center gap-3 rounded-xl border border-border/70 p-2.5 transition-colors hover:bg-secondary"
+                              className={`flex items-center gap-3 rounded-xl border border-border/70 p-2.5 transition-colors hover:bg-secondary ${prefs.dimWatched && watched ? "opacity-45 saturate-50" : ""}`}
                             >
                               <Artwork
                                 src={movie.poster_url}

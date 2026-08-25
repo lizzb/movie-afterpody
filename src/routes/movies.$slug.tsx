@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { toast } from "sonner";
 import { BackLink } from "@/components/BackLink";
 import {
   Check,
@@ -219,7 +220,15 @@ function MovieDetailPage() {
             <div className="inline-flex items-stretch overflow-hidden rounded-full border border-border">
               <button
                 type="button"
-                onClick={() => prefsActions.toggleWatched(movie.slug, !watched)}
+                onClick={() => {
+                  prefsActions.toggleWatched(movie.slug, !watched);
+                  toast(watched ? `Marked as not watched: ${movie.title}` : `Mark as watched: ${movie.title}`, {
+                    action: {
+                      label: "Undo",
+                      onClick: () => prefsActions.toggleWatched(movie.slug, watched),
+                    },
+                  });
+                }}
                 className={`inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold transition-colors ${
                   watched
                     ? "bg-teal text-primary-foreground"
@@ -239,7 +248,7 @@ function MovieDetailPage() {
                 <ChevronDown className="size-4" aria-hidden />
               </button>
             </div>
-            <AddToListButton movieSlug={movie.slug} variant="button" />
+            <AddToListButton movieSlug={movie.slug} movieTitle={movie.title} variant="button" />
           </div>
         </section>
 

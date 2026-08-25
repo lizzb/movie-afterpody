@@ -16,9 +16,11 @@ const BOTTOM_NAV = 88;
  */
 export function AddToListButton({
   movieSlug,
+  movieTitle,
   variant = "icon",
 }: {
   movieSlug: string;
+  movieTitle?: string;
   variant?: "icon" | "button";
 }) {
   const prefs = usePrefs();
@@ -76,12 +78,21 @@ export function AddToListButton({
 
   const toggle = (listId: string, listName: string, on: boolean) => {
     prefsActions.toggleListMovie(listId, movieSlug, on);
-    toast(on ? `Added to ${listName}` : `Removed from ${listName}`, {
+    toast(
+      movieTitle
+        ? on
+          ? `Added to ${listName}: ${movieTitle}`
+          : `Removed from ${listName}: ${movieTitle}`
+        : on
+          ? `Added to ${listName}`
+          : `Removed from ${listName}`,
+      {
       action: {
         label: "Undo",
         onClick: () => prefsActions.toggleListMovie(listId, movieSlug, !on),
       },
-    });
+      },
+    );
   };
 
   const Icon = saved.length > 0 ? BookmarkCheck : Bookmark;
@@ -159,7 +170,7 @@ export function AddToListButton({
                   const id = prefsActions.createList(name, accentFor(name));
                   prefsActions.toggleListMovie(id, movieSlug, true);
                   setNewName("");
-                  toast(`Created ${name}`, {
+                  toast(movieTitle ? `Created ${name} and added: ${movieTitle}` : `Created ${name}`, {
                     action: { label: "Undo", onClick: () => prefsActions.deleteList(id) },
                   });
                 }}
