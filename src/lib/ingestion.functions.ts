@@ -599,6 +599,13 @@ export const enrichMovie = createServerFn({ method: "POST" })
       : await findBestTmdbMatch(apiKey, title!, year);
     if (!match) throw new Error(`No TMDB match found for "${imdbId ?? title}"`);
 
+    // Content rating comes from the same detail call path (Pass Y).
+    const { getTmdbMovieCertification } = await import("./providers/tmdb.server");
+    const cert = await getTmdbMovieCertification(apiKey, match.tmdbId).catch(() => ({
+      certification: null,
+      system: null,
+    }));
+
     const baseUpdate = {
       title: match.title,
       release_year: match.releaseYear,
@@ -611,6 +618,9 @@ export const enrichMovie = createServerFn({ method: "POST" })
       imdb_id: match.imdbId,
       tmdb_id: match.tmdbId,
       collection_id: match.collectionId,
+      certification: cert.certification,
+      certification_system: cert.system,
+      certification_checked_at: new Date().toISOString(),
     };
 
     if (movieId) {
