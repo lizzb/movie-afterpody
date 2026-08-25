@@ -378,6 +378,9 @@ export type Database = {
           accent: string
           availability_checked_at: string | null
           backdrop_url: string | null
+          certification: string | null
+          certification_checked_at: string | null
+          certification_system: string | null
           collection_id: number | null
           created_at: string
           id: string
@@ -397,6 +400,9 @@ export type Database = {
           accent?: string
           availability_checked_at?: string | null
           backdrop_url?: string | null
+          certification?: string | null
+          certification_checked_at?: string | null
+          certification_system?: string | null
           collection_id?: number | null
           created_at?: string
           id?: string
@@ -416,6 +422,9 @@ export type Database = {
           accent?: string
           availability_checked_at?: string | null
           backdrop_url?: string | null
+          certification?: string | null
+          certification_checked_at?: string | null
+          certification_system?: string | null
           collection_id?: number | null
           created_at?: string
           id?: string
