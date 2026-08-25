@@ -2140,3 +2140,89 @@ export const scoreMatcher = createServerFn({ method: "POST" })
     const { evaluateMatcher } = await import("./matcher-eval.server");
     return evaluateMatcher(supabaseAdmin);
   });
+
+/**
+ * Pass Y — content ratings backfill. Chunked and resumable: unchecked movies
+ * first, then the stalest, so repeated runs always make progress.
+ */
+export const backfillContentRatings = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) =>
+    z.object({ limit: z.number().int().min(1).max(200).default(60) }).parse(data),
+  )
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { getTmdbMovieCertification, getTmdbTvCertification } = await import(
+      "./providers/tmdb.server"
+    );
+    const { pageAll } = await import("./ingestion-helpers.server");
+
+    const apiKey = process.env["TMDB_API_KEY"];
+    if (!apiKey) throw new Error("TMDB API key not configured");
+
+    const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    const rows = await pageAll<{
+      id: string;
+      title: string;
+      tmdb_id: number | null;
+      media_type: string;
+      certification_checked_at: string | null;
+    }>((from, to) =>
+      supabaseAdmin
+        .from("movies")
+        .select("id, title, tmdb_id, media_type, certification_checked_at")
+        .order("title")
+        .range(from, to),
+    );
+
+    const withTmdb = rows.filter((m) => m.tmdb_id);
+    const queue = withTmdb
+      .slice()
+      .sort((a, b) =>
+        (a.certification_checked_at ?? "").localeCompare(b.certification_checked_at ?? ""),
+      );
+    const todo = queue.slice(0, data.limit);
+
+    let updated = 0;
+    let rated = 0;
+    const failed: string[] = [];
+
+    for (const movie of todo) {
+      try {
+        const result =
+          movie.media_type === "tv"
+            ? await getTmdbTvCertification(apiKey, movie.tmdb_id!)
+            : await getTmdbMovieCertification(apiKey, movie.tmdb_id!);
+        const { error } = await supabaseAdmin
+          .from("movies")
+          .update({
+            certification: result.certification,
+            certification_system: result.system,
+            certification_checked_at: new Date().toISOString(),
+          })
+          .eq("id", movie.id);
+        if (error) failed.push(`${movie.title}: ${error.message}`);
+        else {
+          updated += 1;
+          if (result.certification) rated += 1;
+        }
+      } catch (err) {
+        failed.push(`${movie.title}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+      await sleep(110);
+    }
+
+    const unchecked = withTmdb.filter((m) => !m.certification_checked_at).length;
+    return {
+      attempted: todo.length,
+      updated,
+      rated,
+      /** Movies still never checked after this run. */
+      remaining: Math.max(0, unchecked - todo.length),
+      totalWithTmdb: withTmdb.length,
+      missingTmdb: rows.length - withTmdb.length,
+      failed: failed.slice(0, 20),
+    };
+  });
