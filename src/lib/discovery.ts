@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useCatalog } from "./data";
 import { usePrefs, toUserData, type Filters, type Prefs } from "./prefs";
+import { ratingRank } from "./ratings";
 import { scoreMovie, type CommentaryScore } from "./scoring";
 import type {
   Catalog,
@@ -29,6 +30,8 @@ export interface MovieEntry {
   episodes: EpisodeEntry[];
   watched: boolean;
   onMyServices: boolean;
+  /** Marked "Not interested" locally (Pass H). */
+  notInterested: boolean;
 }
 
 /** Everything the screens need, derived once from the catalog + local prefs. */
@@ -58,6 +61,7 @@ function buildEntries(catalog: Catalog, user: UserData, prefs: Prefs): MovieEntr
   );
   const watchedIds = new Set(user.watches.map((w) => w.movie_id));
   const mySlugs = new Set(prefs.serviceSlugs);
+  const notInterested = new Set(prefs.notInterestedSlugs);
 
   const sourceByEpisode = new Map<string, string>();
   for (const s of catalog.episodeSources) {
@@ -131,14 +135,39 @@ function buildEntries(catalog: Catalog, user: UserData, prefs: Prefs): MovieEntr
       rentBuyServices,
       episodes,
       watched: watchedIds.has(movie.id),
+      notInterested: notInterested.has(movie.slug),
       onMyServices: services.some((s) => mySlugs.has(s.slug)),
     };
   });
 }
 
-export function applyFilters(entries: MovieEntry[], filters: Filters): MovieEntry[] {
+function compare(a: MovieEntry, b: MovieEntry, key: Filters["sortBy"]): number {
+  switch (key) {
+    case "episodes":
+      return b.episodes.length - a.episodes.length;
+    case "runtime":
+      return (a.movie.runtime_minutes ?? 9999) - (b.movie.runtime_minutes ?? 9999);
+    case "year":
+      return (b.movie.release_year ?? 0) - (a.movie.release_year ?? 0);
+    case "title":
+      return a.movie.title.localeCompare(b.movie.title);
+    case "availability":
+      return (
+        Number(b.onMyServices) - Number(a.onMyServices) || b.services.length - a.services.length
+      );
+    default:
+      return b.score.score - a.score.score;
+  }
+}
+
+export function applyFilters(
+  entries: MovieEntry[],
+  filters: Filters,
+  options: { alwaysHideNotInterested?: boolean } = {},
+): MovieEntry[] {
   const genreWanted = new Set(filters.genreSlugs);
   const serviceWanted = new Set(filters.serviceSlugs);
+  const hideNotInterested = options.alwaysHideNotInterested || filters.hideNotInterested;
 
   return entries
     .filter((e) => {
@@ -152,10 +181,16 @@ export function applyFilters(entries: MovieEntry[], filters: Filters): MovieEntr
       if (filters.hideWatched && e.watched) return false;
       if (filters.commentaryOnly && e.episodes.length === 0) return false;
       if (filters.preferredOnly && !e.episodes.some((ep) => ep.preferred)) return false;
+      if (hideNotInterested && e.notInterested) return false;
+      const rank = ratingRank(e.movie.certification);
+      if (rank === null) {
+        if (!filters.allowUnrated) return false;
+      } else if (rank > filters.maxRating) return false;
       return true;
     })
     .sort(
       (a, b) =>
+        compare(a, b, filters.sortBy) ||
         b.score.score - a.score.score ||
         b.episodes.length - a.episodes.length ||
         a.movie.title.localeCompare(b.movie.title),
