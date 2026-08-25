@@ -420,12 +420,6 @@ export const suggestEpisodeMatches = createServerFn({ method: "POST" })
       .filter((ep) => hasUsableEpisodeTitle(ep.title))
       .filter((ep) => !looksNonMovieEpisode(ep.title))
       .filter((ep) => !confirmedEpisodes.has(ep.id))
-      .filter(
-        (ep) =>
-          !term ||
-          ep.title.toLowerCase().includes(term) ||
-          ep.podcasts.name.toLowerCase().includes(term),
-      )
       .map((ep) => {
         const candidates = matchEpisodeToMovies(ep.title, movieList, {
           rejectionCountByMovie,
@@ -461,11 +455,24 @@ export const suggestEpisodeMatches = createServerFn({ method: "POST" })
       })
       .filter((s) => s.topCandidate !== null && s.topCandidate.confidence < data.maxConfidence);
 
+    // The search box narrows the visible rows; the queue size stays the same so
+    // the tab badge does not jump around while typing.
+    const filtered = term
+      ? all.filter(
+          (s) =>
+            s.episodeTitle.toLowerCase().includes(term) ||
+            s.podcastName.toLowerCase().includes(term) ||
+            (s.topCandidate?.title.toLowerCase().includes(term) ?? false),
+        )
+      : all;
+
     return {
-      total: all.length,
-      suggestions: all.slice(data.offset, data.offset + data.limit),
+      total: filtered.length,
+      unfilteredTotal: all.length,
+      suggestions: filtered.slice(data.offset, data.offset + data.limit),
     };
   });
+
 
 
 export const approveEpisodeMatch = createServerFn({ method: "POST" })
