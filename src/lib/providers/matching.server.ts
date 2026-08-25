@@ -65,6 +65,9 @@ const STOPWORDS = new Set(["the", "a", "an", "and", "of", "in", "on", "to", "is"
 const COMMON_WORD_TITLES = new Set([
   "girls",
   "boys",
+  "big",
+  "go",
+  "it",
   "after",
   "before",
   "speed",
@@ -427,13 +430,15 @@ export function matchEpisodeToMovies(
 
     // Single common words ("Girls", "After") need corroboration: either the
     // episode year agrees, or the description names the title with its year.
-    const onlyToken = movieTokens.size === 1 ? [...movieTokens][0]! : null;
+    const singleMovieToken = [...movieTokens][0];
+    const onlyToken = movieTokens.size === 1 && singleMovieToken ? singleMovieToken : null;
     const commonWord =
       onlyToken !== null &&
       (COMMON_WORD_TITLES.has(onlyToken) || commonEpisodeWords.has(onlyToken));
     if (commonWord && rule !== "exact") {
       const corroborated = yearMatch === "same" || (descTitle && descYear === "same");
-      if (!corroborated) {
+      const titleOnlyContainsCommonWord = rule === "contained" && episodeCoverage < 0.5;
+      if (!corroborated || titleOnlyContainsCommonWord) {
         confidence = Math.min(confidence, 20);
         reason += " - common word title, unconfirmed";
       }
@@ -562,7 +567,8 @@ function resolveFamilies(candidates: ScoredCandidate[], episodeDistinguishers: S
     const winner = [...covered].sort((a, b) => {
       if (b.movieTokens.size !== a.movieTokens.size) return b.movieTokens.size - a.movieTokens.size;
       return betterInFamily(a, b);
-    })[0]!;
+    })[0];
+    if (!winner) continue;
     for (const c of live) {
       if (c === winner) continue;
       // An exact whole-title hit settles the family outright.
@@ -583,7 +589,8 @@ function resolveFamilies(candidates: ScoredCandidate[], episodeDistinguishers: S
   for (const group of byCollection.values()) {
     if (group.length < 2) continue;
     const sorted = [...group].sort(betterInFamily);
-    const winner = sorted[0]!;
+    const winner = sorted[0];
+    if (!winner) continue;
     for (const c of sorted.slice(1)) suppress(c, winner);
   }
 }

@@ -48,6 +48,9 @@ Confirmation dialog before deleting a watchlist plus an undo snackbar (~8 second
 ### Pass H — Discovery controls, completed — ~35k — Priority 7
 Filter/sort behind a bottom sheet: sort by episode count, runtime, year, title, availability; filter by genre, runtime, service, watched/unwatched. Adds "Not interested" on movie cards and Tonight. A compact `FilterBar` already exists, so this is an extension rather than new ground.
 
+### Pass Z — Admin queue reset and matcher replay — ~25k — Priority 7c
+Admin-only maintenance action that purges current non-manual proposed/weak saved links from active shows, keeps human labels (`match_actions`, `episode_match_rejections`, `not_about_a_movie`) intact, then reruns the current matcher over the now-unmatched active episodes. Best practice: dry-run first with counts by link type and confidence band, require a confirmation phrase, never delete manual/confirmed links, never touch parked shows unless explicitly opted in, and log a single maintenance action for audit/undo context. Useful after major matcher changes, but risky enough to keep behind a guarded tool rather than a routine workflow.
+
 ### Pass I — Listening history — ~20k — Priority 8
 A "Listened" view on Lists & History: episodes you rated or moved between not started / started / finished, newest first. Data is already captured; nothing surfaces it.
 
@@ -63,13 +66,16 @@ Viewport lock (default on, with an accessibility opt-out to re-enable zoom) and 
 Server-side scheduled refresh (feeds daily, availability weekly, staggered) with a visible "last synced" per podcast/movie and manual override retained. Explicitly backlogged: automating volume before the matcher is accurate multiplies review work.
 
 ### Pass M — External ratings, user-controlled — ~60k — Priority 12
-Per-user choice of which ratings to show, cached in the `podcast_external_metrics` shape extended to movies. Realistic sources: TMDB (already integrated), OMDb (IMDb / Metascore), Trakt; Podcast Index (integrated), Apple Podcasts (unofficial), Podchaser (paid). Letterboxd has no public API; Spotify has no ratings.
+Per-user choice of which ratings to show, cached in the `podcast_external_metrics` shape extended to movies. Realistic sources: TMDB (already integrated), OMDb (IMDb / Metascore), Trakt; Podcast Index (integrated), Apple Podcasts (unofficial), Podchaser (paid). Letterboxd has no public API; Spotify has no ratings. Admin show curation should eventually sort by highest/most-rated podcasts once a reliable rating source is cached; until then it stays A–Z / episode count / missing count.
 
 ### Pass N — Tags/vibes and people-based discovery — ~70k — Priority 13
 Shared tag system for movies and shows (curated starter tags, user-proposed, emoji allowed, character cap, tag filtering) plus TMDB person search leading to an actor page filtered to titles with commentary coverage.
 
 ### Pass P — Richer movie detail (cast) — ~40k — Priority 14
 Top-billed cast and director from TMDB credits shown on the movie page, with an external link out for anything deeper. Needs a cast cache table and a credits fetch during enrich.
+
+### Pass V — TV shows and miniseries via TMDB — ~90k — Priority 15
+Expand from movies-only to both `movie` and `tv` catalog items using the existing `media_type` column. Scope: TMDB TV search/detail/enrichment, season/episode-aware title extraction, TV/miniseries runtime and first-air-year handling, watch-provider refresh for `/tv/{id}`, TV content ratings, detail pages that clearly label films vs series, and discovery filters that can include/exclude TV. Design impacts to decide before building: cards need media-type badges; “runtime” becomes episode runtime or total runtime; release year becomes first-air year; podcast episode links may target a series, a season, or a specific episode; availability can differ by season; and “movie detail” copy/navigation should become “title detail” or similar so the UI does not feel movie-only.
 
 ---
 

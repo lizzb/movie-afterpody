@@ -707,12 +707,14 @@ export function RelinkPicker({
   const [open, setOpen] = useState(false);
   const [term, setTerm] = useState("");
   const [submitted, setSubmitted] = useState("");
+  const [year, setYear] = useState("");
+  const [submittedYear, setSubmittedYear] = useState<number | undefined>(undefined);
   const [imdbBusy, setImdbBusy] = useState(false);
   const [imdbError, setImdbError] = useState<string | null>(null);
 
   const results = useQuery({
-    queryKey: ["movie-search", submitted],
-    queryFn: () => searchFn({ data: { term: submitted } }),
+    queryKey: ["movie-search", submitted, submittedYear],
+    queryFn: () => searchFn({ data: { term: submitted, year: submittedYear } }),
     enabled: submitted.length > 1 && !IMDB_RE.test(submitted),
     retry: false,
   });
@@ -720,9 +722,15 @@ export function RelinkPicker({
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const value = term.trim();
+    const parsedYear = year.trim() ? Number(year.trim()) : undefined;
     setImdbError(null);
     if (!IMDB_RE.test(value)) {
+      if (parsedYear !== undefined && (!Number.isInteger(parsedYear) || parsedYear < 1900 || parsedYear > 2030)) {
+        setImdbError("Enter a four-digit release year, or leave it blank.");
+        return;
+      }
       setSubmitted(value);
+      setSubmittedYear(parsedYear);
       return;
     }
     setImdbBusy(true);
@@ -757,13 +765,21 @@ export function RelinkPicker({
 
   return (
     <div className="w-full rounded-xl border border-border bg-card p-2">
-      <form className="flex gap-2" onSubmit={submit}>
+      <form className="flex flex-wrap gap-2" onSubmit={submit}>
         <input
           value={term}
           onChange={(e) => setTerm(e.target.value)}
           placeholder="Movie title or IMDb id (tt0110989)"
           aria-label="Search movies or paste an IMDb id"
-          className="flex-1 rounded-full border border-border bg-background px-3 py-1.5 text-xs"
+          className="min-w-48 flex-1 rounded-full border border-border bg-background px-3 py-1.5 text-xs"
+        />
+        <input
+          value={year}
+          onChange={(e) => setYear(e.target.value.replace(/\D/g, "").slice(0, 4))}
+          placeholder="Year"
+          inputMode="numeric"
+          aria-label="Release year"
+          className="w-20 rounded-full border border-border bg-background px-3 py-1.5 text-xs"
         />
         <button
           type="submit"

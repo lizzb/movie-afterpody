@@ -12,12 +12,15 @@ export function useIsAdmin(): boolean {
     refetchOnWindowFocus: false,
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("has_role", {
-        _user_id: userId!,
-        _role: "admin",
-      });
+      if (!userId) return false;
+      const { data, error } = await supabase
+        .from("user_roles")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("role", "admin")
+        .maybeSingle();
       if (error) return false;
-      return Boolean(data);
+      return Boolean(data?.id);
     },
   });
   return query.data === true;
