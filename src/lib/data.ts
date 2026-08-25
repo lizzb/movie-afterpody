@@ -61,7 +61,7 @@ async function fetchCatalog(): Promise<Catalog> {
           .from("movies")
           .select(
             sel(
-              "id, media_type, slug, title, release_year, runtime_minutes, synopsis, poster_url, accent, availability_checked_at",
+              "id, media_type, slug, title, release_year, runtime_minutes, synopsis, poster_url, accent, availability_checked_at, certification, certification_system",
             ),
           )
           .order("title")
