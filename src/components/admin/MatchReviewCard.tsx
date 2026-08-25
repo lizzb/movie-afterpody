@@ -73,12 +73,14 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
   const retireFn = useServerFn(markEpisodeNotAboutMovie);
   const resolveFlagsFn = useServerFn(resolveEpisodeFlags);
 
+  // All three run so every tab can show its queue size, and previous data is
+  // kept while a new search loads so the badges never flicker to zero.
   const flags = useQuery({
     queryKey: ["flagged-links", submitted, pageSize],
     queryFn: () => flagsFn({ data: { search: submitted || undefined, limit: pageSize } }),
-    enabled: tab === "flagged",
     retry: false,
     refetchOnWindowFocus: false,
+    placeholderData: keepPreviousData,
   });
 
   const proposals = useQuery({
@@ -91,20 +93,20 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
           limit: pageSize,
         },
       }),
-
-    enabled: tab === "proposed",
     retry: false,
     refetchOnWindowFocus: false,
+    placeholderData: keepPreviousData,
   });
 
   const links = useQuery({
     queryKey: ["episode-links", submitted, maxConfidence, pageSize],
     queryFn: () =>
       linksFn({ data: { search: submitted || undefined, maxConfidence, limit: pageSize } }),
-    enabled: tab === "existing",
     retry: false,
     refetchOnWindowFocus: false,
+    placeholderData: keepPreviousData,
   });
+
 
 
   const rows = useMemo(() => {
