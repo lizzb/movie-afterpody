@@ -26,7 +26,7 @@ Sequels whose titles contain the original ("Halloweentown" inside "Halloweentown
 4. **Franchise grouping via TMDB `belongs_to_collection`.** Store a `collection_id` on movies during enrichment; when two candidates share a collection, only the best-scoring one is ever proposed. Cheap: the field arrives in the enrich call we already make.
 5. **Year corroboration inside a family** — a sequel's year settles most remaining ties.
 
-Measurable with Pass R3 before/after (precision per band on the same labels).
+**Ready to start — no blockers.** Pass R3 shipped 2026-08-23, so the measurement harness already exists. Procedure: (1) before changing any matching rule, open Match review → "Score the matcher" and record precision/recall at the 25 threshold plus precision per confidence band; (2) build the Pass W changes; (3) run "Score the matcher" again — it replays the *new* rules over the *same* recorded approve/confirm/reject labels, so the two runs are directly comparable. Success looks like precision rising in the 25–60 bands (where sequel confusion clusters) with recall at 25 unchanged or better.
 
 #### Pass X — Leaving-soon streaming windows — ~45k (or ~15k for the honest subset) — Priority 11
 **What the data supports:** TMDB `/watch/providers` (JustWatch-sourced) returns *current* availability only — no leave dates, no offer expiry, no "recently added". Neither does the free JustWatch surface. Real leave-date feeds exist only in paid/licensed products (JustWatch partner API, Reelgood, Watchmode "expiring" endpoints). So there are two honest options:
