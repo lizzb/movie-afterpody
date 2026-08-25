@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { CalendarCheck, Plus, Trash2 } from "lucide-react";
+import { Bookmark, CalendarCheck, Plus, Trash2 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
+import { PageHeader } from "@/components/PageHeader";
 import { Artwork } from "@/components/Artwork";
 import { BrandBadge } from "@/components/BrandBadge";
 import { accentFor, accentSoft, toAccent } from "@/lib/accents";
@@ -38,11 +39,8 @@ function ListsPage() {
 
   return (
     <AppShell>
-      <main className="mx-auto w-full max-w-3xl px-5 pb-16 pt-8">
-        <h1 className="font-display text-3xl">Lists &amp; history</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Save movies for later and keep a record of your afterparties.
-        </p>
+      <main className="mx-auto w-full max-w-3xl px-4 pb-16 pt-4">
+        <PageHeader icon={Bookmark} eyebrow="Saved" title="Lists & history" />
 
         <div className="mt-5 flex gap-1.5">
           {(

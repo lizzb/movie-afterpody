@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { Heart, Mic, Search, Star } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
+import { PageHeader } from "@/components/PageHeader";
 import { CatalogAddCard } from "@/components/CatalogAddCard";
 import { Artwork } from "@/components/Artwork";
 import { BrandBadge } from "@/components/BrandBadge";
@@ -72,15 +73,9 @@ function PodcastsPage() {
   return (
     <AppShell>
       <main className="mx-auto w-full max-w-3xl px-4 pb-16 pt-4">
-        <header className="mb-3">
-          <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
-            <Mic className="size-3" aria-hidden />
-            Discover
-          </p>
-          <h1 className="mt-1 font-display text-2xl font-bold leading-tight sm:text-3xl">
-            Shows worth subscribing to.
-          </h1>
-        </header>
+        <div className="mb-3">
+          <PageHeader icon={Mic} eyebrow="Discover" title="Shows worth subscribing to." />
+        </div>
 
         <div className="flex items-center gap-2">
           <label className="relative block flex-1">
