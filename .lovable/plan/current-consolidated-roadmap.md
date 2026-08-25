@@ -1,6 +1,6 @@
-# Movie Afterparty — consolidated roadmap (passes A–R)
+# Movie Afterparty — current consolidated roadmap
 
-Pass R (shrink the working set) is approved and parked in the backlog below — not being implemented now.
+**This is the only active plan file.** Everything in `.lovable/plan/archive/` is historical and superseded — read it for background only. When a pass ships, its entry moves to "Already done" below with a `— shipped YYYY-MM-DD` stamp in the same edit.
 
 Priority reflects the app's current state: a personal tool for one user, refining the match engine on a small data set. Anything aimed at a wider audience or large-scale automatic ingestion is deliberately low priority. Token estimates are build-cost ballparks.
 
@@ -10,12 +10,10 @@ Priority reflects the app's current state: a personal tool for one user, refinin
 
 ## Do next
 
-### Pass R — Shrink the working set without losing work — split into R1/R2/R3
-Full detail: `.lovable/plan/pass-r-shrink-working-set-2026-08-20.md`.
+### Pass R2 — Episode-level noise handling — ~20k — Priority 1
+The only remaining piece of Pass R (R1 and R3 both shipped — see "Already done"). Original detail: `.lovable/plan/archive/pass-r-shrink-working-set-2026-08-20.md`.
 
-- **R1 — Active / Parked curation — DONE (2026-08-21).** `podcast_curation` enum + `curation_status` on podcasts; Park / Re-activate per show in "Episode coverage & show curation" with Active/Parked tabs and a linked / unmatched / not-about-a-movie progress line; `activeOnly` scoping in `ingestion-helpers.server.ts` so suggest / rescan / resolve / unmatched are active-only; `data.ts` drops parked shows, their episodes and links from the app; stat tiles split into "Active shows" / "Parked shows" so nothing is silently invisible. Parked shows are also skipped by episode sync.
-- **R2 — Episode-level noise handling — ~20k — Priority 1.** Bulk "Retire remaining unmatched" on one show (marks every still-unmatched episode `not_about_a_movie`, logged in `match_actions`, undoable), plus the separately-labelled destructive "Delete episodes, keep the show".
-- **R3 — Score the matcher — DONE (2026-08-23).** `src/lib/matcher-eval.server.ts` + `scoreMatcher` server fn + "Score the matcher" admin card: replays live scoring over every non-undone approve/confirm/reject in `match_actions` plus `episode_match_rejections`, reporting precision/recall at the 25 threshold, precision per confidence band, the band where wrong matches cluster, and per-signal lift (how much more often each signal appears on approved vs rejected pairs). Database only, no TMDB calls.
+Bulk "Retire remaining unmatched" on one show (marks every still-unmatched episode `not_about_a_movie`, logged in `match_actions`, undoable), plus the separately-labelled destructive "Delete episodes, keep the show".
 
 ### New backlog passes (approved 2026-08-23, not scheduled)
 
@@ -28,7 +26,7 @@ Sequels whose titles contain the original ("Halloweentown" inside "Halloweentown
 4. **Franchise grouping via TMDB `belongs_to_collection`.** Store a `collection_id` on movies during enrichment; when two candidates share a collection, only the best-scoring one is ever proposed. Cheap: the field arrives in the enrich call we already make.
 5. **Year corroboration inside a family** — a sequel's year settles most remaining ties.
 
-Measurable with Pass R3 before/after (precision per band on the same labels).
+**Ready to start — no blockers.** Pass R3 shipped 2026-08-23, so the measurement harness already exists. Procedure: (1) before changing any matching rule, open Match review → "Score the matcher" and record precision/recall at the 25 threshold plus precision per confidence band; (2) build the Pass W changes; (3) run "Score the matcher" again — it replays the *new* rules over the *same* recorded approve/confirm/reject labels, so the two runs are directly comparable. Success looks like precision rising in the 25–60 bands (where sequel confusion clusters) with recall at 25 unchanged or better.
 
 #### Pass X — Leaving-soon streaming windows — ~45k (or ~15k for the honest subset) — Priority 11
 **What the data supports:** TMDB `/watch/providers` (JustWatch-sourced) returns *current* availability only — no leave dates, no offer expiry, no "recently added". Neither does the free JustWatch surface. Real leave-date feeds exist only in paid/licensed products (JustWatch partner API, Reelgood, Watchmode "expiring" endpoints). So there are two honest options:
@@ -88,45 +86,51 @@ Top-billed cast and director from TMDB credits shown on the movie page, with an 
 
 # Already done
 
-### Milestone 1 — Schema, design system, Tonight feed — verified
+### Milestone 1 — Schema, design system, Tonight feed — shipped 2026-08-14
 Relational catalog/user split, oklch "Cinema Neon" token system in `src/styles.css`, accents, deterministic `calculateCommentaryScore`, Tonight feed. Verified in the preview. Note: originally built on hand-seeded demo data, all of which has since been purged at your request.
 
-### Milestone 2 — Movies, filters, settings, taste profile — verified
+### Milestone 2 — Movies, filters, settings, taste profile — shipped 2026-08-15
 Movie list and detail routes, local-first preferences (`src/lib/prefs.ts`), discovery engine (`src/lib/discovery.ts`), `AppShell` bottom tabs, compact settings with service chips and the dual-handle `YearRange` slider. Verified.
 
-### Milestone 3 — Podcast pages and discovery feed — verified
+### Milestone 3 — Podcast pages and discovery feed — shipped 2026-08-15
 `usePodcasts` ranking, podcasts index with filters and stable sort (no mid-interaction re-sort), podcast detail with covered movies, cross-linking from movie detail. Verified.
 
-### Milestone 4 — Watchlists and history — verified
+### Milestone 4 — Watchlists and history — shipped 2026-08-16
 Lists tab, add-to-list from cards and detail, watched history, "Watched" toggle on cards and Tonight. Verified. Not included: listening history (that is pass I).
 
-### Milestone 5 — Real data ingestion — verified
+### Milestone 5 — Real data ingestion — shipped 2026-08-17
 Admin role gating, TMDB and Podcast Index providers, `/admin/ingest`, podcast-first pipeline (episode title → TMDB extraction → create movie → link), episode sync up to 1000 per show with a coverage card, batched availability + genre sync with a remembered offset, artwork backfill, `CatalogAddCard` for adding from search misses. Verified end to end against real data: 23 shows, ~7,050 episodes, 573 movies, 1,376 links.
 
-### Pass A — 1000-row ceiling — verified
+### Pass A — 1000-row ceiling — shipped 2026-08-19
 `src/lib/data.ts` and the admin helpers page every full-table read (`pageAll`), which fixed movies that looked episode-less and truncated counts. Verified by row counts.
 
-### Pass B / Pass Q — Match review, consolidated — verified in code, lightly exercised
+### Pass B / Pass Q — Match review, consolidated — shipped 2026-08-20 (lightly exercised)
 One Match review section with Proposed / Existing tabs, shared search including show names, confidence bands, multi-select bulk approve/reject/confirm/unlink, `match_actions` history with undo, IMDb id (`tt…`) lookup, stat tiles as anchors, rescan relocated next to Unmatched episodes. Remaining: the bulk paths have not been exercised at volume, and the "Pending review" tile definition should be re-checked against what the section actually lists.
 
-### Pass C (part 1) — Disposition + learned penalties — verified in code
+### Pass C (part 1) — Disposition + learned penalties — shipped 2026-08-20
 `disposition` on episodes (`needs_review` / `movie_matched` / `not_about_a_movie`), `signals` jsonb on links, generic one-word-title penalty, rejection-count penalty from the 193 recorded rejections. NOT included and still open: description-based scoring, and weight tuning from real counts — that is pass C2 above.
 
 ### Data purges — done deliberately
 All hand-seeded podcasts, episodes and movies were removed (twice) so the catalogue contains only real ingested data. Genres and streaming services were kept as reference data.
 
-### Availability accuracy + throughput — verified 2026-08-21
+### Availability accuracy + throughput — shipped 2026-08-21
 `availability_checked_at` per movie; staleness-first queue (never-checked, then oldest) so repeat runs always progress; batches of 80 chained automatically up to 400 movies per press; per-movie region rows deleted before insert so expired offers actually disappear; freshness tiles (never checked / older than 7 days / oldest check / last run). Only `subscription` and `free_ads` count as streaming — `rent`/`buy` are stored, shown on the movie page as a muted "Rent or buy only" line, and never badge a movie as available. TMDB provider 10 (Amazon Video storefront) mapped to Prime as a rent/buy offer, which was the source of the false "on Prime" badges. Movie pages show "Availability checked N days ago" so stale data is distinguishable from a genuine rental-only title.
 
-### Pass K — Ingestion throughput and honest errors — DONE (2026-08-21)
+### Pass K — Ingestion throughput and honest errors — shipped 2026-08-21
 "Build movies from episodes" now returns a per-reason skip breakdown (not about a movie / no title extracted / no TMDB match / already rejected / errored) with counts plus examples, and reports pool vs requested vs attempted so a short run is always explained. Podcast ingest returns feed total, stored count and named per-episode failures instead of a silent console warning. Episode coverage gained a "Behind feed only" filter, a per-show missing count, and a "Sync all incomplete" button that walks every active show behind its feed, keeps going after failures and logs each outcome by name. Availability sync gained a "Run until done" mode and now reports "movies 41-80 of 491" plus the failing movie names.
 
-### Pass C2 — Description-aware matching — DONE (2026-08-21)
+### Pass C2 — Description-aware matching — shipped 2026-08-21
 `matching.server.ts` now reads the episode description (first 700 chars, HTML stripped) alongside the title: a verbatim title mention lifts a weak title match to ~48-58, boosts an existing title match by 10, and years found in the description add up to 10 more (or a small penalty when a description-only match's year is absent). Guards keep short/generic titles from matching on description alone. Two new signals (`descTitle`, `descYear`) plus a `description` rule are stored on every link for pass R3's evaluation. Descriptions flow through `fetchAllEpisodes` / `fetchUnlinkedEpisodes` into suggest, rescan and first-ingest matching. Deterministic, no AI, no extra network calls.
 
-### Pass C remnants + Pass T2 remnants — DONE (2026-08-23)
+### Pass C remnants + Pass T2 remnants — shipped 2026-08-23
 - **Pass C — every episode listed.** Podcast detail pages now end with an "All episodes (N)" section: newest first, every stored episode of that show, each showing its linked movie(s) as chips or "No movie linked yet". Data comes from `usePodcasts` (`allEpisodes`), built from the catalogue's episodes + links, so nothing is hidden behind a match.
-- **Pass C — cheap learning.** Delivered as Pass R3 above: the rejection log stays negative evidence in scoring, and the new scorecard reports per-signal lift from real approve/reject counts, which is the evidence used to tune weights. No model, no tokens.
+- **Pass C — cheap learning.** Delivered as Pass R3 (see below): the rejection log stays negative evidence in scoring, and the new scorecard reports per-signal lift from real approve/reject counts, which is the evidence used to tune weights. No model, no tokens.
 - **Pass T2 — search.** `listEpisodeLinks` now filters entirely server-side: one `ilike` query each on `podcast_episodes.title`, `podcasts.name` and `movies.title` (PostgREST can't OR across three embedded tables), merged and deduped. No ids in the URL, so short terms like "us" no longer 400. Retired episodes are excluded in SQL via `neq` on the embedded disposition.
 - **Pass T2 — empty states.** Review now distinguishes "No <rows> match “term”. Clear the search to see the rest of the queue." from "Queue clear — no proposals at or below N% confidence" / "Queue clear — every saved link in this band has been reviewed."
-- **Pass T4 — verified already complete** in `matching.server.ts`: coverage scoring, `&`/prefix/stopword normalisation, ≤4-char cap at 15, curated + data-driven common-word corroboration rule, non-film keyword suppression, promo-scoped description signal, and all four new signals persisted onto links.
+- **Pass T4 — Matcher accuracy — shipped 2026-08-23.** Verified in `matching.server.ts`: coverage scoring, `&`/prefix/stopword normalisation, ≤4-char cap at 15, curated + data-driven common-word corroboration rule, non-film keyword suppression, promo-scoped description signal, and all four new signals persisted onto links.
+
+### Pass R1 — Active / Parked show curation — shipped 2026-08-21
+`podcast_curation` enum + `curation_status` on podcasts; Park / Re-activate per show in "Episode coverage & show curation" with Active/Parked tabs and a linked / unmatched / not-about-a-movie progress line; `activeOnly` scoping in `ingestion-helpers.server.ts` so suggest / rescan / resolve / unmatched are active-only; `data.ts` drops parked shows, their episodes and links from the app; stat tiles split into "Active shows" / "Parked shows" so nothing is silently invisible. Parked shows are also skipped by episode sync.
+
+### Pass R3 — Score the matcher — shipped 2026-08-23
+`src/lib/matcher-eval.server.ts` + the `scoreMatcher` server fn + the "Score the matcher" admin card (`src/components/admin/MatcherScoreCard.tsx`, under Match review): replays live scoring over every non-undone approve/confirm/reject in `match_actions` plus `episode_match_rejections`, reporting precision/recall at the 25 threshold, precision per confidence band, the band where wrong matches cluster, and per-signal lift (how much more often each signal appears on approved vs rejected pairs). Database only, no TMDB calls. This is the before/after harness Pass W is measured with.
