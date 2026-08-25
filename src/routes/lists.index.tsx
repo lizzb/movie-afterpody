@@ -7,7 +7,7 @@ import { Artwork } from "@/components/Artwork";
 import { BrandBadge } from "@/components/BrandBadge";
 import { accentFor, accentSoft, toAccent } from "@/lib/accents";
 import { formatWatchedOn, useLists } from "@/lib/lists";
-import { prefsActions } from "@/lib/prefs";
+import { prefsActions, usePrefs } from "@/lib/prefs";
 
 export const Route = createFileRoute("/lists/")({
   head: () => ({
@@ -34,7 +34,7 @@ type Tab = "lists" | "history";
 
 function ListsPage() {
   const { lists, history, isLoading } = useLists();
-  const { prefs } = useLists();
+  const prefs = usePrefs();
   const [tab, setTab] = useState<Tab>("lists");
   const [name, setName] = useState("");
 

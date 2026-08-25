@@ -150,7 +150,7 @@ export function FilterBar({
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 sm:flex sm:justify-between">
         <h2 className="flex min-w-0 items-center gap-1.5 truncate text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">
           <SlidersHorizontal className="size-3.5 shrink-0" aria-hidden />
-          {isMovies ? "Movie filters" : "Tonight&rsquo;s parameters"}
+          {isMovies ? "Movie filters" : "Tonight’s parameters"}
         </h2>
         <button
           type="button"
@@ -163,33 +163,33 @@ export function FilterBar({
       </div>
 
       {!isMovies ? (
-      <div className="mt-2 grid gap-x-4 gap-y-2 sm:grid-cols-2">
-        <label className="block">
-          <span className="flex items-baseline justify-between text-[11px] font-semibold text-muted-foreground">
-            Max runtime
-            <span className="font-bold text-foreground">
-              {filters.maxRuntime >= RUNTIME_CEILING ? "Any" : `${filters.maxRuntime}m`}
+        <div className="mt-2 grid gap-x-4 gap-y-2 sm:grid-cols-2">
+          <label className="block">
+            <span className="flex items-baseline justify-between text-[11px] font-semibold text-muted-foreground">
+              Max runtime
+              <span className="font-bold text-foreground">
+                {filters.maxRuntime >= RUNTIME_CEILING ? "Any" : `${filters.maxRuntime}m`}
+              </span>
             </span>
-          </span>
-          <RuntimeSlider value={filters.maxRuntime} />
-        </label>
+            <RuntimeSlider value={filters.maxRuntime} />
+          </label>
 
-        <div>
-          <span className="flex items-baseline justify-between text-[11px] font-semibold text-muted-foreground">
-            Era
-            <span className="font-bold text-foreground">
-              {filters.yearMin}&ndash;{filters.yearMax}
+          <div>
+            <span className="flex items-baseline justify-between text-[11px] font-semibold text-muted-foreground">
+              Era
+              <span className="font-bold text-foreground">
+                {filters.yearMin}&ndash;{filters.yearMax}
+              </span>
             </span>
-          </span>
-          <YearRange
-            min={YEAR_FLOOR}
-            max={YEAR_CEILING}
-            from={filters.yearMin}
-            to={filters.yearMax}
-            onChange={({ from, to }) => prefsActions.setFilters({ yearMin: from, yearMax: to })}
-          />
+            <YearRange
+              min={YEAR_FLOOR}
+              max={YEAR_CEILING}
+              from={filters.yearMin}
+              to={filters.yearMax}
+              onChange={({ from, to }) => prefsActions.setFilters({ yearMin: from, yearMax: to })}
+            />
+          </div>
         </div>
-      </div>
       ) : null}
 
       <div className="mt-2.5 flex flex-wrap items-center gap-1.5">

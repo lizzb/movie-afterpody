@@ -87,10 +87,10 @@ export function AddToListButton({
           ? `Added to ${listName}`
           : `Removed from ${listName}`,
       {
-      action: {
-        label: "Undo",
-        onClick: () => prefsActions.toggleListMovie(listId, movieSlug, !on),
-      },
+        action: {
+          label: "Undo",
+          onClick: () => prefsActions.toggleListMovie(listId, movieSlug, !on),
+        },
       },
     );
   };
