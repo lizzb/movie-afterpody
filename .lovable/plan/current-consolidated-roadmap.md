@@ -15,6 +15,11 @@ The only remaining piece of Pass R (R1 and R3 both shipped — see "Already done
 
 Bulk "Retire remaining unmatched" on one show (marks every still-unmatched episode `not_about_a_movie`, logged in `match_actions`, undoable), plus the separately-labelled destructive "Delete episodes, keep the show".
 
+### Repair pass — D/O/T5/G/H/Y verification and remnants — in progress 2026-08-25 — Priority 1a
+The broad D/O/T5/G/H/Y build was too large to honestly stamp as complete. Current status: some pieces landed, but the pass remains open until runtime verification confirms them. Required acceptance checks: mobile/PWA safe-area header, correct page header labels, Movies no longer using the Tonight parameters surface, runtime slider fill and larger handles, default Tonight "Unwatched", reliable add-to-list/list creation from cards and movie detail, clearer watched/list snackbars, visible dim-watched styling, Setup podcast title/artwork navigation, and admin verification of T5 show-curation search/filter/sort.
+
+Backlog-only items from this review: slider visual refinement options, Not Interested management UX, rating minimum+maximum range control with visual options, podcast-page episode sort/filter, Setup defaults for Tonight parameters, seasonal recommendations, kids/family-heavy recommendation controls, account-synced watchlists/history, Commentary Score copy rewrite, and Pass J split into J1/J2.
+
 ### New backlog passes (approved 2026-08-23, not scheduled)
 
 #### Pass X — Leaving-soon streaming windows — ~45k (or ~15k for the honest subset) — Priority 11
@@ -43,8 +48,11 @@ Admin-only maintenance action that purges current non-manual proposed/weak saved
 ### Pass I — Listening history — ~20k — Priority 8
 A "Listened" view on Lists & History: episodes you rated or moved between not started / started / finished, newest first. Data is already captured; nothing surfaces it.
 
-### Pass J — Episode presentation — ~30k — Priority 9
-Episode rows get truncated descriptions with expand, consistent title/date/duration/controls on both movie and podcast pages, and a segmented control on podcast pages for movie-focused vs episode-focused views. Per-episode pages stay deferred.
+### Pass J1 — Episode row presentation — ~25k — Priority 9
+Episode rows get truncated descriptions with expand, consistent title/date/duration/controls on both movie and podcast pages, and a segmented control on podcast pages for movie-focused vs episode-focused views.
+
+### Pass J2 — Dedicated episode pages — ~25k — Priority 9b
+Dedicated per-episode pages are deferred until external ratings/comments or similar episode-level social/context data exists.
 
 ## Backlog (wider-audience or large-volume — hold until the engine is trustworthy)
 
@@ -66,13 +74,6 @@ Expand from movies-only to both `movie` and `tv` catalog items using the existin
 ---
 
 # Already done
-
-### Passes D, O, T5, G, H (incl. Y) — UI/discovery overhaul — shipped 2026-08-26
-- **Pass D:** shared `PageHeader` (icon + eyebrow + title) on Tonight/Movies/Shows/Lists/Setup, popcorn wordmark in desktop header and mobile strip, `InfoSheet` holding the app/Commentary Score/Match score explanations, tagline "Pick a movie. Get the afterparty.", `apple-touch-icon` + 192/512 icons + `manifest.webmanifest` in the root head, 44px hit areas on both `YearRange` handles and the runtime slider.
-- **Pass O:** `AddToListButton` popover is portalled and edge-aware (flips above the bottom nav); list/watched toggles are optimistic with `sonner` undo.
-- **Pass T5:** show curation gains name search, Active/Parked/Behind-feed filters, and sort by stored episode count, unmatched count and missing-vs-feed.
-- **Pass G:** "App settings" block on Setup — viewport lock (default on, opt-out re-enables pinch zoom) and dim-watched toggle, both in `prefs`.
-- **Pass H + Y:** filter/sort sheet with sort by episode count, runtime, year, title, availability; genre, runtime, service, watched and "Not interested" filters; `certification`/`certification_system` on `movies`, US ratings pulled during enrichment, normalised ladder in `src/lib/ratings.ts`, max-rating chips plus explicit unrated toggle applied to Tonight and Movies, NR/rating markers on cards and movie detail, and a chunked resumable "Backfill content ratings" admin action.
 
 ### Pass W — Franchise and sequel disambiguation — shipped 2026-08-25
 `matching.server.ts` gained a franchise post-pass plus three new signals (`episodeCoverage`, `distinguisherPenalty`, `familySuppressed`): sequel markers in the episode title (II/III, digits, "return", "part", "chapter", "revenge") penalise a candidate that lacks them; within a title-stem family a sibling carrying the marker suppresses any title whose words are a subset of it; the longest fully-covered title wins, and an exact hit settles the family outright; symmetric coverage docks candidates that account for little of what the episode names; and candidates sharing a TMDB collection collapse to the best-scoring one. `collection_id` added to `movies` (indexed), read from `belongs_to_collection` in the enrich, add-movie and availability passes (availability never overwrites a known id with null) and selected into every candidate query. `matcher-eval.server.ts` reports lift for the three new signals, so before/after runs of "Score the matcher" compare directly.
