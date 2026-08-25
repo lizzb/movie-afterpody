@@ -912,7 +912,7 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
   const [showParked, setShowParked] = useState(false);
   const [incompleteOnly, setIncompleteOnly] = useState(false);
   const [showSearch, setShowSearch] = useState("");
-  const [sortBy, setSortBy] = useState<"name" | "episodes" | "missing">("name");
+  const [sortBy, setSortBy] = useState<"name" | "episodes" | "unmatched" | "missing">("name");
 
   // Per-show sync outcomes so a failed feed is named instead of vanishing.
   const [syncLog, setSyncLog] = useState<{ name: string; message: string; ok: boolean }[]>([]);
@@ -1021,9 +1021,11 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
     .sort((a, b) =>
       sortBy === "episodes"
         ? b.stored - a.stored
-        : sortBy === "missing"
-          ? b.missing - a.missing
-          : a.name.localeCompare(b.name),
+        : sortBy === "unmatched"
+          ? b.unmatched - a.unmatched
+          : sortBy === "missing"
+            ? b.missing - a.missing
+            : a.name.localeCompare(b.name),
     );
 
 
@@ -1158,6 +1160,7 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
         >
           <option value="name">A–Z</option>
           <option value="episodes">Most episodes</option>
+          <option value="unmatched">Most unmatched</option>
           <option value="missing">Most missing</option>
         </select>
       </div>
