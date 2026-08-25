@@ -53,7 +53,7 @@ function MoviesPage() {
   return (
     <AppShell>
       <main className="mx-auto w-full max-w-3xl px-4 pb-16 pt-4">
-        <PageHeader icon={Clapperboard} eyebrow="Browse" title="All movies" />
+        <PageHeader icon={Clapperboard} eyebrow="Movies" title="Browse all movies" />
 
         <div className="mt-4 flex items-center gap-2">
           <label className="relative block flex-1">
@@ -79,6 +79,7 @@ function MoviesPage() {
             services={catalog?.services ?? []}
             mySlugs={prefs.serviceSlugs}
             resultCount={results.length}
+            variant="movies"
             showNotInterested
           />
         </div>

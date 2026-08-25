@@ -14,13 +14,13 @@ import { scorePodcast } from "@/lib/scoring";
 export const Route = createFileRoute("/settings")({
   head: () => ({
     meta: [
-      { title: "Your setup — Movie Afterparty" },
+      { title: "Settings — Movie Afterparty" },
       {
         name: "description",
         content:
           "Pick the streaming services you pay for and the commentary podcasts you actually want to hear.",
       },
-      { property: "og:title", content: "Your setup — Movie Afterparty" },
+      { property: "og:title", content: "Settings — Movie Afterparty" },
       {
         property: "og:description",
         content: "Streaming services and preferred podcasts drive every recommendation.",
@@ -55,7 +55,7 @@ function SettingsPage() {
         <PageHeader
           icon={SettingsIcon}
           eyebrow="Setup"
-          title="Your setup"
+          title="Settings"
           actions={<ThemeToggle className="shrink-0" />}
         />
 
@@ -148,21 +148,27 @@ function SettingsPage() {
                     key={podcast.id}
                     className="flex items-center gap-3 rounded-2xl border border-border bg-card p-3 shadow-card"
                   >
-                    <Artwork
-                      src={podcast.artwork_url}
-                      title={podcast.name}
-                      seed={podcast.slug}
-                      accent={podcast.accent}
-                      shape="cover"
-                      className="w-10 text-sm"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-semibold">{podcast.name}</p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {rank.movieCount} movie{rank.movieCount === 1 ? "" : "s"} here ·{" "}
-                        {podcast.episode_count} episodes · {rank.reason}
-                      </p>
-                    </div>
+                    <Link
+                      to="/podcasts/$slug"
+                      params={{ slug: podcast.slug }}
+                      className="flex min-w-0 flex-1 items-center gap-3 hover:text-coral"
+                    >
+                      <Artwork
+                        src={podcast.artwork_url}
+                        title={podcast.name}
+                        seed={podcast.slug}
+                        accent={podcast.accent}
+                        shape="cover"
+                        className="w-10 text-sm"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate font-semibold">{podcast.name}</span>
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {rank.movieCount} movie{rank.movieCount === 1 ? "" : "s"} here ·{" "}
+                          {podcast.episode_count} episodes · {rank.reason}
+                        </span>
+                      </span>
+                    </Link>
                     {/* One consistent styling: filled = following, outline = not. */}
                     <button
                       type="button"

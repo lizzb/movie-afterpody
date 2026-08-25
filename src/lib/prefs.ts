@@ -156,7 +156,7 @@ export const DEFAULT_PREFS: Prefs = {
     yearMin: 1985,
     yearMax: 2009,
     maxRuntime: 100,
-    hideWatched: false,
+    hideWatched: true,
     commentaryOnly: true,
     preferredOnly: false,
     maxRating: 7,

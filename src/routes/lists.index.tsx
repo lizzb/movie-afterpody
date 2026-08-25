@@ -40,7 +40,7 @@ function ListsPage() {
   return (
     <AppShell>
       <main className="mx-auto w-full max-w-3xl px-4 pb-16 pt-4">
-        <PageHeader icon={Bookmark} eyebrow="Saved" title="Lists & history" />
+        <PageHeader icon={Bookmark} eyebrow="Lists" title="Watchlists & History" />
 
         <div className="mt-5 flex gap-1.5">
           {(
