@@ -527,7 +527,50 @@ function suppress(candidate: ScoredCandidate, winner: ScoredCandidate) {
  * Mutates the candidates in place.
  */
 function resolveFamilies(candidates: ScoredCandidate[], episodeDistinguishers: Set<string>) {
-  // 1. TMDB collections: same franchise, so only the best-scoring entry stands.
+  // 1. Title-stem families: the most specific title wins.
+  const byStem = new Map<string, ScoredCandidate[]>();
+  for (const c of candidates) {
+    if (c.confidence < 25) continue;
+    const list = byStem.get(c.familyKey) ?? [];
+    list.push(c);
+    byStem.set(c.familyKey, list);
+  }
+  for (const group of byStem.values()) {
+    if (group.length < 2) continue;
+
+    // The episode names a sequel marker and a family sibling carries it: that
+    // sibling is the subject, so titles without the marker stand aside.
+    if (episodeDistinguishers.size > 0) {
+      const marked = group.filter(
+        (c) => [...episodeDistinguishers].some((t) => c.movieTokens.has(t)) && c.confidence >= 25,
+      );
+      const best = [...marked].sort(betterInFamily)[0];
+      if (best) {
+        for (const c of group) {
+          if (c !== best && !marked.includes(c)) suppress(c, best);
+        }
+      }
+    }
+
+    // Longest fully-covered title wins; anything whose words are a subset of it
+    // is a less specific match for the same episode.
+    const live = group.filter((c) => c.confidence >= 25);
+    const covered = live.filter((c) => c.signals.coverage === 1);
+    if (!covered.length) continue;
+    const winner = [...covered].sort((a, b) => {
+      if (b.movieTokens.size !== a.movieTokens.size) return b.movieTokens.size - a.movieTokens.size;
+      return betterInFamily(a, b);
+    })[0]!;
+    for (const c of live) {
+      if (c === winner) continue;
+      // An exact whole-title hit settles the family outright.
+      if (winner.signals.rule === "exact" || isSubset(c.movieTokens, winner.movieTokens)) {
+        suppress(c, winner);
+      }
+    }
+  }
+
+  // 2. TMDB collections: same franchise, so only the best-scoring entry stands.
   const byCollection = new Map<string, ScoredCandidate[]>();
   for (const c of candidates) {
     if (!c.collectionKey || c.confidence < 25) continue;
@@ -541,48 +584,8 @@ function resolveFamilies(candidates: ScoredCandidate[], episodeDistinguishers: S
     const winner = sorted[0]!;
     for (const c of sorted.slice(1)) suppress(c, winner);
   }
-
-  // 2. Title-stem families: longest fully-covered title wins, and any candidate
-  //    whose words are a subset of that winner's words is a less specific match.
-  const byStem = new Map<string, ScoredCandidate[]>();
-  for (const c of candidates) {
-    if (c.confidence < 25) continue;
-    const list = byStem.get(c.familyKey) ?? [];
-    list.push(c);
-    byStem.set(c.familyKey, list);
-  }
-  for (const group of byStem.values()) {
-    if (group.length < 2) continue;
-
-    // The episode names a sequel marker and a family sibling carries it: that
-    // sibling is the subject, so the base title stands aside.
-    if (episodeDistinguishers.size > 0) {
-      const marked = group.filter(
-        (c) => [...episodeDistinguishers].some((t) => c.movieTokens.has(t)) && c.confidence >= 25,
-      );
-      const best = [...marked].sort(betterInFamily)[0];
-      if (best) {
-        for (const c of group) {
-          if (c !== best && !marked.includes(c)) suppress(c, best);
-        }
-      }
-    }
-
-    const covered = group.filter((c) => c.signals.coverage === 1);
-    if (!covered.length) continue;
-    const winner = [...covered].sort((a, b) => {
-      if (b.movieTokens.size !== a.movieTokens.size) return b.movieTokens.size - a.movieTokens.size;
-      return betterInFamily(a, b);
-    })[0]!;
-    for (const c of group) {
-      if (c === winner) continue;
-      // An exact whole-title hit settles the family outright.
-      if (winner.signals.rule === "exact" || isSubset(c.movieTokens, winner.movieTokens)) {
-        suppress(c, winner);
-      }
-    }
-  }
 }
+
 
 
 /**
