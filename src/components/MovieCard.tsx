@@ -68,7 +68,7 @@ function WatchedButton({ slug, title, watched }: { slug: string; title: string; 
 }
 
 /** Pass H — "Not interested": excluded from Tonight, optionally hidden in Movies. */
-function NotInterestedButton({ slug, off }: { slug: string; off: boolean }) {
+function NotInterestedButton({ slug, title, off }: { slug: string; title: string; off: boolean }) {
   return (
     <button
       type="button"
@@ -79,7 +79,7 @@ function NotInterestedButton({ slug, off }: { slug: string; off: boolean }) {
         e.preventDefault();
         e.stopPropagation();
         prefsActions.toggleNotInterested(slug, !off);
-        toast(off ? "Back in your suggestions" : "Won't suggest this again", {
+        toast(off ? `Back in suggestions: ${title}` : `Not interested: ${title}`, {
           action: {
             label: "Undo",
             onClick: () => prefsActions.toggleNotInterested(slug, off),
@@ -156,7 +156,7 @@ function MovieRow({ entry }: { entry: MovieEntry }) {
       }`}
     >
       <div className="absolute right-2.5 top-2.5 z-10 flex items-center gap-1.5">
-        <NotInterestedButton slug={movie.slug} off={notInterested} />
+        <NotInterestedButton slug={movie.slug} title={movie.title} off={notInterested} />
         <WatchedButton slug={movie.slug} title={movie.title} watched={watched} />
         <AddToListButton movieSlug={movie.slug} movieTitle={movie.title} />
       </div>
@@ -254,7 +254,7 @@ function MovieTile({ entry }: { entry: MovieEntry }) {
       <div className="absolute right-1.5 top-1.5 z-10 flex flex-col gap-1.5">
         <WatchedButton slug={movie.slug} title={movie.title} watched={watched} />
         <AddToListButton movieSlug={movie.slug} movieTitle={movie.title} />
-        <NotInterestedButton slug={movie.slug} off={notInterested} />
+        <NotInterestedButton slug={movie.slug} title={movie.title} off={notInterested} />
       </div>
     </li>
   );
