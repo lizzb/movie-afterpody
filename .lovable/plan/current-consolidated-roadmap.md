@@ -15,10 +15,50 @@ The only remaining piece of Pass R (R1 and R3 both shipped — see "Already done
 
 Bulk "Retire remaining unmatched" on one show (marks every still-unmatched episode `not_about_a_movie`, logged in `match_actions`, undoable), plus the separately-labelled destructive "Delete episodes, keep the show".
 
-### Repair pass — D/O/T5/G/H/Y verification and remnants — in progress 2026-08-25 — Priority 1a
-The broad D/O/T5/G/H/Y build was too large to honestly stamp as complete. Current status: some pieces landed, but the pass remains open until runtime verification confirms them. Required acceptance checks: mobile/PWA safe-area header, correct page header labels, Movies no longer using the Tonight parameters surface, runtime slider fill and larger handles, default Tonight "Unwatched", reliable add-to-list/list creation from cards and movie detail, clearer watched/list snackbars, visible dim-watched styling, Setup podcast title/artwork navigation, and admin verification of T5 show-curation search/filter/sort.
+### Post-review passes (filed 2026-08-26, backlog only — full detail in `.lovable/plan/roadmap-update-post-review-backlog-backlog-only-2026-08-26.md`)
+The D/O/T5/G/H/Y repair pass is verified and closed (see "Already done"). The remaining review items are now discrete passes below. Design-first items marked NEEDS DESIGN start by presenting 2-4 visual/copy options; no code lands before a direction is chosen.
 
-Backlog-only items from this review: slider visual refinement options, Not Interested management UX, rating minimum+maximum range control with visual options, podcast-page episode sort/filter, Setup defaults for Tonight parameters, seasonal recommendations, kids/family-heavy recommendation controls, account-synced watchlists/history, Commentary Score copy rewrite, and Pass J split into J1/J2.
+#### Tonight as a recommendation surface — Priority 2
+- **Pass H2 — Tonight result volume and shape — ~25k — NEEDS DESIGN.** Top 10 by default, "Load more suggestions", count reads `Showing 10 of 121 matches`. Movies stays the catalogue surface.
+- **Pass H3 — Surface sorting on Tonight — ~15k — NEEDS DESIGN.** Options: sort chip row above results; single sort button beside the result count; mode segmented control (Best match / Short / New / Most covered); right-aligned results-toolbar dropdown.
+- **Pass H4 — Best-only / minimum Commentary Score — ~12k.** No hard default minimum until score distribution is measured; ship a "Best only" toggle with a visible match count first.
+
+#### Movies gets its own filter surface — Priority 2b
+- **Pass H5 — Separate Movies filters from Tonight — ~35k — NEEDS DESIGN.** Both pages share one `FilterBar` and one global filter object today, so Tonight changes silently re-filter Movies (Tonight only adds its always-hide-not-interested rule). Split into per-surface filter state with a Movies-specific layout that stays consistent with Tonight and keeps equivalent capability.
+
+#### Sliders and touch feel — Priority 2c
+- **Pass D2 — Slider treatment and touch responsiveness — ~25k — NEEDS DESIGN.** Options: thick rail with floating handles (32px handle, 48px hit area); inset rail with high-contrast grab knobs and larger touch rings; stepper-assisted slider with minus/plus; compact numeric value chips beside labels plus a larger grab zone. Build must fix drag responsiveness, not just visuals.
+
+#### Ratings and audience controls — Priority 3
+- **Pass Y2 — Rating minimum + maximum range — ~25k — NEEDS DESIGN.** Options: dual-handle rating ladder TV-Y → NC-17 with highlighted allowed band; segmented rating band with allowed steps filled; two compact Minimum/Maximum chip pickers.
+- **Pass Y3 — Audience-focus tuning — ~15k.** Kids/family-heavy suggestions via ratings plus genre signals; scope confirmed only after Y2 ships.
+
+#### Not interested and iconography — Priority 3b
+- **Pass H6 — Not interested copy, icons and recovery — ~20k — NEEDS DESIGN.** Clearer copy, softer snackbar language, icon options for both "Unwatched" and "Not interested" before any metaphor change.
+- **Pass H7 — Hidden / Not interested management screen — ~20k.** Review-and-restore list for hidden titles. Depends on H6.
+
+#### Lists, watched state and sync — Priority 3c
+- **Pass O2 — Watchlist interaction reliability — ~25k.** Debug in-browser: laggy add-to-list, unreliable list creation from movie cards, status not refreshing. Acceptance is a recorded browser run of add, create-from-card and remove on both Movies and movie detail.
+- **Pass O3 — Account-synced lists and history — ~55k.** Migrate local-first list/watch/not-interested state to signed-in backend tables with RLS, one-time local→account migration on first sign-in, documented signed-out fallback. Lower backlog.
+
+#### Consistency and copy — Priority 4
+- **Pass E2 — Commentary Score formatting consistency — ~12k.** One score component everywhere (Tonight uses icon + label + accent badge; Lists uses a bare shaded numeric badge). Pick one canonical treatment with an explicit compact variant.
+- **Pass E3 — Commentary Score explanation copy — ~8k — NEEDS COPY.** Distinguish deterministic scoring from user preference changes that intentionally change the inputs.
+- **Pass D3 — Per-page info sheets — ~20k — NEEDS COPY.** The info icon opens the same sheet on every screen; give Tonight, Movies, Shows, Lists and Setup their own content with shared sections factored out.
+
+#### Seasonal — Priority 4b
+- **Pass H8 — Holiday exclusion (crude first pass) — ~15k.** Exclude titles with standalone `Santa` or `Christmas` in title or description; control inside the expanded Filters & Sort panel; default excluding Jan 8 – Nov 2, default off Nov 3 – Jan 7.
+- **Pass H9 — Full seasonal include/exclude UX — ~35k.** Robust seasonal tagging beyond the keyword rule. Follows H8; lower backlog.
+
+#### Setup and ordering stability — Priority 4c
+- **Pass G3 — Setup: stop rows re-sorting on toggle — ~12k.** Following/preferred toggles must not move a podcast row until the next page load, matching the existing no-resort-mid-interaction rule.
+- **Pass G4 — Saveable Tonight defaults in Setup — ~20k.** User saves preferred default Tonight parameters; Reset restores those instead of app defaults.
+
+#### Admin and podcast pages — Priority 4d
+- **Pass T6 — Show curation sort direction toggle — ~10k.** Ascending/descending on every sort property in "Episode coverage and show curation".
+- **Pass T7 — Sort shows by highest external rating — ~10k — blocked on Pass M** landing a per-show ratings cache.
+- **Pass J3 — Podcast page episode sort and filter — ~25k.** Document the current default order, then add newest/oldest, matched/unmatched, duration and title search controls.
+
 
 ### Pass G2 — Truly lock the layout — ~15k — approved 2026-08-26, backlog only
 "Lock the layout" currently only rewrites the viewport meta (`maximum-scale=1, user-scalable=no`), which iOS Safari largely ignores outside an installed PWA and which does nothing about horizontal *scroll* — the sideways drag is real overflow, not zoom.
