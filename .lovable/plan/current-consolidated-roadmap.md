@@ -20,6 +20,13 @@ The broad D/O/T5/G/H/Y build was too large to honestly stamp as complete. Curren
 
 Backlog-only items from this review: slider visual refinement options, Not Interested management UX, rating minimum+maximum range control with visual options, podcast-page episode sort/filter, Setup defaults for Tonight parameters, seasonal recommendations, kids/family-heavy recommendation controls, account-synced watchlists/history, Commentary Score copy rewrite, and Pass J split into J1/J2.
 
+### Pass G2 — Truly lock the layout — ~15k — approved 2026-08-26, backlog only
+"Lock the layout" currently only rewrites the viewport meta (`maximum-scale=1, user-scalable=no`), which iOS Safari largely ignores outside an installed PWA and which does nothing about horizontal *scroll* — the sideways drag is real overflow, not zoom.
+
+Build: (1) fix the actual overflow sources (chip rails in `FilterBar`, admin ingest tables, long unbroken titles, fixed-width cards) with `min-w-0`, `break-words` and contained scroll rails so there is no horizontal scroll even unlocked; (2) when `prefs.viewportLock` is on, `AppShell` adds a `layout-locked` class setting `overflow-x: hidden`, `overscroll-behavior: none`, `touch-action: pan-y`, `max-width: 100vw`; (3) intentional horizontal scrollers opt back in with their own `overflow-x-auto` + `touch-action: pan-x pan-y`; (4) non-passive `touchmove`/`gesturestart` handlers on the shell `preventDefault()` multi-touch gestures only while locked; (5) unlocking fully restores permissive viewport meta, drops the class and listeners, and Setup copy says the toggle prevents sideways drag and pinch zoom.
+
+Acceptance: locked, two-finger drag and side swipe move nothing on all five tabs and `scrollingElement.scrollWidth === clientWidth` at 390px; chip rails and admin tables still scroll sideways; unlocked, pinch zoom works and nothing is clipped; checked at 390px / 768px / desktop in light and dark.
+
 ### New backlog passes (approved 2026-08-23, not scheduled)
 
 #### Pass X — Leaving-soon streaming windows — ~45k (or ~15k for the honest subset) — Priority 11
