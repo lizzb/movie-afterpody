@@ -68,7 +68,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const accountLabel = userId ? (user?.email ?? "Signed in") : "Sign in";
 
   return (
-    <div className="min-h-screen bg-background pb-24 md:pb-0">
+    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-background pb-24 md:pb-0">
       {/* Desktop only: mobile relies on each page's own H1 plus the bottom nav. */}
       <header className="sticky top-0 z-20 hidden border-b border-border/70 bg-background/85 backdrop-blur md:block">
         <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-5 py-2.5">

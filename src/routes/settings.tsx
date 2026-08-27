@@ -65,7 +65,7 @@ function SettingsPage() {
           </h2>
           <SettingToggle
             label="Lock the layout"
-            hint="Keeps the page fixed so a stray drag cannot zoom or pan. Turn off to allow pinch zoom."
+            hint="Prevents sideways drag and pinch zoom, so the page only scrolls up and down. Turn off to allow pinch zoom."
             on={prefs.viewportLock}
             onChange={(on) => prefsActions.setViewportLock(on)}
           />
