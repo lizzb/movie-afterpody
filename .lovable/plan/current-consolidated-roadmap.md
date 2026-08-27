@@ -60,12 +60,13 @@ The D/O/T5/G/H/Y repair pass is verified and closed (see "Already done"). The re
 - **Pass J3 — Podcast page episode sort and filter — ~25k.** Document the current default order, then add newest/oldest, matched/unmatched, duration and title search controls.
 
 
-### Pass G2 — Truly lock the layout — ~15k — approved 2026-08-26, backlog only
-"Lock the layout" currently only rewrites the viewport meta (`maximum-scale=1, user-scalable=no`), which iOS Safari largely ignores outside an installed PWA and which does nothing about horizontal *scroll* — the sideways drag is real overflow, not zoom.
+### Pass G2 — Truly lock the layout — SHIPPED 2026-08-27
+Was: viewport meta only, which iOS Safari largely ignores and which does nothing about horizontal scroll.
 
-Build: (1) fix the actual overflow sources (chip rails in `FilterBar`, admin ingest tables, long unbroken titles, fixed-width cards) with `min-w-0`, `break-words` and contained scroll rails so there is no horizontal scroll even unlocked; (2) when `prefs.viewportLock` is on, `AppShell` adds a `layout-locked` class setting `overflow-x: hidden`, `overscroll-behavior: none`, `touch-action: pan-y`, `max-width: 100vw`; (3) intentional horizontal scrollers opt back in with their own `overflow-x-auto` + `touch-action: pan-x pan-y`; (4) non-passive `touchmove`/`gesturestart` handlers on the shell `preventDefault()` multi-touch gestures only while locked; (5) unlocking fully restores permissive viewport meta, drops the class and listeners, and Setup copy says the toggle prevents sideways drag and pinch zoom.
+Shipped: `.layout-locked` on `<html>`/`<body>` from `AppShell` (`overflow-x: hidden`, `overscroll-behavior: none`, `touch-action: pan-y`, `max-width: 100vw`); non-passive `touchmove` (multi-touch only) + `gesturestart`/`gesturechange` blockers while locked; `.scroll-rail` opt-in class (`overflow-x: auto`, `touch-action: pan-x pan-y`) for intentional sideways scrollers; `break-anywhere` utility applied to long movie/episode titles; shell wrapper clamped to `w-full max-w-full overflow-x-hidden`; Setup copy now says the toggle prevents sideways drag and pinch zoom; unlocking restores permissive viewport meta and removes class + listeners.
 
-Acceptance: locked, two-finger drag and side swipe move nothing on all five tabs and `scrollingElement.scrollWidth === clientWidth` at 390px; chip rails and admin tables still scroll sideways; unlocked, pinch zoom works and nothing is clipped; checked at 390px / 768px / desktop in light and dark.
+Verified: `scrollingElement.scrollWidth === clientWidth` on Tonight, Movies, Shows, Lists, Setup and Admin ingest at 390px, 768px and 1280px; locked state shows `touch-action: pan-y` + locked meta, unlocked state returns `touch-action: auto` and permissive meta.
+
 
 ### New backlog passes (approved 2026-08-23, not scheduled)
 

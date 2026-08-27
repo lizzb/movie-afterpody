@@ -187,3 +187,27 @@
 @utility neon {
   box-shadow: var(--elev-glow);
 }
+
+/* Pass G2 — layout lock. Applied to <html> and <body> by AppShell while the
+   "Lock the layout" pref is on: vertical scrolling only, no sideways drag,
+   no rubber-banding, no gesture zoom. */
+.layout-locked {
+  overflow-x: hidden;
+  overscroll-behavior: none;
+  touch-action: pan-y;
+  max-width: 100vw;
+}
+
+/* Intentional sideways scrollers opt back in so the page lock does not
+   break them (chip rails, wide admin tables). */
+.scroll-rail {
+  overflow-x: auto;
+  touch-action: pan-x pan-y;
+  overscroll-behavior-x: contain;
+}
+
+/* Long unbroken titles (movie/episode names, URLs) must never widen the page. */
+@utility break-anywhere {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}

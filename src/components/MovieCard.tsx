@@ -232,7 +232,7 @@ function MovieTile({ entry }: { entry: MovieEntry }) {
             <ScorePill value={score.score} compact />
           </span>
         </div>
-        <h3 className="mt-2 line-clamp-2 text-sm font-semibold leading-snug">{movie.title}</h3>
+        <h3 className="mt-2 line-clamp-2 break-anywhere text-sm font-semibold leading-snug">{movie.title}</h3>
         <p className="mt-0.5 text-[11px] text-muted-foreground">
           {[
             movie.release_year,
