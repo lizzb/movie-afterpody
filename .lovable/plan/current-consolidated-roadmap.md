@@ -68,7 +68,16 @@ Shipped: `.layout-locked` on `<html>`/`<body>` from `AppShell` (`overflow-x: hid
 Verified: `scrollingElement.scrollWidth === clientWidth` on Tonight, Movies, Shows, Lists, Setup and Admin ingest at 390px, 768px and 1280px; locked state shows `touch-action: pan-y` + locked meta, unlocked state returns `touch-action: auto` and permissive meta.
 
 
+### Pass G5 — Theme defaults and toggle placement — ~24k (approved backlog 2026-08-27, not scheduled)
+Context: the mobile header theme toggle was removed on 2026-08-27 (shipped); the remaining items are about defaults and where controls live.
+
+- **G5a — Respect system defaults (~8k).** Default a first-time visitor to `system` theme so the OS light/dark choice is adopted on first launch; existing stored choices are preserved.
+- **G5b — Top-level settings placement (~6k).** Guarantee the manual theme control is visible without scrolling on Setup (currently in the page header) — verify on 390px, and move it into the App settings block if that reads better.
+- **G5c — Desktop mode kept separate (~10k, NEEDS DESIGN).** Any desktop/mobile view switch is a layout fallback utility, not a display theme, and must never share a control group with light/dark. Needs a decision on whether it exists at all, given browsers already offer "Request desktop site".
+
 ### New backlog passes (approved 2026-08-23, not scheduled)
+
+
 
 #### Pass X — Leaving-soon streaming windows — ~45k (or ~15k for the honest subset) — Priority 11
 **What the data supports:** TMDB `/watch/providers` (JustWatch-sourced) returns *current* availability only — no leave dates, no offer expiry, no "recently added". Neither does the free JustWatch surface. Real leave-date feeds exist only in paid/licensed products (JustWatch partner API, Reelgood, Watchmode "expiring" endpoints). So there are two honest options:

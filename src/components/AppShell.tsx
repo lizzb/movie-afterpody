@@ -142,7 +142,6 @@ export function AppShell({ children }: { children: ReactNode }) {
               Ingest
             </Link>
           ) : null}
-          <ThemeToggle />
           <Link
             to="/auth"
             aria-label={accountLabel}
