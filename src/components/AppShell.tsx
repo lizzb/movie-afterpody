@@ -7,23 +7,49 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { usePrefs } from "@/lib/prefs";
 
 /**
- * Pass G — viewport lock. On by default: keeps the layout fixed so a stray
- * two-finger drag cannot zoom or pan. The Setup toggle restores pinch zoom for
- * accessibility (iOS Safari only honours the lock inside an installed app).
+ * Pass G2 — real layout lock. On by default. Rewriting the viewport meta alone
+ * is not enough (iOS Safari ignores it outside an installed app, and it does
+ * nothing about horizontal *scroll*), so we also pin <html>/<body> to
+ * vertical-only scrolling and swallow multi-touch pan/zoom gestures. Turning
+ * the toggle off restores pinch zoom and free scrolling for accessibility.
  */
 function useViewportLock(locked: boolean) {
   useEffect(() => {
     if (typeof document === "undefined") return;
     const meta = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
-    if (!meta) return;
-    meta.setAttribute(
+    meta?.setAttribute(
       "content",
       locked
         ? "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
         : "width=device-width, initial-scale=1, viewport-fit=cover",
     );
+
+    const roots = [document.documentElement, document.body];
+    if (!locked) {
+      roots.forEach((el) => el.classList.remove("layout-locked"));
+      return;
+    }
+    roots.forEach((el) => el.classList.add("layout-locked"));
+
+    // Multi-touch drags are what actually slide/scale the page on iOS.
+    const stopMultiTouch = (event: TouchEvent) => {
+      if (event.touches.length > 1) event.preventDefault();
+    };
+    const stopGesture = (event: Event) => event.preventDefault();
+
+    document.addEventListener("touchmove", stopMultiTouch, { passive: false });
+    document.addEventListener("gesturestart", stopGesture, { passive: false });
+    document.addEventListener("gesturechange", stopGesture, { passive: false });
+
+    return () => {
+      roots.forEach((el) => el.classList.remove("layout-locked"));
+      document.removeEventListener("touchmove", stopMultiTouch);
+      document.removeEventListener("gesturestart", stopGesture);
+      document.removeEventListener("gesturechange", stopGesture);
+    };
   }, [locked]);
 }
+
 
 const TABS = [
   { to: "/", label: "Tonight", icon: Sparkles },
