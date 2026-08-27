@@ -61,7 +61,7 @@ export function MatchHistoryCard({ onSuccess }: { onSuccess: () => void }) {
                   {ACTION_LABEL[a.action] ?? a.action}
                   {a.undone ? " · undone" : ""}
                 </p>
-                <p className="mt-1 text-sm font-semibold leading-snug">{a.episodeTitle}</p>
+                <p className="mt-1 break-anywhere text-sm font-semibold leading-snug">{a.episodeTitle}</p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   {a.podcastName}
                   {a.movieTitle ? ` → ${a.movieTitle}${a.movieYear ? ` (${a.movieYear})` : ""}` : ""}

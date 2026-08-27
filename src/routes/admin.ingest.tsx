@@ -928,7 +928,7 @@ function UnmatchedEpisodesCard() {
                     key={ep.episodeId}
                     className={`rounded-xl border border-border/60 px-3 py-2 text-sm ${rowBusy ? "opacity-60" : ""}`}
                   >
-                    <p className="font-medium">{ep.episodeTitle}</p>
+                    <p className="break-anywhere font-medium">{ep.episodeTitle}</p>
                     <p className="text-xs text-muted-foreground">
                       {ep.podcastName}
                       {ep.releasedAt ? ` · ${ep.releasedAt}` : ""}

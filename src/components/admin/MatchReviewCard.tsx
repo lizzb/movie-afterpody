@@ -587,7 +587,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
                       {isSelected ? <Check className="size-3.5" /> : null}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-semibold leading-snug">{row.episodeTitle}</span>
+                      <span className="block break-anywhere text-sm font-semibold leading-snug">{row.episodeTitle}</span>
                       <span className="mt-0.5 block text-xs text-muted-foreground">{row.podcastName}</span>
                       <span className="mt-2 block text-xs">
                         {tab === "proposed" ? "Suggested: " : "Linked to "}
