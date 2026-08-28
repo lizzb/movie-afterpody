@@ -27,6 +27,7 @@ The D/O/T5/G/H/Y repair pass is verified and closed (see "Already done"). The re
 - **Pass H5 — Separate Movies filters from Tonight — M (~3-5 credits) — NEEDS DESIGN.** Both pages share one `FilterBar` and one global filter object today, so Tonight changes silently re-filter Movies (Tonight only adds its always-hide-not-interested rule). Split into per-surface filter state with a Movies-specific layout that stays consistent with Tonight and keeps equivalent capability.
 
 #### Sliders and touch feel — Priority 2c
+- **Pass D4 — Remove the need for "Apply filters" — M (~3-5 credits)** (filed 2026-08-28). The Apply-filters button shipped 2026-08-28 as the pragmatic fix; this pass makes live filtering fast enough that Apply becomes optional. Root cause is unconfirmed — step one is measurement, not a rewrite: profile a slider drag on Tonight with the full catalogue rendered and record where time goes (`buildEntries` re-deriving on every prefs write, the per-movie `catalog.*.filter(...)` scans being O(movies x rows), `applyFilters` re-sorting, or whole-list re-render). Likely fixes once measured: index catalog rows into maps once, memoise entries independently of filter values, keep drags in local state and commit on release, memoise `MovieCard`, cap rendered rows. Acceptance: smooth sustained drag at 390px with the full catalogue loaded, then decide whether Apply stays as a preference or is removed.
 - **Pass D2 — Slider treatment and touch responsiveness — M (~3-5 credits) — NEEDS DESIGN.** Options: thick rail with floating handles (32px handle, 48px hit area); inset rail with high-contrast grab knobs and larger touch rings; stepper-assisted slider with minus/plus; compact numeric value chips beside labels plus a larger grab zone. Build must fix drag responsiveness, not just visuals.
 
 #### Ratings and audience controls — Priority 3
@@ -39,7 +40,7 @@ The D/O/T5/G/H/Y repair pass is verified and closed (see "Already done"). The re
 
 #### Lists, watched state and sync — Priority 3c
 - **Pass O2 — Watchlist interaction reliability — M (~3-5 credits).** Debug in-browser: laggy add-to-list, unreliable list creation from movie cards, status not refreshing. Acceptance is a recorded browser run of add, create-from-card and remove on both Movies and movie detail.
-- **Pass O3 — Account-synced lists and history — L (~6-10 credits).** Migrate local-first list/watch/not-interested state to signed-in backend tables with RLS, one-time local→account migration on first sign-in, documented signed-out fallback. Lower backlog.
+- **Pass O3 — Account-synced lists, history and display prefs — L (~6-10 credits, upper end).** Migrate local-first list/watch/not-interested state to signed-in backend tables with RLS, one-time local→account migration on first sign-in, documented signed-out fallback. Also in scope (filed 2026-08-28): **`dimWatched` and other display preferences sync with the account, not the device**, using the same migration and fallback. Lower backlog.
 
 #### Consistency and copy — Priority 4
 - **Pass E2 — Commentary Score formatting consistency — S (~1-2 credits).** One score component everywhere (Tonight uses icon + label + accent badge; Lists uses a bare shaded numeric badge). Pick one canonical treatment with an explicit compact variant.
@@ -71,19 +72,19 @@ Verified: `scrollingElement.scrollWidth === clientWidth` on Tonight, Movies, Sho
 ### Pass G5 — Theme defaults and toggle placement — M (~3-5 credits) (approved backlog 2026-08-27, not scheduled)
 Context: the mobile header theme toggle was removed on 2026-08-27 (shipped); the remaining items are about defaults and where controls live.
 
-- **G5a — Respect system defaults (S (~1-2 credits)).** Default a first-time visitor to `system` theme so the OS light/dark choice is adopted on first launch; existing stored choices are preserved.
-- **G5b — Top-level settings placement (S (~1-2 credits)).** Guarantee the manual theme control is visible without scrolling on Setup (currently in the page header) — verify on 390px, and move it into the App settings block if that reads better.
-- **G5c — Desktop mode kept separate (S (~1-2 credits), NEEDS DESIGN).** Any desktop/mobile view switch is a layout fallback utility, not a display theme, and must never share a control group with light/dark. Needs a decision on whether it exists at all, given browsers already offer "Request desktop site".
+- **G5a — Respect system defaults (S).** Default a first-time visitor to `system` theme so the OS light/dark choice is adopted on first launch; existing stored choices are preserved.
+- **G5b — Top-level settings placement (S).** Guarantee the manual theme control is visible without scrolling on Setup (currently in the page header) — verify on 390px, and move it into the App settings block if that reads better.
+- **G5c — Desktop mode kept separate (S, NEEDS DESIGN).** Any desktop/mobile view switch is a layout fallback utility, not a display theme, and must never share a control group with light/dark. Needs a decision on whether it exists at all, given browsers already offer "Request desktop site".
 
 ### New backlog passes (approved 2026-08-23, not scheduled)
 
 
 
-#### Pass X — Leaving-soon streaming windows — L (~6-10 credits) (or S (~1-2 credits) for the honest subset) — Priority 11
+#### Pass X — Leaving-soon streaming windows — L (~6-10 credits) (or S for the honest subset) — Priority 11
 **What the data supports:** TMDB `/watch/providers` (JustWatch-sourced) returns *current* availability only — no leave dates, no offer expiry, no "recently added". Neither does the free JustWatch surface. Real leave-date feeds exist only in paid/licensed products (JustWatch partner API, Reelgood, Watchmode "expiring" endpoints). So there are two honest options:
 
-- **X1 — Self-derived change detection (S (~1-2 credits), no new provider).** We already stamp `availability_checked_at`. Add an `availability_history` table (movie, service, offer type, first_seen, last_seen) written on every availability run. That gives real "Added in the last 30 days" and "Disappeared since <date>" signals, plus a "leaving soon" *heuristic* only if a provider ever exposes dates. Honest labels: "New on your services", "Was on Netflix until 12 Aug".
-- **X2 — Licensed expiry data (L (~6-10 credits) + subscription cost).** Watchmode or Reelgood expiring-titles endpoint keyed per region, stored as `leaves_on` on `movie_availability`, surfaced as a "Leaving soon" filter on Tonight and Movies, a countdown badge on cards, and a sort option. Requires a paid API key and a scheduled refresh (ties to Pass L).
+- **X1 — Self-derived change detection (S, no new provider).** We already stamp `availability_checked_at`. Add an `availability_history` table (movie, service, offer type, first_seen, last_seen) written on every availability run. That gives real "Added in the last 30 days" and "Disappeared since <date>" signals, plus a "leaving soon" *heuristic* only if a provider ever exposes dates. Honest labels: "New on your services", "Was on Netflix until 12 Aug".
+- **X2 — Licensed expiry data (L + subscription cost).** Watchmode or Reelgood expiring-titles endpoint keyed per region, stored as `leaves_on` on `movie_availability`, surfaced as a "Leaving soon" filter on Tonight and Movies, a countdown badge on cards, and a sort option. Requires a paid API key and a scheduled refresh (ties to Pass L).
 
 Recommendation: build X1 first — it is free, needs no new vendor, and answers "what changed" — and only take X2 if true leave dates become a must.
 
@@ -131,6 +132,9 @@ Expand from movies-only to both `movie` and `tv` catalog items using the existin
 ---
 
 # Already done
+
+### Apply-filters button — shipped 2026-08-28
+`FilterBar` now edits a local draft of the filter object; runtime slider, era range, genre/vibe chips, sort, rating ladder, service badges and all toggles write to the draft only. One `setFilters` call commits on **Apply filters** (labelled with the pending-change count), **Cancel** restores the applied values, **Reset** loads app defaults into the draft, and a small coral dot on the panel heading marks unapplied changes. The sheet's primary button applies and closes. Result counts continue to describe applied filters; the Movies text search stays live. Sliders are smooth with movies on screen because nothing re-ranks mid-drag. Follow-up: Pass D4.
 
 ### Repair pass — D/O/T5/G/H/Y verification and remnants — shipped 2026-08-25
 Verified in the 2026-08-26 review at base level: iOS/PWA safe-area top bar, corrected page header labels, Tonight controls split from the Movies variant, slider fill and enlarged touch targets, Tonight defaulting to "Unwatched", watchlist/watched controls with named snackbars, visible and consistent dim-watched styling, navigable Setup podcast rows, and T5 show-curation search/filter/sort verified rather than rebuilt. Remaining refinements were re-filed as discrete passes (H2–H9, D2, D3, E2, E3, O2, O3, Y2, Y3, G3, G4, T6, T7, J3) rather than kept inside this pass.
