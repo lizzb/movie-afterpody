@@ -496,6 +496,9 @@ export const approveEpisodeMatch = createServerFn({ method: "POST" })
         match_method: "manual",
         match_confidence: 0.95,
         is_primary_subject: true,
+        review_state: "confirmed",
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: context.userId,
       },
       { onConflict: "episode_id, movie_id" },
     );
