@@ -21,9 +21,21 @@ type Tab = "flagged" | "proposed" | "existing";
 
 const BANDS = [
   { label: "Weakest first (≤ 80%)", value: 0.8 },
-  { label: "Unreviewed (≤ 95%)", value: 0.95 },
-  { label: "All links", value: 1 },
+  { label: "Stronger too (≤ 95%)", value: 0.95 },
+  { label: "All unconfirmed links", value: 1 },
 ] as const;
+
+/** Plain-language names for the explicit review state stored on each link. */
+export function reviewStateLabel(state: string): string {
+  switch (state) {
+    case "confirmed":
+      return "Confirmed";
+    case "auto_linked":
+      return "Auto-linked";
+    default:
+      return "Proposed";
+  }
+}
 
 /** Plain-language names for the match_method values stored on each link. */
 export function methodLabel(method: string): string {
@@ -158,7 +170,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
         podcastName: l.podcastName,
         movieTitle: l.movieTitle,
         movieYear: l.movieYear,
-        detail: `${methodLabel(l.method)} · ${Math.round(l.confidence * 100)}%`,
+        detail: `${reviewStateLabel(l.reviewState)} · ${methodLabel(l.method)} · ${Math.round(l.confidence * 100)}%`,
         rejectedBefore: 0,
         flagged: false,
       }));
@@ -448,7 +460,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
             : tab === "flagged"
               ? "Nothing flagged as wrong. Flags raised in the app land here."
               : tab === "proposed"
-                ? `Queue clear — no proposals at or below ${Math.round(maxConfidence * 100)}% confidence.`
+                ? `Queue clear — no unconfirmed links at or below ${Math.round(maxConfidence * 100)}% confidence.`
                 : "Queue clear — every saved link in this band has been reviewed."}
         </p>
       ) : (
