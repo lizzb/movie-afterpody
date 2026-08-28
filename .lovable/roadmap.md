@@ -48,8 +48,7 @@ The D/O/T5/G/H/Y repair pass is verified and closed (see "Already done"). The re
 - **Pass D3 — Per-page info sheets — M (~3-5 credits) — NEEDS COPY.** The info icon opens the same sheet on every screen; give Tonight, Movies, Shows, Lists and Setup their own content with shared sections factored out.
 
 #### Seasonal — Priority 4b
-- **Pass H8 — Holiday exclusion (crude first pass) — S (~1-2 credits).** Exclude titles with standalone `Santa` or `Christmas` in title or description; control inside the expanded Filters & Sort panel; default excluding Jan 8 – Nov 2, default off Nov 3 – Jan 7.
-- **Pass H9 — Full seasonal include/exclude UX — M (~3-5 credits).** Robust seasonal tagging beyond the keyword rule. Follows H8; lower backlog.
+- **Pass H9 — Full seasonal include/exclude UX — M (~3-5 credits).** Robust seasonal tagging beyond the keyword rule. H8 shipped 2026-08-28 as the crude keyword first pass; H9 follows it, lower backlog.
 
 #### Setup and ordering stability — Priority 4c
 - **Pass G3 — Setup: stop rows re-sorting on toggle — S (~1-2 credits).** Following/preferred toggles must not move a podcast row until the next page load, matching the existing no-resort-mid-interaction rule.
