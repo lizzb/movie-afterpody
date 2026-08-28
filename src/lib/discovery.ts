@@ -160,6 +160,8 @@ function compare(a: MovieEntry, b: MovieEntry, key: Filters["sortBy"]): number {
   }
 }
 
+const HOLIDAY_RE = /\b(santa|christmas)\b/i;
+
 export function applyFilters(
   entries: MovieEntry[],
   filters: Filters,
@@ -182,6 +184,12 @@ export function applyFilters(
       if (filters.commentaryOnly && e.episodes.length === 0) return false;
       if (filters.preferredOnly && !e.episodes.some((ep) => ep.preferred)) return false;
       if (hideNotInterested && e.notInterested) return false;
+      // Pass H8 — crude holiday exclusion: standalone "Santa" / "Christmas" in title or synopsis.
+      if (filters.excludeHoliday) {
+        const title = e.movie.title;
+        const synopsis = e.movie.synopsis ?? "";
+        if (HOLIDAY_RE.test(title) || HOLIDAY_RE.test(synopsis)) return false;
+      }
       const rank = ratingRank(e.movie.certification);
       if (rank === null) {
         if (!filters.allowUnrated) return false;

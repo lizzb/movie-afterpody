@@ -48,8 +48,7 @@ The D/O/T5/G/H/Y repair pass is verified and closed (see "Already done"). The re
 - **Pass D3 — Per-page info sheets — M (~3-5 credits) — NEEDS COPY.** The info icon opens the same sheet on every screen; give Tonight, Movies, Shows, Lists and Setup their own content with shared sections factored out.
 
 #### Seasonal — Priority 4b
-- **Pass H8 — Holiday exclusion (crude first pass) — S (~1-2 credits).** Exclude titles with standalone `Santa` or `Christmas` in title or description; control inside the expanded Filters & Sort panel; default excluding Jan 8 – Nov 2, default off Nov 3 – Jan 7.
-- **Pass H9 — Full seasonal include/exclude UX — M (~3-5 credits).** Robust seasonal tagging beyond the keyword rule. Follows H8; lower backlog.
+- **Pass H9 — Full seasonal include/exclude UX — M (~3-5 credits).** Robust seasonal tagging beyond the keyword rule. H8 shipped 2026-08-28 as the crude keyword first pass; H9 follows it, lower backlog.
 
 #### Setup and ordering stability — Priority 4c
 - **Pass G3 — Setup: stop rows re-sorting on toggle — S (~1-2 credits).** Following/preferred toggles must not move a podcast row until the next page load, matching the existing no-resort-mid-interaction rule.
@@ -75,6 +74,18 @@ Context: the mobile header theme toggle was removed on 2026-08-27 (shipped); the
 - **G5a — Respect system defaults (S).** Default a first-time visitor to `system` theme so the OS light/dark choice is adopted on first launch; existing stored choices are preserved.
 - **G5b — Top-level settings placement (S).** Guarantee the manual theme control is visible without scrolling on Setup (currently in the page header) — verify on 390px, and move it into the App settings block if that reads better.
 - **G5c — Desktop mode kept separate (S, NEEDS DESIGN).** Any desktop/mobile view switch is a layout fallback utility, not a display theme, and must never share a control group with light/dark. Needs a decision on whether it exists at all, given browsers already offer "Request desktop site".
+
+### Pass G6 — Restore desktop trackpad scrolling — M (~3-5 credits) (approved backlog 2026-08-28, not scheduled)
+Reported: after Pass G2 shipped, trackpad scrolling on desktop no longer works. Pass G2's `.layout-locked` applies `touch-action: pan-y` + `overscroll-behavior: none` to `<html>`/`<body>` whenever `viewportLock` is on, and a non-passive multi-touch `touchmove` blocker runs in the app shell. On a trackpad the wheel/momentum gestures and touch emulation can hit these and get swallowed. Scope the lock to touch-primary viewports only (leave desktop alone), gate the non-passive blockers on `pointer: coarse`/`maxTouchPoints`, and keep `touch-action: pan-y` from applying when a physical wheel is present. Verify a normal two-finger/momentum scroll on a laptop trackpad returns, while phone sideways-drag lock and pinch-zoom block stay intact.
+
+### Matcher refinement backlog (approved 2026-08-28, not scheduled)
+
+- **Pass U1 — Explicit review-state model — M (~3-5 credits).** A stronger per-episode / per-link review-state model (unreviewed / proposed / auto-linked / confirmed / rejected / retired) replacing implicit state derived from tables today, so "everything reviewed" is provable per show.
+- **Pass U2 — Multi-movie episode editor — L (~6-10 credits).** Handle double features, trilogies, franchises and "covered in passing" vs "primary subject" by letting one episode link to multiple movies with a coverage role; UI to add/remove/reorder links per episode.
+- **Pass U3 — Curated blocklist/allowlist — M (~3-5 credits).** Admin-managed high-noise phrase lists (ad/promo/joke titles) and per-title allowlist overrides feeding the matcher's keyword suppression.
+- **Pass U4 — Per-podcast matcher tuning — M (~3-5 credits).** Show-level tuning because some feeds use clean title formats while others use joke/chatter titles; per-show overrides for strictness and parsing.
+- **Pass U5 — Training/evaluation dashboard — M (~3-5 credits).** Turn "Score the matcher" scorecard output into recommended rule changes with before/after evals (extends `matcher-eval.server.ts`).
+- **Pass U6 — Low-confidence link maintenance — S (~1-2 credits).** A safe "clear low-confidence auto links and rerun the current engine" maintenance action with a dry-run preview, guarding manual/confirmed links and parked shows (related to Pass Z).
 
 ### New backlog passes (approved 2026-08-23, not scheduled)
 
@@ -132,6 +143,9 @@ Expand from movies-only to both `movie` and `tv` catalog items using the existin
 ---
 
 # Already done
+
+### Pass H8 — Holiday exclusion (crude keyword first pass) — shipped 2026-08-28
+`excludeHoliday` boolean added to `Filters` (`src/lib/prefs.ts`), defaulting via a date rule `defaultHolidayExclusion()` — on Jan 8 – Nov 2, off Nov 3 – Jan 7. `applyFilters` (`src/lib/discovery.ts`) drops titles whose title or synopsis matches a standalone `Santa`/`Christmas` word boundary regex. A "Seasonal" group in the expanded Filters & Sort panel (`FilterBar.tsx`) exposes an "Exclude holiday movies" chip with an explanatory line. Ships inside the same build that renamed the roadmap to `.lovable/roadmap.md` and filed G6 + U1–U6.
 
 ### Apply-filters button — shipped 2026-08-28
 `FilterBar` now edits a local draft of the filter object; runtime slider, era range, genre/vibe chips, sort, rating ladder, service badges and all toggles write to the draft only. One `setFilters` call commits on **Apply filters** (labelled with the pending-change count), **Cancel** restores the applied values, **Reset** loads app defaults into the draft, and a small coral dot on the panel heading marks unapplied changes. The sheet's primary button applies and closes. Result counts continue to describe applied filters; the Movies text search stays live. Sliders are smooth with movies on screen because nothing re-ranks mid-drag. Follow-up: Pass D4.

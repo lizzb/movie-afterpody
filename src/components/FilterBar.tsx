@@ -496,7 +496,25 @@ export function FilterBar({
                   Nothing selected means all of your services.
                 </p>
               </div>
-            ) : null}
+) : null}
+
+            <div className="mt-5">
+              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                Seasonal
+              </p>
+              <div className="mt-2">
+                <Chip
+                  active={draft.excludeHoliday}
+                  onClick={() => patch({ excludeHoliday: !draft.excludeHoliday })}
+                >
+                  Exclude holiday movies
+                </Chip>
+              </div>
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                A keyword rule that drops titles with standalone “Santa” or “Christmas” in the title
+                or synopsis.
+              </p>
+            </div>
 
             <button
               type="button"
