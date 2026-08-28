@@ -151,7 +151,7 @@ export const DEFAULT_PREFS: Prefs = {
       createdAt: "2026-06-03",
     },
   ],
-  filters: {
+filters: {
     onlyMyServices: true,
     serviceSlugs: [],
     genreSlugs: ["thriller", "romance", "comedy"],
@@ -164,6 +164,7 @@ export const DEFAULT_PREFS: Prefs = {
     maxRating: 7,
     allowUnrated: true,
     hideNotInterested: true,
+    excludeHoliday: defaultHolidayExclusion(),
     sortBy: "commentary",
   },
   notInterestedSlugs: [],
