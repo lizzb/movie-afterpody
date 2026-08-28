@@ -1448,15 +1448,23 @@ export const listPodcastCoverage = createServerFn({ method: "GET" })
       (from, to) =>
         supabaseAdmin.from("podcast_episodes").select("id, podcast_id, disposition").range(from, to),
     );
-    const linkRows = await pageAll<{ episode_id: string }>((from, to) =>
-      supabaseAdmin.from("episode_movies").select("episode_id").range(from, to),
+    const linkRows = await pageAll<{ episode_id: string; review_state: string }>((from, to) =>
+      supabaseAdmin.from("episode_movies").select("episode_id, review_state").range(from, to),
     );
     const linked = new Set(linkRows.map((l) => l.episode_id));
+    // An episode counts as reviewed once every one of its links is confirmed.
+    const openByEpisode = new Set(
+      linkRows.filter((l) => l.review_state !== "confirmed").map((l) => l.episode_id),
+    );
 
     const rows = (podcasts ?? []).map((p) => {
       const own = episodes.filter((e) => e.podcast_id === p.id);
       const linkedCount = own.filter((e) => linked.has(e.id)).length;
       const retired = own.filter((e) => !linked.has(e.id) && e.disposition === "not_about_a_movie").length;
+      const awaitingReview = own.filter((e) => openByEpisode.has(e.id)).length;
+      const reviewed = own.filter(
+        (e) => (linked.has(e.id) && !openByEpisode.has(e.id)) || e.disposition === "not_about_a_movie",
+      ).length;
       return {
         podcastId: p.id,
         name: p.name,
@@ -1466,6 +1474,10 @@ export const listPodcastCoverage = createServerFn({ method: "GET" })
         linked: linkedCount,
         retired,
         unmatched: own.length - linkedCount - retired,
+        /** Links still proposed or auto-linked — the show is not fully reviewed. */
+        awaitingReview,
+        reviewed,
+        fullyReviewed: own.length > 0 && awaitingReview === 0 && own.length - linkedCount - retired === 0,
         /** Feed reports more episodes than we stored — a sync would fetch more. */
         incomplete: (p.episode_count ?? 0) > own.length,
         missing: Math.max(0, (p.episode_count ?? 0) - own.length),
@@ -1631,6 +1643,8 @@ export const listEpisodeLinks = createServerFn({ method: "POST" })
           "episode_id, movie_id, match_method, match_confidence, review_state, podcast_episodes!inner(title, released_at, podcast_id, disposition, podcasts!inner(id, name, curation_status)), movies!inner(id, title, release_year, slug)",
         )
         .lte("match_confidence", data.maxConfidence)
+        // Confirmed links are settled by an explicit review decision.
+        .neq("review_state", "confirmed")
         // Retired episodes are settled — they must not reappear as review work.
         .neq("podcast_episodes.disposition", "not_about_a_movie")
         .order("match_confidence", { ascending: true })
@@ -1651,6 +1665,7 @@ export const listEpisodeLinks = createServerFn({ method: "POST" })
           { count: "exact", head: true },
         )
         .lte("match_confidence", data.maxConfidence)
+        .neq("review_state", "confirmed")
         .neq("podcast_episodes.disposition", "not_about_a_movie");
       if (data.podcastId) q = q.eq("podcast_episodes.podcast_id", data.podcastId);
       if (!data.includeParked) q = q.eq("podcast_episodes.podcasts.curation_status", "active");
