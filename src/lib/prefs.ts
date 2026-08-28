@@ -79,6 +79,22 @@ export const YEAR_FLOOR = 1970;
 export const YEAR_CEILING = 2026;
 export const RUNTIME_CEILING = 180;
 
+/**
+ * Pass H8 — crude seasonal default for `excludeHoliday`. On from Jan 8 –
+ * Nov 2, off from Nov 3 – Jan 7, so Christmas titles drop out during the
+ * year but surface around the holidays. Computed once for the default; once
+ * the user toggles it, their choice sticks.
+ */
+export function defaultHolidayExclusion(date: Date = new Date()): boolean {
+  const m = date.getMonth() + 1; // 1-12
+  const d = date.getDate();
+  if (m < 1 || m > 12) return true;
+  if (m > 1 && m < 11) return true; // Feb - Oct
+  if (m === 1) return d >= 8; // Jan 8+ on
+  if (m === 11) return d <= 2; // Nov 1-2 on
+  return false; // Nov 3 - Jan 7 off
+}
+
 export const DEFAULT_PREFS: Prefs = {
   theme: "dark",
   viewModes: {},
