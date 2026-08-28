@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Check, RotateCcw, Search, SlidersHorizontal, X } from "lucide-react";
 import { BrandBadge } from "@/components/BrandBadge";
 import { YearRange } from "@/components/YearRange";
 import {
+  DEFAULT_PREFS,
   prefsActions,
   RUNTIME_CEILING,
   YEAR_CEILING,
@@ -62,6 +63,10 @@ function group(genre: Genre): "Eras" | "Vibes" | "Genres" {
  * Compact Tonight controls: two-up runtime/era row, a genre summary chip that
  * opens a sheet, and a single wrapped row of toggles. Keeps results above the
  * fold while letting the vibe vocabulary grow without bound.
+ *
+ * All controls edit a local DRAFT of the filters. Nothing reaches the shared
+ * prefs (and therefore the result list) until "Apply filters" is pressed, so
+ * dragging a slider never re-ranks hundreds of movies mid-drag.
  */
 const SORTS: { key: SortKey; label: string }[] = [
   { key: "commentary", label: "Commentary score" },
@@ -76,7 +81,13 @@ function sortLabel(key: SortKey) {
   return SORTS.find((sort) => sort.key === key)?.label ?? "Commentary score";
 }
 
-function RuntimeSlider({ value }: { value: number }) {
+function RuntimeSlider({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (next: number) => void;
+}) {
   const min = 70;
   const max = RUNTIME_CEILING;
   const percent = ((value - min) / Math.max(1, max - min)) * 100;
@@ -95,11 +106,25 @@ function RuntimeSlider({ value }: { value: number }) {
         step={5}
         value={value}
         aria-label="Max runtime"
-        onChange={(e) => prefsActions.setFilters({ maxRuntime: Number(e.target.value) })}
+        onChange={(e) => onChange(Number(e.target.value))}
         className="absolute inset-0 h-12 w-full appearance-none bg-transparent [&::-moz-range-thumb]:size-8 [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-coral [&::-moz-range-thumb]:bg-card [&::-moz-range-track]:bg-transparent [&::-webkit-slider-runnable-track]:h-3 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-transparent [&::-webkit-slider-thumb]:-mt-2.5 [&::-webkit-slider-thumb]:size-8 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-coral [&::-webkit-slider-thumb]:bg-card [&::-webkit-slider-thumb]:shadow-card"
       />
     </div>
   );
+}
+
+/** Count of individual filter properties whose draft value differs from applied. */
+function countChanges(draft: Filters, applied: Filters): number {
+  let changes = 0;
+  for (const key of Object.keys(draft) as (keyof Filters)[]) {
+    const a = draft[key];
+    const b = applied[key];
+    const same = Array.isArray(a) && Array.isArray(b)
+      ? a.length === b.length && a.every((v) => (b as string[]).includes(v as string))
+      : a === b;
+    if (!same) changes += 1;
+  }
+  return changes;
 }
 
 export function FilterBar({
@@ -113,8 +138,23 @@ export function FilterBar({
 }: Props) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [term, setTerm] = useState("");
+  const [draft, setDraft] = useState<Filters>(filters);
 
-  const selected = genres.filter((g) => filters.genreSlugs.includes(g.slug));
+  // Re-seed the draft whenever the applied filters change from elsewhere
+  // (page load/hydration, Reset, another surface committing a change).
+  useEffect(() => {
+    setDraft(filters);
+  }, [filters]);
+
+  const patch = (next: Partial<Filters>) => setDraft((prev) => ({ ...prev, ...next }));
+  const pendingChanges = countChanges(draft, filters);
+  const dirty = pendingChanges > 0;
+
+  const apply = () => {
+    if (dirty) prefsActions.setFilters(draft);
+  };
+
+  const selected = genres.filter((g) => draft.genreSlugs.includes(g.slug));
   const summary =
     selected.length === 0
       ? "Any genre or vibe"
@@ -139,10 +179,10 @@ export function FilterBar({
   }, [genres, term]);
 
   const toggleGenre = (slug: string) =>
-    prefsActions.setFilters({
-      genreSlugs: filters.genreSlugs.includes(slug)
-        ? filters.genreSlugs.filter((s) => s !== slug)
-        : [...filters.genreSlugs, slug],
+    patch({
+      genreSlugs: draft.genreSlugs.includes(slug)
+        ? draft.genreSlugs.filter((s) => s !== slug)
+        : [...draft.genreSlugs, slug],
     });
 
   return (
@@ -151,10 +191,17 @@ export function FilterBar({
         <h2 className="flex min-w-0 items-center gap-1.5 truncate text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">
           <SlidersHorizontal className="size-3.5 shrink-0" aria-hidden />
           {isMovies ? "Movie filters" : "Tonight’s parameters"}
+          {dirty ? (
+            <span
+              aria-hidden
+              className="size-1.5 shrink-0 rounded-full bg-coral"
+              title="Unapplied changes"
+            />
+          ) : null}
         </h2>
         <button
           type="button"
-          onClick={() => prefsActions.resetFilters()}
+          onClick={() => setDraft(DEFAULT_PREFS.filters)}
           className="flex shrink-0 items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
         >
           <RotateCcw className="size-3" aria-hidden />
@@ -168,25 +215,28 @@ export function FilterBar({
             <span className="flex items-baseline justify-between text-[11px] font-semibold text-muted-foreground">
               Max runtime
               <span className="font-bold text-foreground">
-                {filters.maxRuntime >= RUNTIME_CEILING ? "Any" : `${filters.maxRuntime}m`}
+                {draft.maxRuntime >= RUNTIME_CEILING ? "Any" : `${draft.maxRuntime}m`}
               </span>
             </span>
-            <RuntimeSlider value={filters.maxRuntime} />
+            <RuntimeSlider
+              value={draft.maxRuntime}
+              onChange={(maxRuntime) => patch({ maxRuntime })}
+            />
           </label>
 
           <div>
             <span className="flex items-baseline justify-between text-[11px] font-semibold text-muted-foreground">
               Era
               <span className="font-bold text-foreground">
-                {filters.yearMin}&ndash;{filters.yearMax}
+                {draft.yearMin}&ndash;{draft.yearMax}
               </span>
             </span>
             <YearRange
               min={YEAR_FLOOR}
               max={YEAR_CEILING}
-              from={filters.yearMin}
-              to={filters.yearMax}
-              onChange={({ from, to }) => prefsActions.setFilters({ yearMin: from, yearMax: to })}
+              from={draft.yearMin}
+              to={draft.yearMax}
+              onChange={({ from, to }) => patch({ yearMin: from, yearMax: to })}
             />
           </div>
         </div>
@@ -211,39 +261,34 @@ export function FilterBar({
             onClick={() => setSheetOpen(true)}
             className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1 text-[11px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
           >
-            Sort: {sortLabel(filters.sortBy)}
+            Sort: {sortLabel(draft.sortBy)}
           </button>
         ) : null}
         <Chip
-          active={filters.onlyMyServices}
-          onClick={() => prefsActions.setFilters({ onlyMyServices: !filters.onlyMyServices })}
+          active={draft.onlyMyServices}
+          onClick={() => patch({ onlyMyServices: !draft.onlyMyServices })}
         >
           On my services
         </Chip>
         <Chip
-          active={filters.commentaryOnly}
-          onClick={() => prefsActions.setFilters({ commentaryOnly: !filters.commentaryOnly })}
+          active={draft.commentaryOnly}
+          onClick={() => patch({ commentaryOnly: !draft.commentaryOnly })}
         >
           Has commentary
         </Chip>
         <Chip
-          active={filters.preferredOnly}
-          onClick={() => prefsActions.setFilters({ preferredOnly: !filters.preferredOnly })}
+          active={draft.preferredOnly}
+          onClick={() => patch({ preferredOnly: !draft.preferredOnly })}
         >
           My podcasts
         </Chip>
-        <Chip
-          active={filters.hideWatched}
-          onClick={() => prefsActions.setFilters({ hideWatched: !filters.hideWatched })}
-        >
+        <Chip active={draft.hideWatched} onClick={() => patch({ hideWatched: !draft.hideWatched })}>
           Unwatched
         </Chip>
         {showNotInterested ? (
           <Chip
-            active={filters.hideNotInterested}
-            onClick={() =>
-              prefsActions.setFilters({ hideNotInterested: !filters.hideNotInterested })
-            }
+            active={draft.hideNotInterested}
+            onClick={() => patch({ hideNotInterested: !draft.hideNotInterested })}
           >
             Hide not interested
           </Chip>
@@ -251,6 +296,33 @@ export function FilterBar({
         <span className="ml-auto text-[11px] font-semibold text-muted-foreground">
           {resultCount} match{resultCount === 1 ? "" : "es"}
         </span>
+      </div>
+
+      <div className="mt-2.5 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={apply}
+          disabled={!dirty}
+          className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-full px-4 py-2.5 text-sm font-semibold transition-colors ${
+            dirty
+              ? "bg-primary text-primary-foreground neon"
+              : "cursor-default border border-border bg-card text-muted-foreground"
+          }`}
+        >
+          <Check className="size-4" aria-hidden />
+          {dirty
+            ? `Apply filters (${pendingChanges} change${pendingChanges === 1 ? "" : "s"})`
+            : "Filters applied"}
+        </button>
+        {dirty ? (
+          <button
+            type="button"
+            onClick={() => setDraft(filters)}
+            className="shrink-0 rounded-full border border-border px-3 py-2.5 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
+          >
+            Cancel
+          </button>
+        ) : null}
       </div>
 
       {sheetOpen ? (
@@ -294,27 +366,28 @@ export function FilterBar({
                   <span className="flex items-baseline justify-between text-[11px] font-semibold text-muted-foreground">
                     Max runtime
                     <span className="font-bold text-foreground">
-                      {filters.maxRuntime >= RUNTIME_CEILING ? "Any" : `${filters.maxRuntime}m`}
+                      {draft.maxRuntime >= RUNTIME_CEILING ? "Any" : `${draft.maxRuntime}m`}
                     </span>
                   </span>
-                  <RuntimeSlider value={filters.maxRuntime} />
+                  <RuntimeSlider
+                    value={draft.maxRuntime}
+                    onChange={(maxRuntime) => patch({ maxRuntime })}
+                  />
                 </label>
 
                 <div>
                   <span className="flex items-baseline justify-between text-[11px] font-semibold text-muted-foreground">
                     Era
                     <span className="font-bold text-foreground">
-                      {filters.yearMin}&ndash;{filters.yearMax}
+                      {draft.yearMin}&ndash;{draft.yearMax}
                     </span>
                   </span>
                   <YearRange
                     min={YEAR_FLOOR}
                     max={YEAR_CEILING}
-                    from={filters.yearMin}
-                    to={filters.yearMax}
-                    onChange={({ from, to }) =>
-                      prefsActions.setFilters({ yearMin: from, yearMax: to })
-                    }
+                    from={draft.yearMin}
+                    to={draft.yearMax}
+                    onChange={({ from, to }) => patch({ yearMin: from, yearMax: to })}
                   />
                 </div>
               </div>
@@ -330,7 +403,7 @@ export function FilterBar({
                     {grouped[section]!.map((g) => (
                       <Chip
                         key={g.id}
-                        active={filters.genreSlugs.includes(g.slug)}
+                        active={draft.genreSlugs.includes(g.slug)}
                         onClick={() => toggleGenre(g.slug)}
                       >
                         {g.name}
@@ -349,8 +422,8 @@ export function FilterBar({
                 {SORTS.map((sort) => (
                   <Chip
                     key={sort.key}
-                    active={filters.sortBy === sort.key}
-                    onClick={() => prefsActions.setFilters({ sortBy: sort.key })}
+                    active={draft.sortBy === sort.key}
+                    onClick={() => patch({ sortBy: sort.key })}
                   >
                     {sort.label}
                   </Chip>
@@ -366,23 +439,23 @@ export function FilterBar({
                 {RATING_LADDER.map((step) => (
                   <Chip
                     key={step.label}
-                    active={filters.maxRating === step.rank}
-                    onClick={() => prefsActions.setFilters({ maxRating: step.rank })}
+                    active={draft.maxRating === step.rank}
+                    onClick={() => patch({ maxRating: step.rank })}
                   >
                     {step.label}
                   </Chip>
                 ))}
                 <Chip
-                  active={filters.maxRating >= RATING_MAX}
-                  onClick={() => prefsActions.setFilters({ maxRating: RATING_MAX })}
+                  active={draft.maxRating >= RATING_MAX}
+                  onClick={() => patch({ maxRating: RATING_MAX })}
                 >
                   Any
                 </Chip>
               </div>
               <div className="mt-2">
                 <Chip
-                  active={filters.allowUnrated}
-                  onClick={() => prefsActions.setFilters({ allowUnrated: !filters.allowUnrated })}
+                  active={draft.allowUnrated}
+                  onClick={() => patch({ allowUnrated: !draft.allowUnrated })}
                 >
                   Include unrated (NR)
                 </Chip>
@@ -400,17 +473,17 @@ export function FilterBar({
                 </p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {visibleServices.map((s) => {
-                    const active = filters.serviceSlugs.includes(s.slug);
+                    const active = draft.serviceSlugs.includes(s.slug);
                     return (
                       <button
                         key={s.id}
                         type="button"
                         aria-pressed={active}
                         onClick={() =>
-                          prefsActions.setFilters({
+                          patch({
                             serviceSlugs: active
-                              ? filters.serviceSlugs.filter((v) => v !== s.slug)
-                              : [...filters.serviceSlugs, s.slug],
+                              ? draft.serviceSlugs.filter((v) => v !== s.slug)
+                              : [...draft.serviceSlugs, s.slug],
                           })
                         }
                       >
@@ -427,11 +500,16 @@ export function FilterBar({
 
             <button
               type="button"
-              onClick={() => setSheetOpen(false)}
+              onClick={() => {
+                apply();
+                setSheetOpen(false);
+              }}
               className="mt-6 inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground neon"
             >
               <Check className="size-4" aria-hidden />
-              Show {resultCount} match{resultCount === 1 ? "" : "es"}
+              {dirty
+                ? `Apply filters (${pendingChanges} change${pendingChanges === 1 ? "" : "s"})`
+                : `Show ${resultCount} match${resultCount === 1 ? "" : "es"}`}
             </button>
           </div>
         </div>
