@@ -75,8 +75,10 @@ Context: the mobile header theme toggle was removed on 2026-08-27 (shipped); the
 - **G5b — Top-level settings placement (S).** Guarantee the manual theme control is visible without scrolling on Setup (currently in the page header) — verify on 390px, and move it into the App settings block if that reads better.
 - **G5c — Desktop mode kept separate (S, NEEDS DESIGN).** Any desktop/mobile view switch is a layout fallback utility, not a display theme, and must never share a control group with light/dark. Needs a decision on whether it exists at all, given browsers already offer "Request desktop site".
 
-### Pass G6 — Restore desktop trackpad scrolling — M (~3-5 credits) (approved backlog 2026-08-28, not scheduled)
-Reported: after Pass G2 shipped, trackpad scrolling on desktop no longer works. Pass G2's `.layout-locked` applies `touch-action: pan-y` + `overscroll-behavior: none` to `<html>`/`<body>` whenever `viewportLock` is on, and a non-passive multi-touch `touchmove` blocker runs in the app shell. On a trackpad the wheel/momentum gestures and touch emulation can hit these and get swallowed. Scope the lock to touch-primary viewports only (leave desktop alone), gate the non-passive blockers on `pointer: coarse`/`maxTouchPoints`, and keep `touch-action: pan-y` from applying when a physical wheel is present. Verify a normal two-finger/momentum scroll on a laptop trackpad returns, while phone sideways-drag lock and pinch-zoom block stay intact.
+### Pass G6 — Restore desktop trackpad scrolling — SHIPPED 2026-08-28
+Pass G2's `.layout-locked` hardening is now scoped to touch-primary viewports: only `overflow-x: hidden` applies everywhere, while `overscroll-behavior: none`, `touch-action: pan-y` and `max-width: 100vw` sit behind `@media (pointer: coarse)` in `src/styles.css`. `useViewportLock` in `AppShell.tsx` skips the non-passive `touchmove`/`gesturestart`/`gesturechange` blockers and the `maximum-scale=1, user-scalable=no` viewport rewrite unless `matchMedia("(pointer: coarse)")` matches. Verified at 1280x900: `touch-action: auto`, `overscroll-behavior: auto`, wheel scroll moves the page to its full extent, and `scrollWidth === clientWidth` (no horizontal overflow).
+
+
 
 ### Matcher refinement backlog (approved 2026-08-28, not scheduled)
 
