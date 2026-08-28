@@ -1141,6 +1141,11 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
           <p className="text-xs text-muted-foreground">
             {p.linked} linked · {p.unmatched} unmatched · {p.retired} not about a movie
           </p>
+          <p className={`text-xs ${p.fullyReviewed ? "text-teal" : "text-muted-foreground"}`}>
+            {p.fullyReviewed
+              ? "All episodes reviewed"
+              : `${p.reviewed} reviewed · ${p.awaitingReview} awaiting review`}
+          </p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           <button
