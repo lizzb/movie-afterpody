@@ -2,7 +2,7 @@
 
 **This is the only active plan file.** Everything in `.lovable/plan/archive/` is historical and superseded — read it for background only. When a pass ships, its entry moves to "Already done" below with a `— shipped YYYY-MM-DD` stamp in the same edit.
 
-Priority reflects the app's current state: a personal tool for one user, refining the match engine on a small data set. Anything aimed at a wider audience or large-scale automatic ingestion is deliberately low priority. Token estimates are build-cost ballparks.
+Priority reflects the app's current state: a personal tool for one user, refining the match engine on a small data set. Anything aimed at a wider audience or large-scale automatic ingestion is deliberately low priority. Estimates use credit bands, not token counts: **S ~1-2 credits**, **M ~3-5**, **L ~6-10**, **XL ~10+**. Bands are ballparks for build cost — verification loops, debugging and design rounds push a pass toward the top of its band or past it.
 
 ---
 
@@ -10,7 +10,7 @@ Priority reflects the app's current state: a personal tool for one user, refinin
 
 ## Do next
 
-### Pass R2 — Episode-level noise handling — ~20k — Priority 1
+### Pass R2 — Episode-level noise handling — M (~3-5 credits) — Priority 1
 The only remaining piece of Pass R (R1 and R3 both shipped — see "Already done"). Original detail: `.lovable/plan/archive/pass-r-shrink-working-set-2026-08-20.md`.
 
 Bulk "Retire remaining unmatched" on one show (marks every still-unmatched episode `not_about_a_movie`, logged in `match_actions`, undoable), plus the separately-labelled destructive "Delete episodes, keep the show".
@@ -19,45 +19,45 @@ Bulk "Retire remaining unmatched" on one show (marks every still-unmatched episo
 The D/O/T5/G/H/Y repair pass is verified and closed (see "Already done"). The remaining review items are now discrete passes below. Design-first items marked NEEDS DESIGN start by presenting 2-4 visual/copy options; no code lands before a direction is chosen.
 
 #### Tonight as a recommendation surface — Priority 2
-- **Pass H2 — Tonight result volume and shape — ~25k — NEEDS DESIGN.** Top 10 by default, "Load more suggestions", count reads `Showing 10 of 121 matches`. Movies stays the catalogue surface.
-- **Pass H3 — Surface sorting on Tonight — ~15k — NEEDS DESIGN.** Options: sort chip row above results; single sort button beside the result count; mode segmented control (Best match / Short / New / Most covered); right-aligned results-toolbar dropdown.
-- **Pass H4 — Best-only / minimum Commentary Score — ~12k.** No hard default minimum until score distribution is measured; ship a "Best only" toggle with a visible match count first.
+- **Pass H2 — Tonight result volume and shape — M (~3-5 credits) — NEEDS DESIGN.** Top 10 by default, "Load more suggestions", count reads `Showing 10 of 121 matches`. Movies stays the catalogue surface.
+- **Pass H3 — Surface sorting on Tonight — S (~1-2 credits) — NEEDS DESIGN.** Options: sort chip row above results; single sort button beside the result count; mode segmented control (Best match / Short / New / Most covered); right-aligned results-toolbar dropdown.
+- **Pass H4 — Best-only / minimum Commentary Score — S (~1-2 credits).** No hard default minimum until score distribution is measured; ship a "Best only" toggle with a visible match count first.
 
 #### Movies gets its own filter surface — Priority 2b
-- **Pass H5 — Separate Movies filters from Tonight — ~35k — NEEDS DESIGN.** Both pages share one `FilterBar` and one global filter object today, so Tonight changes silently re-filter Movies (Tonight only adds its always-hide-not-interested rule). Split into per-surface filter state with a Movies-specific layout that stays consistent with Tonight and keeps equivalent capability.
+- **Pass H5 — Separate Movies filters from Tonight — M (~3-5 credits) — NEEDS DESIGN.** Both pages share one `FilterBar` and one global filter object today, so Tonight changes silently re-filter Movies (Tonight only adds its always-hide-not-interested rule). Split into per-surface filter state with a Movies-specific layout that stays consistent with Tonight and keeps equivalent capability.
 
 #### Sliders and touch feel — Priority 2c
-- **Pass D2 — Slider treatment and touch responsiveness — ~25k — NEEDS DESIGN.** Options: thick rail with floating handles (32px handle, 48px hit area); inset rail with high-contrast grab knobs and larger touch rings; stepper-assisted slider with minus/plus; compact numeric value chips beside labels plus a larger grab zone. Build must fix drag responsiveness, not just visuals.
+- **Pass D2 — Slider treatment and touch responsiveness — M (~3-5 credits) — NEEDS DESIGN.** Options: thick rail with floating handles (32px handle, 48px hit area); inset rail with high-contrast grab knobs and larger touch rings; stepper-assisted slider with minus/plus; compact numeric value chips beside labels plus a larger grab zone. Build must fix drag responsiveness, not just visuals.
 
 #### Ratings and audience controls — Priority 3
-- **Pass Y2 — Rating minimum + maximum range — ~25k — NEEDS DESIGN.** Options: dual-handle rating ladder TV-Y → NC-17 with highlighted allowed band; segmented rating band with allowed steps filled; two compact Minimum/Maximum chip pickers.
-- **Pass Y3 — Audience-focus tuning — ~15k.** Kids/family-heavy suggestions via ratings plus genre signals; scope confirmed only after Y2 ships.
+- **Pass Y2 — Rating minimum + maximum range — M (~3-5 credits) — NEEDS DESIGN.** Options: dual-handle rating ladder TV-Y → NC-17 with highlighted allowed band; segmented rating band with allowed steps filled; two compact Minimum/Maximum chip pickers.
+- **Pass Y3 — Audience-focus tuning — S (~1-2 credits).** Kids/family-heavy suggestions via ratings plus genre signals; scope confirmed only after Y2 ships.
 
 #### Not interested and iconography — Priority 3b
-- **Pass H6 — Not interested copy, icons and recovery — ~20k — NEEDS DESIGN.** Clearer copy, softer snackbar language, icon options for both "Unwatched" and "Not interested" before any metaphor change.
-- **Pass H7 — Hidden / Not interested management screen — ~20k.** Review-and-restore list for hidden titles. Depends on H6.
+- **Pass H6 — Not interested copy, icons and recovery — M (~3-5 credits) — NEEDS DESIGN.** Clearer copy, softer snackbar language, icon options for both "Unwatched" and "Not interested" before any metaphor change.
+- **Pass H7 — Hidden / Not interested management screen — M (~3-5 credits).** Review-and-restore list for hidden titles. Depends on H6.
 
 #### Lists, watched state and sync — Priority 3c
-- **Pass O2 — Watchlist interaction reliability — ~25k.** Debug in-browser: laggy add-to-list, unreliable list creation from movie cards, status not refreshing. Acceptance is a recorded browser run of add, create-from-card and remove on both Movies and movie detail.
-- **Pass O3 — Account-synced lists and history — ~55k.** Migrate local-first list/watch/not-interested state to signed-in backend tables with RLS, one-time local→account migration on first sign-in, documented signed-out fallback. Lower backlog.
+- **Pass O2 — Watchlist interaction reliability — M (~3-5 credits).** Debug in-browser: laggy add-to-list, unreliable list creation from movie cards, status not refreshing. Acceptance is a recorded browser run of add, create-from-card and remove on both Movies and movie detail.
+- **Pass O3 — Account-synced lists and history — L (~6-10 credits).** Migrate local-first list/watch/not-interested state to signed-in backend tables with RLS, one-time local→account migration on first sign-in, documented signed-out fallback. Lower backlog.
 
 #### Consistency and copy — Priority 4
-- **Pass E2 — Commentary Score formatting consistency — ~12k.** One score component everywhere (Tonight uses icon + label + accent badge; Lists uses a bare shaded numeric badge). Pick one canonical treatment with an explicit compact variant.
-- **Pass E3 — Commentary Score explanation copy — ~8k — NEEDS COPY.** Distinguish deterministic scoring from user preference changes that intentionally change the inputs.
-- **Pass D3 — Per-page info sheets — ~20k — NEEDS COPY.** The info icon opens the same sheet on every screen; give Tonight, Movies, Shows, Lists and Setup their own content with shared sections factored out.
+- **Pass E2 — Commentary Score formatting consistency — S (~1-2 credits).** One score component everywhere (Tonight uses icon + label + accent badge; Lists uses a bare shaded numeric badge). Pick one canonical treatment with an explicit compact variant.
+- **Pass E3 — Commentary Score explanation copy — S (~1-2 credits) — NEEDS COPY.** Distinguish deterministic scoring from user preference changes that intentionally change the inputs.
+- **Pass D3 — Per-page info sheets — M (~3-5 credits) — NEEDS COPY.** The info icon opens the same sheet on every screen; give Tonight, Movies, Shows, Lists and Setup their own content with shared sections factored out.
 
 #### Seasonal — Priority 4b
-- **Pass H8 — Holiday exclusion (crude first pass) — ~15k.** Exclude titles with standalone `Santa` or `Christmas` in title or description; control inside the expanded Filters & Sort panel; default excluding Jan 8 – Nov 2, default off Nov 3 – Jan 7.
-- **Pass H9 — Full seasonal include/exclude UX — ~35k.** Robust seasonal tagging beyond the keyword rule. Follows H8; lower backlog.
+- **Pass H8 — Holiday exclusion (crude first pass) — S (~1-2 credits).** Exclude titles with standalone `Santa` or `Christmas` in title or description; control inside the expanded Filters & Sort panel; default excluding Jan 8 – Nov 2, default off Nov 3 – Jan 7.
+- **Pass H9 — Full seasonal include/exclude UX — M (~3-5 credits).** Robust seasonal tagging beyond the keyword rule. Follows H8; lower backlog.
 
 #### Setup and ordering stability — Priority 4c
-- **Pass G3 — Setup: stop rows re-sorting on toggle — ~12k.** Following/preferred toggles must not move a podcast row until the next page load, matching the existing no-resort-mid-interaction rule.
-- **Pass G4 — Saveable Tonight defaults in Setup — ~20k.** User saves preferred default Tonight parameters; Reset restores those instead of app defaults.
+- **Pass G3 — Setup: stop rows re-sorting on toggle — S (~1-2 credits).** Following/preferred toggles must not move a podcast row until the next page load, matching the existing no-resort-mid-interaction rule.
+- **Pass G4 — Saveable Tonight defaults in Setup — M (~3-5 credits).** User saves preferred default Tonight parameters; Reset restores those instead of app defaults.
 
 #### Admin and podcast pages — Priority 4d
-- **Pass T6 — Show curation sort direction toggle — ~10k.** Ascending/descending on every sort property in "Episode coverage and show curation".
-- **Pass T7 — Sort shows by highest external rating — ~10k — blocked on Pass M** landing a per-show ratings cache.
-- **Pass J3 — Podcast page episode sort and filter — ~25k.** Document the current default order, then add newest/oldest, matched/unmatched, duration and title search controls.
+- **Pass T6 — Show curation sort direction toggle — S (~1-2 credits).** Ascending/descending on every sort property in "Episode coverage and show curation".
+- **Pass T7 — Sort shows by highest external rating — S (~1-2 credits) — blocked on Pass M** landing a per-show ratings cache.
+- **Pass J3 — Podcast page episode sort and filter — M (~3-5 credits).** Document the current default order, then add newest/oldest, matched/unmatched, duration and title search controls.
 
 
 ### Pass G2 — Truly lock the layout — SHIPPED 2026-08-27
@@ -68,22 +68,22 @@ Shipped: `.layout-locked` on `<html>`/`<body>` from `AppShell` (`overflow-x: hid
 Verified: `scrollingElement.scrollWidth === clientWidth` on Tonight, Movies, Shows, Lists, Setup and Admin ingest at 390px, 768px and 1280px; locked state shows `touch-action: pan-y` + locked meta, unlocked state returns `touch-action: auto` and permissive meta.
 
 
-### Pass G5 — Theme defaults and toggle placement — ~24k (approved backlog 2026-08-27, not scheduled)
+### Pass G5 — Theme defaults and toggle placement — M (~3-5 credits) (approved backlog 2026-08-27, not scheduled)
 Context: the mobile header theme toggle was removed on 2026-08-27 (shipped); the remaining items are about defaults and where controls live.
 
-- **G5a — Respect system defaults (~8k).** Default a first-time visitor to `system` theme so the OS light/dark choice is adopted on first launch; existing stored choices are preserved.
-- **G5b — Top-level settings placement (~6k).** Guarantee the manual theme control is visible without scrolling on Setup (currently in the page header) — verify on 390px, and move it into the App settings block if that reads better.
-- **G5c — Desktop mode kept separate (~10k, NEEDS DESIGN).** Any desktop/mobile view switch is a layout fallback utility, not a display theme, and must never share a control group with light/dark. Needs a decision on whether it exists at all, given browsers already offer "Request desktop site".
+- **G5a — Respect system defaults (S (~1-2 credits)).** Default a first-time visitor to `system` theme so the OS light/dark choice is adopted on first launch; existing stored choices are preserved.
+- **G5b — Top-level settings placement (S (~1-2 credits)).** Guarantee the manual theme control is visible without scrolling on Setup (currently in the page header) — verify on 390px, and move it into the App settings block if that reads better.
+- **G5c — Desktop mode kept separate (S (~1-2 credits), NEEDS DESIGN).** Any desktop/mobile view switch is a layout fallback utility, not a display theme, and must never share a control group with light/dark. Needs a decision on whether it exists at all, given browsers already offer "Request desktop site".
 
 ### New backlog passes (approved 2026-08-23, not scheduled)
 
 
 
-#### Pass X — Leaving-soon streaming windows — ~45k (or ~15k for the honest subset) — Priority 11
+#### Pass X — Leaving-soon streaming windows — L (~6-10 credits) (or S (~1-2 credits) for the honest subset) — Priority 11
 **What the data supports:** TMDB `/watch/providers` (JustWatch-sourced) returns *current* availability only — no leave dates, no offer expiry, no "recently added". Neither does the free JustWatch surface. Real leave-date feeds exist only in paid/licensed products (JustWatch partner API, Reelgood, Watchmode "expiring" endpoints). So there are two honest options:
 
-- **X1 — Self-derived change detection (~15k, no new provider).** We already stamp `availability_checked_at`. Add an `availability_history` table (movie, service, offer type, first_seen, last_seen) written on every availability run. That gives real "Added in the last 30 days" and "Disappeared since <date>" signals, plus a "leaving soon" *heuristic* only if a provider ever exposes dates. Honest labels: "New on your services", "Was on Netflix until 12 Aug".
-- **X2 — Licensed expiry data (~45k + subscription cost).** Watchmode or Reelgood expiring-titles endpoint keyed per region, stored as `leaves_on` on `movie_availability`, surfaced as a "Leaving soon" filter on Tonight and Movies, a countdown badge on cards, and a sort option. Requires a paid API key and a scheduled refresh (ties to Pass L).
+- **X1 — Self-derived change detection (S (~1-2 credits), no new provider).** We already stamp `availability_checked_at`. Add an `availability_history` table (movie, service, offer type, first_seen, last_seen) written on every availability run. That gives real "Added in the last 30 days" and "Disappeared since <date>" signals, plus a "leaving soon" *heuristic* only if a provider ever exposes dates. Honest labels: "New on your services", "Was on Netflix until 12 Aug".
+- **X2 — Licensed expiry data (L (~6-10 credits) + subscription cost).** Watchmode or Reelgood expiring-titles endpoint keyed per region, stored as `leaves_on` on `movie_availability`, surfaced as a "Leaving soon" filter on Tonight and Movies, a countdown badge on cards, and a sort option. Requires a paid API key and a scheduled refresh (ties to Pass L).
 
 Recommendation: build X1 first — it is free, needs no new vendor, and answers "what changed" — and only take X2 if true leave dates become a must.
 
@@ -93,39 +93,39 @@ Recommendation: build X1 first — it is free, needs no new vendor, and answers 
 
 ## Worth doing soon
 
-### Pass E — Card cleanup — ~20k — Priority 5
+### Pass E — Card cleanup — M (~3-5 credits) — Priority 5
 Drop the redundant "Watched" badge now that the eye/check control exists, and shrink the commentary badge to icon + number with the label on tap. Recommended option: "N episodes" text with the score as a thin accent bar on the card edge.
 
-### Pass F — Destructive actions and undo feedback — ~25k — Priority 6
+### Pass F — Destructive actions and undo feedback — M (~3-5 credits) — Priority 6
 Confirmation dialog before deleting a watchlist plus an undo snackbar (~8 second soft delete), the same snackbar for following a show ("Following <show name>" + Undo) which also clears up the heart ambiguity. `alert-dialog` and `sonner` are both present but unused for this.
 
-### Pass Z — Admin queue reset and matcher replay — ~25k — Priority 7c
+### Pass Z — Admin queue reset and matcher replay — M (~3-5 credits) — Priority 7c
 Admin-only maintenance action that purges current non-manual proposed/weak saved links from active shows, keeps human labels (`match_actions`, `episode_match_rejections`, `not_about_a_movie`) intact, then reruns the current matcher over the now-unmatched active episodes. Best practice: dry-run first with counts by link type and confidence band, require a confirmation phrase, never delete manual/confirmed links, never touch parked shows unless explicitly opted in, and log a single maintenance action for audit/undo context. Useful after major matcher changes, but risky enough to keep behind a guarded tool rather than a routine workflow.
 
-### Pass I — Listening history — ~20k — Priority 8
+### Pass I — Listening history — M (~3-5 credits) — Priority 8
 A "Listened" view on Lists & History: episodes you rated or moved between not started / started / finished, newest first. Data is already captured; nothing surfaces it.
 
-### Pass J1 — Episode row presentation — ~25k — Priority 9
+### Pass J1 — Episode row presentation — M (~3-5 credits) — Priority 9
 Episode rows get truncated descriptions with expand, consistent title/date/duration/controls on both movie and podcast pages, and a segmented control on podcast pages for movie-focused vs episode-focused views.
 
-### Pass J2 — Dedicated episode pages — ~25k — Priority 9b
+### Pass J2 — Dedicated episode pages — M (~3-5 credits) — Priority 9b
 Dedicated per-episode pages are deferred until external ratings/comments or similar episode-level social/context data exists.
 
 ## Backlog (wider-audience or large-volume — hold until the engine is trustworthy)
 
-### Pass L — Scheduled refresh — ~40k — Priority 11
+### Pass L — Scheduled refresh — L (~6-10 credits) — Priority 11
 Server-side scheduled refresh (feeds daily, availability weekly, staggered) with a visible "last synced" per podcast/movie and manual override retained. Explicitly backlogged: automating volume before the matcher is accurate multiplies review work.
 
-### Pass M — External ratings, user-controlled — ~60k — Priority 12
+### Pass M — External ratings, user-controlled — L (~6-10 credits) — Priority 12
 Per-user choice of which ratings to show, cached in the `podcast_external_metrics` shape extended to movies. Realistic sources: TMDB (already integrated), OMDb (IMDb / Metascore), Trakt; Podcast Index (integrated), Apple Podcasts (unofficial), Podchaser (paid). Letterboxd has no public API; Spotify has no ratings. **Dependency:** Pass T5's "sort shows by highest external rating" is blocked on this pass landing a per-show ratings cache; until then show curation sorting stays A–Z / episode count / unmatched / missing count.
 
-### Pass N — Tags/vibes and people-based discovery — ~70k — Priority 13
+### Pass N — Tags/vibes and people-based discovery — XL (~10+ credits) — Priority 13
 Shared tag system for movies and shows (curated starter tags, user-proposed, emoji allowed, character cap, tag filtering) plus TMDB person search leading to an actor page filtered to titles with commentary coverage.
 
-### Pass P — Richer movie detail (cast) — ~40k — Priority 14
+### Pass P — Richer movie detail (cast) — L (~6-10 credits) — Priority 14
 Top-billed cast and director from TMDB credits shown on the movie page, with an external link out for anything deeper. Needs a cast cache table and a credits fetch during enrich.
 
-### Pass V — TV shows and miniseries via TMDB — ~90k — Priority 15
+### Pass V — TV shows and miniseries via TMDB — XL (~10+ credits) — Priority 15
 Expand from movies-only to both `movie` and `tv` catalog items using the existing `media_type` column. Scope: TMDB TV search/detail/enrichment, season/episode-aware title extraction, TV/miniseries runtime and first-air-year handling, watch-provider refresh for `/tv/{id}`, TV content ratings, detail pages that clearly label films vs series, and discovery filters that can include/exclude TV. Design impacts to decide before building: cards need media-type badges; “runtime” becomes episode runtime or total runtime; release year becomes first-air year; podcast episode links may target a series, a season, or a specific episode; availability can differ by season; and “movie detail” copy/navigation should become “title detail” or similar so the UI does not feel movie-only.
 
 ---
