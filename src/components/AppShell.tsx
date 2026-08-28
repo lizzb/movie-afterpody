@@ -31,6 +31,16 @@ function useViewportLock(locked: boolean) {
     }
     roots.forEach((el) => el.classList.add("layout-locked"));
 
+    // Pass G6: never bind gesture handlers on pointing-device viewports —
+    // they swallowed trackpad scroll/pinch on desktop.
+    const touchPrimary =
+      typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
+    if (!touchPrimary) {
+      return () => {
+        roots.forEach((el) => el.classList.remove("layout-locked"));
+      };
+    }
+
     // Multi-touch drags are what actually slide/scale the page on iOS.
     const stopMultiTouch = (event: TouchEvent) => {
       if (event.touches.length > 1) event.preventDefault();
@@ -47,6 +57,7 @@ function useViewportLock(locked: boolean) {
       document.removeEventListener("gesturestart", stopGesture);
       document.removeEventListener("gesturechange", stopGesture);
     };
+
   }, [locked]);
 }
 
