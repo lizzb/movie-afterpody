@@ -143,6 +143,9 @@ export type Database = {
           match_confidence: number
           match_method: Database["public"]["Enums"]["match_method"]
           movie_id: string
+          review_state: Database["public"]["Enums"]["link_review_state"]
+          reviewed_at: string | null
+          reviewed_by: string | null
           signals: Json
         }
         Insert: {
@@ -151,6 +154,9 @@ export type Database = {
           match_confidence?: number
           match_method?: Database["public"]["Enums"]["match_method"]
           movie_id: string
+          review_state?: Database["public"]["Enums"]["link_review_state"]
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           signals?: Json
         }
         Update: {
@@ -159,6 +165,9 @@ export type Database = {
           match_confidence?: number
           match_method?: Database["public"]["Enums"]["match_method"]
           movie_id?: string
+          review_state?: Database["public"]["Enums"]["link_review_state"]
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           signals?: Json
         }
         Relationships: [
@@ -901,6 +910,7 @@ export type Database = {
         | "movie_matched"
         | "not_about_a_movie"
       episode_rating: "disliked" | "meh" | "loved"
+      link_review_state: "proposed" | "auto_linked" | "confirmed"
       listening_status: "not_started" | "started" | "finished"
       match_action:
         | "approve"
@@ -1051,6 +1061,7 @@ export const Constants = {
         "not_about_a_movie",
       ],
       episode_rating: ["disliked", "meh", "loved"],
+      link_review_state: ["proposed", "auto_linked", "confirmed"],
       listening_status: ["not_started", "started", "finished"],
       match_action: [
         "approve",
