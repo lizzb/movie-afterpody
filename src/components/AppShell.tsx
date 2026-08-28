@@ -16,13 +16,15 @@ import { usePrefs } from "@/lib/prefs";
 function useViewportLock(locked: boolean) {
   useEffect(() => {
     if (typeof document === "undefined") return;
+    const isTouch = typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
     const meta = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
     meta?.setAttribute(
       "content",
-      locked
+      locked && isTouch
         ? "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
         : "width=device-width, initial-scale=1, viewport-fit=cover",
     );
+
 
     const roots = [document.documentElement, document.body];
     if (!locked) {
