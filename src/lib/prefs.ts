@@ -38,6 +38,8 @@ export interface Filters {
   allowUnrated: boolean;
   /** Hide anything marked "Not interested" (always excluded from Tonight). */
   hideNotInterested: boolean;
+  /** Pass H8 — exclude standalone Santa/Christmas titles (keyword rule). */
+  excludeHoliday: boolean;
   sortBy: SortKey;
 }
 
