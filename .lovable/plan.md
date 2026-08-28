@@ -31,4 +31,4 @@ Each filed as its own pass so they can be built independently. Numbered **U1–U
 
 - H8 keeps everything in existing files: `prefs.ts` (flag + date-based default), `discovery.ts` (keyword filter inside `applyFilters`), `FilterBar.tsx` (draft toggle). No schema change, no server work.
 - The date-based default is computed client-side from the local date; it only chooses the initial value, so an explicit user choice is never overwritten.
-- G6 and the X-series are filed to the roadmap only; nothing in them is implemented in this pass.
+- G6 and the U-series are filed to the roadmap only; nothing in them is implemented in this pass.
