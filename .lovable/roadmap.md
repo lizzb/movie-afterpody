@@ -75,6 +75,18 @@ Context: the mobile header theme toggle was removed on 2026-08-27 (shipped); the
 - **G5b — Top-level settings placement (S).** Guarantee the manual theme control is visible without scrolling on Setup (currently in the page header) — verify on 390px, and move it into the App settings block if that reads better.
 - **G5c — Desktop mode kept separate (S, NEEDS DESIGN).** Any desktop/mobile view switch is a layout fallback utility, not a display theme, and must never share a control group with light/dark. Needs a decision on whether it exists at all, given browsers already offer "Request desktop site".
 
+### Pass G6 — Restore desktop trackpad scrolling — M (~3-5 credits) (approved backlog 2026-08-28, not scheduled)
+Reported: after Pass G2 shipped, trackpad scrolling on desktop no longer works. Pass G2's `.layout-locked` applies `touch-action: pan-y` + `overscroll-behavior: none` to `<html>`/`<body>` whenever `viewportLock` is on, and a non-passive multi-touch `touchmove` blocker runs in the app shell. On a trackpad the wheel/momentum gestures and touch emulation can hit these and get swallowed. Scope the lock to touch-primary viewports only (leave desktop alone), gate the non-passive blockers on `pointer: coarse`/`maxTouchPoints`, and keep `touch-action: pan-y` from applying when a physical wheel is present. Verify a normal two-finger/momentum scroll on a laptop trackpad returns, while phone sideways-drag lock and pinch-zoom block stay intact.
+
+### Matcher refinement backlog (approved 2026-08-28, not scheduled)
+
+- **Pass U1 — Explicit review-state model — M (~3-5 credits).** A stronger per-episode / per-link review-state model (unreviewed / proposed / auto-linked / confirmed / rejected / retired) replacing implicit state derived from tables today, so "everything reviewed" is provable per show.
+- **Pass U2 — Multi-movie episode editor — L (~6-10 credits).** Handle double features, trilogies, franchises and "covered in passing" vs "primary subject" by letting one episode link to multiple movies with a coverage role; UI to add/remove/reorder links per episode.
+- **Pass U3 — Curated blocklist/allowlist — M (~3-5 credits).** Admin-managed high-noise phrase lists (ad/promo/joke titles) and per-title allowlist overrides feeding the matcher's keyword suppression.
+- **Pass U4 — Per-podcast matcher tuning — M (~3-5 credits).** Show-level tuning because some feeds use clean title formats while others use joke/chatter titles; per-show overrides for strictness and parsing.
+- **Pass U5 — Training/evaluation dashboard — M (~3-5 credits).** Turn "Score the matcher" scorecard output into recommended rule changes with before/after evals (extends `matcher-eval.server.ts`).
+- **Pass U6 — Low-confidence link maintenance — S (~1-2 credits).** A safe "clear low-confidence auto links and rerun the current engine" maintenance action with a dry-run preview, guarding manual/confirmed links and parked shows (related to Pass Z).
+
 ### New backlog passes (approved 2026-08-23, not scheduled)
 
 
