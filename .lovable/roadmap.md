@@ -144,6 +144,9 @@ Expand from movies-only to both `movie` and `tv` catalog items using the existin
 
 # Already done
 
+### Pass H8 — Holiday exclusion (crude keyword first pass) — shipped 2026-08-28
+`excludeHoliday` boolean added to `Filters` (`src/lib/prefs.ts`), defaulting via a date rule `defaultHolidayExclusion()` — on Jan 8 – Nov 2, off Nov 3 – Jan 7. `applyFilters` (`src/lib/discovery.ts`) drops titles whose title or synopsis matches a standalone `Santa`/`Christmas` word boundary regex. A "Seasonal" group in the expanded Filters & Sort panel (`FilterBar.tsx`) exposes an "Exclude holiday movies" chip with an explanatory line. Ships inside the same build that renamed the roadmap to `.lovable/roadmap.md` and filed G6 + U1–U6.
+
 ### Apply-filters button — shipped 2026-08-28
 `FilterBar` now edits a local draft of the filter object; runtime slider, era range, genre/vibe chips, sort, rating ladder, service badges and all toggles write to the draft only. One `setFilters` call commits on **Apply filters** (labelled with the pending-change count), **Cancel** restores the applied values, **Reset** loads app defaults into the draft, and a small coral dot on the panel heading marks unapplied changes. The sheet's primary button applies and closes. Result counts continue to describe applied filters; the Movies text search stays live. Sliders are smooth with movies on screen because nothing re-ranks mid-drag. Follow-up: Pass D4.
 
