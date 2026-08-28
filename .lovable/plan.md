@@ -18,17 +18,17 @@ Move `.lovable/plan/current-consolidated-roadmap.md` to `.lovable/roadmap.md`, a
 
 ## 4. Backlog only — matcher improvement passes
 
-Each filed as its own pass so they can be built independently.
+Each filed as its own pass so they can be built independently. Numbered **U1–U6** (the "U" group is unused in the roadmap; the X-series is already taken by leaving-soon streaming windows).
 
-- **Pass X1 — Review-state model — M (~3-5 credits).** Explicit per-episode completeness state and per-link review state (unreviewed / reviewed-correct / reviewed-wrong / resolved-not-a-movie), replacing the current inference from link presence. Foundation for the rest; supersedes the informal notes in `.lovable/notes/episode-match-rejection-flow.md`.
-- **Pass X2 — Multi-movie episode editor — M (~3-5 credits).** Edit several movies per episode with primary-subject vs mentioned-in-passing roles; handles double features, trilogies and franchise retrospectives. Depends on X1.
-- **Pass X3 — Curated blocklist / allowlist — S (~1-2 credits).** Admin-maintained lists of high-noise titles and ad/promo phrases the extractor must skip or always trust, replacing hardcoded keyword rules in the matcher.
-- **Pass X4 — Per-podcast matcher tuning — M (~3-5 credits).** Per-show matcher profile (clean "Title (Year)" formats vs joke/chatter titles) that adjusts extraction strictness and confidence thresholds per podcast.
-- **Pass X5 — Training / evaluation dashboard — L (~6-10 credits).** Turns scorecard output into concrete recommended rule/weight changes with before/after precision and recall, so rule edits are measured rather than guessed. Depends on X1 for clean labels.
-- **Pass X6 — Guarded low-confidence cleanup and rerun — M (~3-5 credits).** Maintenance action that previews (dry-run) which low-confidence auto links would be cleared, then reruns the current engine over them; never touches manual, confirmed or rejected pairs, and reports a diff.
+- **Pass U1 — Review-state model — M (~3-5 credits).** Explicit per-episode completeness state and per-link review state (unreviewed / reviewed-correct / reviewed-wrong / resolved-not-a-movie), replacing the current inference from link presence. Foundation for the rest; supersedes the informal notes in `.lovable/notes/episode-match-rejection-flow.md`.
+- **Pass U2 — Multi-movie episode editor — M (~3-5 credits).** Edit several movies per episode with primary-subject vs mentioned-in-passing roles; handles double features, trilogies and franchise retrospectives. Depends on U1.
+- **Pass U3 — Curated blocklist / allowlist — S (~1-2 credits).** Admin-maintained lists of high-noise titles and ad/promo phrases the extractor must skip or always trust, replacing hardcoded keyword rules in the matcher.
+- **Pass U4 — Per-podcast matcher tuning — M (~3-5 credits).** Per-show matcher profile (clean "Title (Year)" formats vs joke/chatter titles) that adjusts extraction strictness and confidence thresholds per podcast.
+- **Pass U5 — Training / evaluation dashboard — L (~6-10 credits).** Turns scorecard output into concrete recommended rule/weight changes with before/after precision and recall, so rule edits are measured rather than guessed. Depends on U1 for clean labels.
+- **Pass U6 — Guarded low-confidence cleanup and rerun — M (~3-5 credits).** Maintenance action that previews (dry-run) which low-confidence auto links would be cleared, then reruns the current engine over them; never touches manual, confirmed or rejected pairs, and reports a diff.
 
 ## Technical notes
 
 - H8 keeps everything in existing files: `prefs.ts` (flag + date-based default), `discovery.ts` (keyword filter inside `applyFilters`), `FilterBar.tsx` (draft toggle). No schema change, no server work.
 - The date-based default is computed client-side from the local date; it only chooses the initial value, so an explicit user choice is never overwritten.
-- G6 and the X-series are filed to the roadmap only; nothing in them is implemented in this pass.
+- G6 and the U-series are filed to the roadmap only; nothing in them is implemented in this pass.
