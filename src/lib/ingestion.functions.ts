@@ -922,12 +922,12 @@ export const listIngestionStats = createServerFn({ method: "GET" })
         .eq("curation_status", "parked"),
       supabaseAdmin.from("podcast_episodes").select("*", { count: "exact", head: true }),
       supabaseAdmin.from("episode_movies").select("*", { count: "exact", head: true }),
-      // Same band the "Existing links" review tab defaults to.
+      // Explicit state, not an inferred confidence band: anything not confirmed
+      // is still review work.
       supabaseAdmin
         .from("episode_movies")
         .select("*", { count: "exact", head: true })
-        .neq("match_method", "manual")
-        .lte("match_confidence", 0.95),
+        .neq("review_state", "confirmed"),
       supabaseAdmin
         .from("episode_link_flags")
         .select("*", { count: "exact", head: true })
@@ -1192,6 +1192,7 @@ export const resolveEpisodesToMovies = createServerFn({ method: "POST" })
               match_method: match.confidence >= 85 ? "deterministic" : "heuristic",
               match_confidence: Math.min(1, match.confidence / 100),
               is_primary_subject: true,
+              review_state: match.confidence >= 85 ? "auto_linked" : "proposed",
             },
             { onConflict: "episode_id, movie_id" },
           );
@@ -1323,6 +1324,7 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
           match_method: candidate.confidence >= 80 ? "deterministic" : "heuristic",
           match_confidence: candidate.confidence / 100,
           is_primary_subject: isPrimary,
+          review_state: candidate.confidence >= 80 ? "auto_linked" : "proposed",
           signals: { ...candidate.signals } as Database["public"]["Tables"]["episode_movies"]["Row"]["signals"],
         },
         { onConflict: "episode_id, movie_id" },
@@ -1548,6 +1550,9 @@ export const relinkEpisodeMovie = createServerFn({ method: "POST" })
           match_method: "manual",
           match_confidence: 1.0,
           is_primary_subject: true,
+          review_state: "confirmed",
+          reviewed_at: new Date().toISOString(),
+          reviewed_by: context.userId,
         },
         { onConflict: "episode_id, movie_id" },
       );
@@ -1602,6 +1607,7 @@ export const listEpisodeLinks = createServerFn({ method: "POST" })
       movie_id: string;
       match_method: string;
       match_confidence: number;
+      review_state: "proposed" | "auto_linked" | "confirmed";
       podcast_episodes: {
         title: string;
         released_at: string | null;
@@ -1622,7 +1628,7 @@ export const listEpisodeLinks = createServerFn({ method: "POST" })
       let q = supabaseAdmin
         .from("episode_movies")
         .select(
-          "episode_id, movie_id, match_method, match_confidence, podcast_episodes!inner(title, released_at, podcast_id, disposition, podcasts!inner(id, name, curation_status)), movies!inner(id, title, release_year, slug)",
+          "episode_id, movie_id, match_method, match_confidence, review_state, podcast_episodes!inner(title, released_at, podcast_id, disposition, podcasts!inner(id, name, curation_status)), movies!inner(id, title, release_year, slug)",
         )
         .lte("match_confidence", data.maxConfidence)
         // Retired episodes are settled — they must not reappear as review work.
@@ -1703,6 +1709,7 @@ export const listEpisodeLinks = createServerFn({ method: "POST" })
         movieYear: r.movies.release_year,
         movieSlug: r.movies.slug,
         method: r.match_method,
+        reviewState: r.review_state,
         confidence: Number(r.match_confidence),
       })),
     };
@@ -1731,6 +1738,9 @@ export const confirmEpisodeMatch = createServerFn({ method: "POST" })
         match_method: "manual",
         match_confidence: 1.0,
         is_primary_subject: true,
+        review_state: "confirmed",
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: context.userId,
       },
       { onConflict: "episode_id, movie_id" },
     );
