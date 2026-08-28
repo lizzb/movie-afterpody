@@ -75,6 +75,9 @@ Context: the mobile header theme toggle was removed on 2026-08-27 (shipped); the
 - **G5b — Top-level settings placement (S).** Guarantee the manual theme control is visible without scrolling on Setup (currently in the page header) — verify on 390px, and move it into the App settings block if that reads better.
 - **G5c — Desktop mode kept separate (S, NEEDS DESIGN).** Any desktop/mobile view switch is a layout fallback utility, not a display theme, and must never share a control group with light/dark. Needs a decision on whether it exists at all, given browsers already offer "Request desktop site".
 
+### Pass U1 — Explicit review-state model — SHIPPED 2026-08-28
+`episode_movies` gained a `review_state` enum (`proposed` / `auto_linked` / `confirmed`) plus `reviewed_at` / `reviewed_by`, so review status is stored rather than inferred from a confidence band. Backfill: only hand-made/`manual` links are confirmed; strong automatic links are `auto_linked`; the rest `proposed`. The resolve and rescan writers stamp `auto_linked` at/above their strong threshold and `proposed` below it; approve, confirm and relink stamp `confirmed` with a timestamp and admin id. The "Existing links" queue and the "Links awaiting review" stat now filter on `review_state <> confirmed` instead of `match_method`/confidence, review rows show the state label, and per-show coverage reports `reviewed` / `awaiting review` with an "All episodes reviewed" line so a show can be proved complete. Rejections and retirement remain the existing rejection table + episode disposition.
+
 ### Pass G6 — Restore desktop trackpad scrolling — SHIPPED 2026-08-28
 Pass G2's `.layout-locked` hardening is now scoped to touch-primary viewports: only `overflow-x: hidden` applies everywhere, while `overscroll-behavior: none`, `touch-action: pan-y` and `max-width: 100vw` sit behind `@media (pointer: coarse)` in `src/styles.css`. `useViewportLock` in `AppShell.tsx` skips the non-passive `touchmove`/`gesturestart`/`gesturechange` blockers and the `maximum-scale=1, user-scalable=no` viewport rewrite unless `matchMedia("(pointer: coarse)")` matches. Verified at 1280x900: `touch-action: auto`, `overscroll-behavior: auto`, wheel scroll moves the page to its full extent, and `scrollWidth === clientWidth` (no horizontal overflow).
 
@@ -82,7 +85,6 @@ Pass G2's `.layout-locked` hardening is now scoped to touch-primary viewports: o
 
 ### Matcher refinement backlog (approved 2026-08-28, not scheduled)
 
-- **Pass U1 — Explicit review-state model — M (~3-5 credits).** A stronger per-episode / per-link review-state model (unreviewed / proposed / auto-linked / confirmed / rejected / retired) replacing implicit state derived from tables today, so "everything reviewed" is provable per show.
 - **Pass U2 — Multi-movie episode editor — L (~6-10 credits).** Handle double features, trilogies, franchises and "covered in passing" vs "primary subject" by letting one episode link to multiple movies with a coverage role; UI to add/remove/reorder links per episode.
 - **Pass U3 — Curated blocklist/allowlist — M (~3-5 credits).** Admin-managed high-noise phrase lists (ad/promo/joke titles) and per-title allowlist overrides feeding the matcher's keyword suppression.
 - **Pass U4 — Per-podcast matcher tuning — M (~3-5 credits).** Show-level tuning because some feeds use clean title formats while others use joke/chatter titles; per-show overrides for strictness and parsing.

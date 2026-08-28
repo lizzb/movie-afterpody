@@ -150,7 +150,7 @@ function IngestPage() {
             <Stat label="Parked shows" value={stats.data.parkedPodcasts} href="#coverage" />
             <Stat label="Episodes" value={stats.data.episodes} href="#coverage" />
             <Stat label="Flagged as wrong" value={stats.data.flagged} href="#match-review" />
-            <Stat label="Links to review" value={stats.data.linksToReview} href="#match-review" />
+            <Stat label="Links awaiting review" value={stats.data.linksToReview} href="#match-review" />
             <Stat label="Episode → movie links" value={stats.data.links} href="#match-review" />
             <Stat
               label="Unmatched episodes"
@@ -1140,6 +1140,11 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
           </p>
           <p className="text-xs text-muted-foreground">
             {p.linked} linked · {p.unmatched} unmatched · {p.retired} not about a movie
+          </p>
+          <p className={`text-xs ${p.fullyReviewed ? "text-teal" : "text-muted-foreground"}`}>
+            {p.fullyReviewed
+              ? "All episodes reviewed"
+              : `${p.reviewed} reviewed · ${p.awaitingReview} awaiting review`}
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
