@@ -31,7 +31,6 @@ The D/O/T5/G/H/Y repair pass is verified and closed (see "Already done"). The re
 - **Pass D2 — Slider treatment and touch responsiveness — M (~3-5 credits) — NEEDS DESIGN.** Options: thick rail with floating handles (32px handle, 48px hit area); inset rail with high-contrast grab knobs and larger touch rings; stepper-assisted slider with minus/plus; compact numeric value chips beside labels plus a larger grab zone. Build must fix drag responsiveness, not just visuals.
 
 #### Ratings and audience controls — Priority 3
-- **Pass Y2 — Rating minimum + maximum range — M (~3-5 credits) — NEEDS DESIGN.** Options: dual-handle rating ladder TV-Y → NC-17 with highlighted allowed band; segmented rating band with allowed steps filled; two compact Minimum/Maximum chip pickers.
 - **Pass Y3 — Audience-focus tuning — S (~1-2 credits).** Kids/family-heavy suggestions via ratings plus genre signals; scope confirmed only after Y2 ships.
 
 #### Not interested and iconography — Priority 3b
@@ -158,6 +157,9 @@ Expand from movies-only to both `movie` and `tv` catalog items using the existin
 Verified in the 2026-08-26 review at base level: iOS/PWA safe-area top bar, corrected page header labels, Tonight controls split from the Movies variant, slider fill and enlarged touch targets, Tonight defaulting to "Unwatched", watchlist/watched controls with named snackbars, visible and consistent dim-watched styling, navigable Setup podcast rows, and T5 show-curation search/filter/sort verified rather than rebuilt. Remaining refinements were re-filed as discrete passes (H2–H9, D2, D3, E2, E3, O2, O3, Y2, Y3, G3, G4, T6, T7, J3) rather than kept inside this pass.
 
 
+
+### Pass Y2 — Rating minimum + maximum range — shipped 2026-08-29
+Filters now carry `minRating` alongside `maxRating`. One dual-handle slider (`RatingRange`) spans the normalised ladder TV-Y → NC-17 with the allowed band filled, ladder tick labels highlighted inside the band, and a readable "PG – R" summary. "Any rating" resets the band; "Include unrated (NR)" stays a separate opt-in. `applyFilters` excludes titles below the floor as well as above the ceiling.
 
 ### Pass W — Franchise and sequel disambiguation — shipped 2026-08-25
 `matching.server.ts` gained a franchise post-pass plus three new signals (`episodeCoverage`, `distinguisherPenalty`, `familySuppressed`): sequel markers in the episode title (II/III, digits, "return", "part", "chapter", "revenge") penalise a candidate that lacks them; within a title-stem family a sibling carrying the marker suppresses any title whose words are a subset of it; the longest fully-covered title wins, and an exact hit settles the family outright; symmetric coverage docks candidates that account for little of what the episode names; and candidates sharing a TMDB collection collapse to the best-scoring one. `collection_id` added to `movies` (indexed), read from `belongs_to_collection` in the enrich, add-movie and availability passes (availability never overwrites a known id with null) and selected into every candidate query. `matcher-eval.server.ts` reports lift for the three new signals, so before/after runs of "Score the matcher" compare directly.

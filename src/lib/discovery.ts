@@ -193,7 +193,8 @@ export function applyFilters(
       const rank = ratingRank(e.movie.certification);
       if (rank === null) {
         if (!filters.allowUnrated) return false;
-      } else if (rank > filters.maxRating) return false;
+      } else if (rank > filters.maxRating || rank < filters.minRating) return false;
+
       return true;
     })
     .sort(

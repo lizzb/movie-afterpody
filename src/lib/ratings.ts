@@ -17,6 +17,15 @@ export const RATING_LADDER = [
 /** Highest rank in the ladder — the "allow everything" setting. */
 export const RATING_MAX = 7;
 
+/** Lowest rank in the ladder. */
+export const RATING_MIN = 1;
+
+/** Label for a ladder rank, e.g. 5 -> "PG-13". */
+export function labelForRank(rank: number): string {
+  return RATING_LADDER.find((s) => s.rank === rank)?.label ?? "";
+}
+
+
 const RANK_BY_CODE = new Map<string, number>();
 for (const step of RATING_LADDER) {
   for (const code of step.codes) RANK_BY_CODE.set(code.toUpperCase(), step.rank);
