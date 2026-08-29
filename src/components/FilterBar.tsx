@@ -433,26 +433,22 @@ export function FilterBar({
 
             <div className="mt-5">
               <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                Highest rating allowed
+                Ratings allowed
               </p>
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {RATING_LADDER.map((step) => (
-                  <Chip
-                    key={step.label}
-                    active={draft.maxRating === step.rank}
-                    onClick={() => patch({ maxRating: step.rank })}
-                  >
-                    {step.label}
-                  </Chip>
-                ))}
-                <Chip
-                  active={draft.maxRating >= RATING_MAX}
-                  onClick={() => patch({ maxRating: RATING_MAX })}
-                >
-                  Any
-                </Chip>
+              <div className="mt-1">
+                <RatingRange
+                  min={draft.minRating}
+                  max={draft.maxRating}
+                  onChange={({ min, max }) => patch({ minRating: min, maxRating: max })}
+                />
               </div>
-              <div className="mt-2">
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                <Chip
+                  active={draft.minRating <= RATING_MIN && draft.maxRating >= RATING_MAX}
+                  onClick={() => patch({ minRating: RATING_MIN, maxRating: RATING_MAX })}
+                >
+                  Any rating
+                </Chip>
                 <Chip
                   active={draft.allowUnrated}
                   onClick={() => patch({ allowUnrated: !draft.allowUnrated })}
@@ -461,10 +457,11 @@ export function FilterBar({
                 </Chip>
               </div>
               <p className="mt-2 text-[11px] text-muted-foreground">
-                Movie and TV ratings share one ladder. Unrated titles are only included when this is
-                on.
+                Movie and TV ratings share one ladder. Only titles inside the band are shown; unrated
+                titles are included only when that chip is on.
               </p>
             </div>
+
 
             {visibleServices.length > 0 ? (
               <div className="mt-5">
