@@ -32,8 +32,11 @@ export interface Filters {
   hideWatched: boolean;
   commentaryOnly: boolean;
   preferredOnly: boolean;
+  /** Ladder rank floor (see lib/ratings). RATING_MIN allows everything. */
+  minRating: number;
   /** Ladder rank ceiling (see lib/ratings). RATING_MAX allows everything. */
   maxRating: number;
+
   /** Unrated titles are opt-in, never silently in or out. */
   allowUnrated: boolean;
   /** Hide anything marked "Not interested" (always excluded from Tonight). */
