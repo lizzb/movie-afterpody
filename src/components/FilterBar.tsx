@@ -11,7 +11,9 @@ import {
   type Filters,
   type SortKey,
 } from "@/lib/prefs";
-import { RATING_LADDER, RATING_MAX } from "@/lib/ratings";
+import { RATING_MAX, RATING_MIN } from "@/lib/ratings";
+import { RatingRange } from "@/components/RatingRange";
+
 import type { Genre, StreamingService } from "@/lib/types";
 
 interface Props {
