@@ -180,7 +180,9 @@ filters: {
     hideWatched: true,
     commentaryOnly: true,
     preferredOnly: false,
+    minRating: 1,
     maxRating: 7,
+
     allowUnrated: true,
     hideNotInterested: true,
     excludeHoliday: defaultHolidayExclusion(),
