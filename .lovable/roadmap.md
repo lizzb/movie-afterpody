@@ -94,7 +94,6 @@ Pass G2's `.layout-locked` hardening is now scoped to touch-primary viewports: o
 
 Full detail and the "what exists vs. what does not" analysis: `.lovable/plan/review-state-visibility-match-review-reliability-admin-actio-2026-08-30.md`.
 
-- **Pass U7 — Make review progress visible — M (~3-5 credits) — Priority 1.** Confirmed-links count tile beside "Links awaiting review", awaiting-review split into active vs parked shows, and a Review state filter on Existing links (Unconfirmed / Auto-linked / Proposed / Confirmed / All) — today `listEpisodeLinks` excludes confirmed rows, so confirmed work is invisible.
 - **Pass U8 — Episode-level "review complete" — L (~6-10 credits) — Priority 2.** Per-episode review record (episode, reviewed_at, reviewed_by, feed sync generation), Mark reviewed / Reopen per row plus bulk, auto-reopen on new proposal/flag/link removal, coverage reads `Reviewed X of Y episodes as of sync D`. One migration.
 - **Pass U9 — Learning evidence over time — M (~3-5 credits) — Priority 3.** Persist each Score the matcher run and show current vs previous with deltas and a short history. One migration.
 - **Pass U10 — Match review empty-state and pagination honesty — S (~1-2 credits) — Priority 1.** Auto-load the next page (page size = dropdown) when every visible row is decided but the unfiltered total is larger; empty-state copy distinguishes page exhausted / queue clear / no search match / filtered out.
@@ -163,6 +162,9 @@ Expand from movies-only to both `movie` and `tv` catalog items using the existin
 ---
 
 # Already done
+
+### Pass U7 — Make review progress visible — shipped 2026-08-30
+`listIngestionStats` now returns `linksConfirmed` plus `linksToReviewActive` / `linksToReviewParked` (counted through the show's `curation_status`), so `/admin/ingest` shows a **Confirmed links** tile ("of N total links") and the awaiting-review tile reads "A active · B parked". `listEpisodeLinks` takes a `reviewState` filter (`unconfirmed` default, `proposed`, `auto_linked`, `confirmed`, `all`) instead of hard-excluding confirmed rows, and the Existing links tab has a **Review state** dropdown so confirmed work is inspectable; the empty state distinguishes "queue clear" from "no links in this state". Coverage rows label each show active or parked alongside its reviewed/awaiting counts. Follow-ups: U8 (episode-level review complete), U9 (learning evidence), U10–U13 (reliability).
 
 ### Pass H8 — Holiday exclusion (crude keyword first pass) — shipped 2026-08-28
 `excludeHoliday` boolean added to `Filters` (`src/lib/prefs.ts`), defaulting via a date rule `defaultHolidayExclusion()` — on Jan 8 – Nov 2, off Nov 3 – Jan 7. `applyFilters` (`src/lib/discovery.ts`) drops titles whose title or synopsis matches a standalone `Santa`/`Christmas` word boundary regex. A "Seasonal" group in the expanded Filters & Sort panel (`FilterBar.tsx`) exposes an "Exclude holiday movies" chip with an explanatory line. Ships inside the same build that renamed the roadmap to `.lovable/roadmap.md` and filed G6 + U1–U6.
