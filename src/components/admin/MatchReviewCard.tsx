@@ -435,6 +435,25 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
             ))}
           </select>
         ) : null}
+        {tab === "existing" ? (
+          <select
+            value={reviewState}
+            onChange={(e) => {
+              setReviewState(e.target.value as ReviewStateFilter);
+              setSelected({});
+              setDone({});
+            }}
+            aria-label="Review state"
+            className="rounded-full border border-border bg-background px-3 py-2 text-sm"
+          >
+            {REVIEW_STATES.map((s) => (
+              <option key={s.value} value={s.value}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+        ) : null}
+
         <select
           value={pageSize}
           onChange={(e) => setPageSize(Number(e.target.value))}
