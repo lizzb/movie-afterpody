@@ -277,6 +277,16 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
     });
   };
 
+  /** Pass U12: a row the server could not change must come back into view. */
+  const unmarkDone = (keys: string[]) => {
+    if (keys.length === 0) return;
+    setDone((prev) => {
+      const next = { ...prev };
+      for (const k of keys) delete next[k];
+      return next;
+    });
+  };
+
   const single = useMutation({
     mutationFn: async (vars: {
       action: "approve" | "reject" | "confirm" | "unlink" | "retire";
