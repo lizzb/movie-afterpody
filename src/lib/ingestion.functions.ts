@@ -1476,15 +1476,27 @@ export const listPodcastCoverage = createServerFn({ method: "GET" })
       supabaseAdmin.from("episode_movies").select("episode_id, review_state").range(from, to),
     );
     const linked = new Set(linkRows.map((l) => l.episode_id));
+    /**
+     * Retired episodes ("not about a movie") are settled and are excluded from
+     * every match review queue, so a stale unconfirmed link on one of them must
+     * never be counted as outstanding work — otherwise the coverage line
+     * advertises review work the UI is designed never to show.
+     */
+    const retiredEpisodeIds = new Set(
+      episodes.filter((e) => e.disposition === "not_about_a_movie").map((e) => e.id),
+    );
     // An episode counts as reviewed once every one of its links is confirmed.
     const openByEpisode = new Set(
-      linkRows.filter((l) => l.review_state !== "confirmed").map((l) => l.episode_id),
+      linkRows
+        .filter((l) => l.review_state !== "confirmed" && !retiredEpisodeIds.has(l.episode_id))
+        .map((l) => l.episode_id),
     );
 
     const rows = (podcasts ?? []).map((p) => {
       const own = episodes.filter((e) => e.podcast_id === p.id);
-      const linkedCount = own.filter((e) => linked.has(e.id)).length;
-      const retired = own.filter((e) => !linked.has(e.id) && e.disposition === "not_about_a_movie").length;
+      // Retired episodes count as retired even if a stale link still hangs off them.
+      const retired = own.filter((e) => retiredEpisodeIds.has(e.id)).length;
+      const linkedCount = own.filter((e) => linked.has(e.id) && !retiredEpisodeIds.has(e.id)).length;
       const awaitingReview = own.filter((e) => openByEpisode.has(e.id)).length;
       const reviewed = own.filter(
         (e) => (linked.has(e.id) && !openByEpisode.has(e.id)) || e.disposition === "not_about_a_movie",
