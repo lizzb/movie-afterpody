@@ -447,6 +447,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
           setSubmitted(search.trim());
           setSelected({});
           setDone({});
+          resetOffsets();
         }}
       >
         <label className="relative min-w-48 flex-1">
