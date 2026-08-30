@@ -1630,6 +1630,15 @@ export const listEpisodeLinks = createServerFn({ method: "POST" })
         offset: z.number().int().min(0).default(0),
         /** Parked shows are out of scope by default, matching the Proposed tab. */
         includeParked: z.boolean().default(false),
+        /**
+         * Which review states to show. Default keeps the historical behaviour
+         * (everything still awaiting a decision), but confirmed work is now
+         * inspectable instead of invisible.
+         */
+        reviewState: z
+          .enum(["unconfirmed", "proposed", "auto_linked", "confirmed", "all"])
+          .default("unconfirmed"),
+
       })
       .parse(data),
   )
