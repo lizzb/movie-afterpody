@@ -1494,8 +1494,9 @@ export const listPodcastCoverage = createServerFn({ method: "GET" })
 
     const rows = (podcasts ?? []).map((p) => {
       const own = episodes.filter((e) => e.podcast_id === p.id);
-      const linkedCount = own.filter((e) => linked.has(e.id)).length;
-      const retired = own.filter((e) => !linked.has(e.id) && e.disposition === "not_about_a_movie").length;
+      // Retired episodes count as retired even if a stale link still hangs off them.
+      const retired = own.filter((e) => retiredEpisodeIds.has(e.id)).length;
+      const linkedCount = own.filter((e) => linked.has(e.id) && !retiredEpisodeIds.has(e.id)).length;
       const awaitingReview = own.filter((e) => openByEpisode.has(e.id)).length;
       const reviewed = own.filter(
         (e) => (linked.has(e.id) && !openByEpisode.has(e.id)) || e.disposition === "not_about_a_movie",
