@@ -240,6 +240,20 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
   const queryError = active.error;
   const noun = tab === "flagged" ? "flags" : tab === "proposed" ? "proposals" : "links";
 
+  // Pass U10 — pagination honesty. `rawTotal` is the whole filtered queue, so a
+  // page that has been fully decided is not an empty queue: there are more rows
+  // sitting past this offset. Advance instead of claiming "nothing here".
+  const hasMorePages = rawTotal > offset + pageSize;
+  const pageExhausted = rows.length === 0 && offset > 0 && !hasMorePages;
+
+  useEffect(() => {
+    if (loading || busy || queryError) return;
+    if (rows.length > 0 || !hasMorePages) return;
+    setOffsetFor(tab, offset + pageSize);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows.length, hasMorePages, loading, busy, queryError, tab, offset, pageSize]);
+
+
   /** Background catch-up: the UI has already moved on. */
   const refresh = () => {
     void client.invalidateQueries({ queryKey: ["flagged-links"] });
