@@ -1,6 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Ban, Check, Flag, Loader2, Search, Unlink, X } from "lucide-react";
 import {
   approveEpisodeMatch,
@@ -82,6 +82,17 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
   const [reviewState, setReviewState] = useState<ReviewStateFilter>("unconfirmed");
   // One knob instead of endless refresh cycles: review 50, 100 or 200 at a time.
   const [pageSize, setPageSize] = useState(50);
+  // Pass U10: each tab keeps its own page cursor so a decided page can advance
+  // to the next batch instead of pretending the queue is empty.
+  const [offsets, setOffsets] = useState<Record<Tab, number>>({
+    flagged: 0,
+    proposed: 0,
+    existing: 0,
+  });
+  const offset = offsets[tab];
+  const setOffsetFor = (t: Tab, value: number) =>
+    setOffsets((prev) => (prev[t] === value ? prev : { ...prev, [t]: value }));
+  const resetOffsets = () => setOffsets({ flagged: 0, proposed: 0, existing: 0 });
 
 
   const [selected, setSelected] = useState<Record<string, true>>({});
@@ -103,21 +114,31 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
   // All three run so every tab can show its queue size, and previous data is
   // kept while a new search loads so the badges never flicker to zero.
   const flags = useQuery({
-    queryKey: ["flagged-links", submitted, pageSize],
-    queryFn: () => flagsFn({ data: { search: submitted || undefined, limit: pageSize } }),
+    queryKey: ["flagged-links", submitted, pageSize, offsets.flagged],
+    queryFn: () =>
+      flagsFn({
+        data: { search: submitted || undefined, limit: pageSize, offset: offsets.flagged },
+      }),
     retry: false,
     refetchOnWindowFocus: false,
     placeholderData: keepPreviousData,
   });
 
   const proposals = useQuery({
-    queryKey: ["match-suggestions", submitted, Math.round(maxConfidence * 100), pageSize],
+    queryKey: [
+      "match-suggestions",
+      submitted,
+      Math.round(maxConfidence * 100),
+      pageSize,
+      offsets.proposed,
+    ],
     queryFn: () =>
       suggestFn({
         data: {
           search: submitted || undefined,
           maxConfidence: Math.round(maxConfidence * 100),
           limit: pageSize,
+          offset: offsets.proposed,
         },
       }),
     retry: false,
@@ -126,10 +147,16 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
   });
 
   const links = useQuery({
-    queryKey: ["episode-links", submitted, maxConfidence, pageSize, reviewState],
+    queryKey: ["episode-links", submitted, maxConfidence, pageSize, reviewState, offsets.existing],
     queryFn: () =>
       linksFn({
-        data: { search: submitted || undefined, maxConfidence, limit: pageSize, reviewState },
+        data: {
+          search: submitted || undefined,
+          maxConfidence,
+          limit: pageSize,
+          reviewState,
+          offset: offsets.existing,
+        },
       }),
     retry: false,
     refetchOnWindowFocus: false,
@@ -212,6 +239,20 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
   const busy = active.isFetching;
   const queryError = active.error;
   const noun = tab === "flagged" ? "flags" : tab === "proposed" ? "proposals" : "links";
+
+  // Pass U10 — pagination honesty. `rawTotal` is the whole filtered queue, so a
+  // page that has been fully decided is not an empty queue: there are more rows
+  // sitting past this offset. Advance instead of claiming "nothing here".
+  const hasMorePages = rawTotal > offset + pageSize;
+  const pageExhausted = rows.length === 0 && offset > 0 && !hasMorePages;
+
+  useEffect(() => {
+    if (loading || busy || queryError) return;
+    if (rows.length > 0 || !hasMorePages) return;
+    setOffsetFor(tab, offset + pageSize);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows.length, hasMorePages, loading, busy, queryError, tab, offset, pageSize]);
+
 
   /** Background catch-up: the UI has already moved on. */
   const refresh = () => {
@@ -406,6 +447,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
           setSubmitted(search.trim());
           setSelected({});
           setDone({});
+          resetOffsets();
         }}
       >
         <label className="relative min-w-48 flex-1">
@@ -424,7 +466,10 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
         {tab !== "flagged" ? (
           <select
             value={maxConfidence}
-            onChange={(e) => setMaxConfidence(Number(e.target.value))}
+            onChange={(e) => {
+              setMaxConfidence(Number(e.target.value));
+              resetOffsets();
+            }}
             aria-label="Confidence band"
             className="rounded-full border border-border bg-background px-3 py-2 text-sm"
           >
@@ -442,6 +487,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
               setReviewState(e.target.value as ReviewStateFilter);
               setSelected({});
               setDone({});
+              resetOffsets();
             }}
             aria-label="Review state"
             className="rounded-full border border-border bg-background px-3 py-2 text-sm"
@@ -456,7 +502,10 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
 
         <select
           value={pageSize}
-          onChange={(e) => setPageSize(Number(e.target.value))}
+          onChange={(e) => {
+            setPageSize(Number(e.target.value));
+            resetOffsets();
+          }}
           aria-label="Rows per batch"
           className="rounded-full border border-border bg-background px-3 py-2 text-sm"
         >
@@ -490,24 +539,47 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
       ) : queryError ? (
         <p className="mt-4 text-sm text-destructive">{(queryError as Error).message}</p>
       ) : rows.length === 0 ? (
-        <p className="mt-4 text-sm text-muted-foreground">
-          {/* A search that found nothing is not the same thing as an empty queue. */}
-          {submitted
-            ? `No ${noun} match “${submitted}”. Clear the search to see the rest of the queue.`
-            : tab === "flagged"
-              ? "Nothing flagged as wrong. Flags raised in the app land here."
-              : tab === "proposed"
-                ? `Queue clear — no unconfirmed links at or below ${Math.round(maxConfidence * 100)}% confidence.`
-                : reviewState === "unconfirmed"
-                  ? "Queue clear — every saved link in this band has been reviewed."
-                  : `No links in this band with review state “${REVIEW_STATES.find((s) => s.value === reviewState)?.label}”.`}
-
-        </p>
+        <div className="mt-4 space-y-2">
+          {/* Four different reasons a page can be blank — say which one it is. */}
+          <p className="text-sm text-muted-foreground">
+            {hasMorePages
+              ? `Page decided — loading the next ${pageSize} ${noun}…`
+              : pageExhausted
+                ? `End of the queue — you have worked through all ${rawTotal} ${noun}${submitted ? ` matching “${submitted}”` : ""}.`
+                : submitted
+                  ? `No ${noun} match “${submitted}”. Clear the search to see the rest of the queue.`
+                  : tab === "flagged"
+                    ? "Nothing flagged as wrong. Flags raised in the app land here."
+                    : tab === "proposed"
+                      ? `Queue clear — no unconfirmed links at or below ${Math.round(maxConfidence * 100)}% confidence.`
+                      : reviewState === "unconfirmed"
+                        ? "Queue clear — every saved link in this band has been reviewed."
+                        : `No links in this band with review state “${REVIEW_STATES.find((s) => s.value === reviewState)?.label}”.`}
+          </p>
+          {offset > 0 && !hasMorePages ? (
+            <button
+              type="button"
+              onClick={() => {
+                setDone({});
+                setSelected({});
+                setOffsetFor(tab, 0);
+              }}
+              className="rounded-full border border-border px-3 py-2 text-xs font-semibold hover:bg-secondary"
+            >
+              Back to the start of the queue
+            </button>
+          ) : null}
+        </div>
       ) : (
         <>
           <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               Showing {rows.length} of {total} {noun}
+              {offset > 0 ? (
+                <span className="ml-2 normal-case tracking-normal text-muted-foreground">
+                  (from #{offset + 1})
+                </span>
+              ) : null}
               {busy ? (
                 <span className="ml-2 inline-flex items-center gap-1 normal-case tracking-normal text-teal">
                   <Loader2 className="size-3 animate-spin" aria-hidden />
