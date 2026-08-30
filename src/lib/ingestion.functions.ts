@@ -1676,13 +1676,13 @@ export const listEpisodeLinks = createServerFn({ method: "POST" })
           "episode_id, movie_id, match_method, match_confidence, review_state, podcast_episodes!inner(title, released_at, podcast_id, disposition, podcasts!inner(id, name, curation_status)), movies!inner(id, title, release_year, slug)",
         )
         .lte("match_confidence", data.maxConfidence)
-        // Confirmed links are settled by an explicit review decision.
-        .neq("review_state", "confirmed")
         // Retired episodes are settled — they must not reappear as review work.
         .neq("podcast_episodes.disposition", "not_about_a_movie")
         .order("match_confidence", { ascending: true })
         .order("episode_id", { ascending: true })
         .range(from, to);
+      if (data.reviewState === "unconfirmed") q = q.neq("review_state", "confirmed");
+      else if (data.reviewState !== "all") q = q.eq("review_state", data.reviewState);
       if (data.podcastId) q = q.eq("podcast_episodes.podcast_id", data.podcastId);
       if (!data.includeParked) q = q.eq("podcast_episodes.podcasts.curation_status", "active");
       return q;
@@ -1698,10 +1698,12 @@ export const listEpisodeLinks = createServerFn({ method: "POST" })
           { count: "exact", head: true },
         )
         .lte("match_confidence", data.maxConfidence)
-        .neq("review_state", "confirmed")
         .neq("podcast_episodes.disposition", "not_about_a_movie");
+      if (data.reviewState === "unconfirmed") q = q.neq("review_state", "confirmed");
+      else if (data.reviewState !== "all") q = q.eq("review_state", data.reviewState);
       if (data.podcastId) q = q.eq("podcast_episodes.podcast_id", data.podcastId);
       if (!data.includeParked) q = q.eq("podcast_episodes.podcasts.curation_status", "active");
+
       const { count } = await q;
       return count ?? 0;
     };
