@@ -898,6 +898,16 @@ export const listIngestionStats = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { fetchUnlinkedEpisodes } = await import("./ingestion-helpers.server");
 
+    const awaitingByStatus = (status: "active" | "parked") =>
+      supabaseAdmin
+        .from("episode_movies")
+        .select("episode_id, podcast_episodes!inner(podcasts!inner(curation_status))", {
+          count: "exact",
+          head: true,
+        })
+        .neq("review_state", "confirmed")
+        .eq("podcast_episodes.podcasts.curation_status", status);
+
     const [
       { count: movieCount },
       { count: podcastCount },
@@ -905,6 +915,9 @@ export const listIngestionStats = createServerFn({ method: "GET" })
       { count: episodeCount },
       { count: linkCount },
       { count: reviewLinkCount },
+      { count: confirmedLinkCount },
+      { count: awaitingActiveCount },
+      { count: awaitingParkedCount },
       { count: flaggedCount },
       { count: retiredCount },
       { count: tmdbLinkedCount },
@@ -928,6 +941,13 @@ export const listIngestionStats = createServerFn({ method: "GET" })
         .from("episode_movies")
         .select("*", { count: "exact", head: true })
         .neq("review_state", "confirmed"),
+      // Progress you can watch grow, not just a shrinking backlog.
+      supabaseAdmin
+        .from("episode_movies")
+        .select("*", { count: "exact", head: true })
+        .eq("review_state", "confirmed"),
+      awaitingByStatus("active"),
+      awaitingByStatus("parked"),
       supabaseAdmin
         .from("episode_link_flags")
         .select("*", { count: "exact", head: true })
@@ -952,12 +972,16 @@ export const listIngestionStats = createServerFn({ method: "GET" })
       episodes: episodeCount ?? 0,
       links: linkCount ?? 0,
       linksToReview: reviewLinkCount ?? 0,
+      linksConfirmed: confirmedLinkCount ?? 0,
+      linksToReviewActive: awaitingActiveCount ?? 0,
+      linksToReviewParked: awaitingParkedCount ?? 0,
       flagged: flaggedCount ?? 0,
       retiredEpisodes: retiredCount ?? 0,
       tmdbLinked: tmdbLinkedCount ?? 0,
       unmatchedEpisodes: unlinked.length,
       unmatchedEpisodesAll: unlinkedAll.length,
     };
+
   });
 
 
