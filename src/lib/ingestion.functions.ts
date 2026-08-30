@@ -2169,7 +2169,8 @@ export const listFlaggedLinks = createServerFn({ method: "POST" })
     return {
       total: filtered.length,
       unfilteredTotal: activeRows.length,
-      flags: filtered.slice(0, data.limit).map((r) => ({
+      offset: data.offset,
+      flags: filtered.slice(data.offset, data.offset + data.limit).map((r) => ({
         flagId: r.id,
         episodeId: r.episode_id,
         movieId: r.movie_id,
