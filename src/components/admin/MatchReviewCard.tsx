@@ -1,6 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Ban, Check, Flag, Loader2, Search, Unlink, X } from "lucide-react";
 import {
   approveEpisodeMatch,
@@ -253,6 +253,18 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows.length, hasMorePages, loading, busy, queryError, tab, offset, pageSize]);
 
+  // Pass U12 — stale optimistic state. `done` keys belong to one query scope;
+  // keeping them across a tab/filter/page change hid unrelated rows and skewed
+  // the "Showing X of Y" arithmetic. Drop them whenever the scope changes.
+  const scopeKey = `${tab}|${submitted}|${maxConfidence}|${reviewState}|${pageSize}|${offset}`;
+  const lastScope = useRef(scopeKey);
+  useEffect(() => {
+    if (lastScope.current === scopeKey) return;
+    lastScope.current = scopeKey;
+    setDone({});
+    setSelected({});
+  }, [scopeKey]);
+
 
   /** Background catch-up: the UI has already moved on. */
   const refresh = () => {
@@ -271,6 +283,16 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
       return next;
     });
     setSelected((prev) => {
+      const next = { ...prev };
+      for (const k of keys) delete next[k];
+      return next;
+    });
+  };
+
+  /** Pass U12: a row the server could not change must come back into view. */
+  const unmarkDone = (keys: string[]) => {
+    if (keys.length === 0) return;
+    setDone((prev) => {
       const next = { ...prev };
       for (const k of keys) delete next[k];
       return next;
@@ -322,16 +344,25 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
    * Pairs travel as mutation variables, never read from state inside the
    * handler: clearing the selection optimistically would otherwise leave the
    * request with an empty array (server rejects it as "too_small").
+   *
+   * Pass U12: `keyByPair` maps each pair back to its row key so only pairs the
+   * server actually changed stay hidden — failures reappear with a message
+   * instead of silently returning on the next refresh.
    */
   const bulk = useMutation({
     mutationFn: async (vars: {
       action: "approve" | "reject" | "confirm" | "unlink" | "retire";
       pairs: { episodeId: string; movieId: string }[];
       flagged: { episodeId: string; movieId: string }[];
+      keyByPair: Record<string, string>;
     }) => {
-
       const result = await bulkFn({ data: { action: vars.action, pairs: vars.pairs } });
+      const okPairs = new Set(
+        result.results.filter((r) => r.ok).map((r) => `${r.episodeId}:${r.movieId}`),
+      );
+      // Only clear flags for pairs whose decision actually landed.
       for (const pair of vars.flagged) {
+        if (!okPairs.has(`${pair.episodeId}:${pair.movieId}`)) continue;
         await resolveFlagsFn({
           data: {
             episodeId: pair.episodeId,
@@ -342,14 +373,27 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
       }
       return result;
     },
-    onSuccess: (result) => {
-      setError(null);
+    onSuccess: (result, vars) => {
+      const failedKeys = result.results
+        .filter((r) => !r.ok)
+        .map((r) => vars.keyByPair[`${r.episodeId}:${r.movieId}`])
+        .filter((k): k is string => Boolean(k));
+      unmarkDone(failedKeys);
+      setError(
+        failedKeys.length
+          ? `${failedKeys.length} row(s) could not be changed and are still listed: ${result.failed[0] ?? "unknown error"}`
+          : null,
+      );
       setNote(
-        `${result.succeeded} of ${result.attempted} applied${result.failed.length ? ` · ${result.failed.length} failed` : ""}.`,
+        `${result.succeeded} of ${result.attempted} applied${failedKeys.length ? ` · ${failedKeys.length} failed` : ""}.`,
       );
       refresh();
     },
-    onError: (e: Error) => setError(e.message),
+    onError: (e: Error, vars) => {
+      // The whole request failed — nothing changed, so put every row back.
+      unmarkDone(Object.values(vars.keyByPair));
+      setError(e.message);
+    },
   });
 
   const selectedCount = Object.keys(selected).length;
@@ -390,8 +434,11 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
     const flagged = chosen
       .filter((r) => r.flagged)
       .map((r) => ({ episodeId: r.episodeId, movieId: r.movieId }));
+    // Pair -> row key, so per-pair server outcomes can be applied to the list.
+    const keyByPair: Record<string, string> = {};
+    for (const r of chosen) keyByPair[`${r.episodeId}:${r.movieId}`] = r.key;
     markDone(chosen.map((r) => r.key));
-    bulk.mutate({ action, pairs, flagged });
+    bulk.mutate({ action, pairs, flagged, keyByPair });
   };
 
   return (

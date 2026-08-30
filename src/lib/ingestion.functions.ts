@@ -1872,7 +1872,14 @@ const BulkDecisionInput = z.object({
 });
 
 
-/** One request, many decisions — a failure on one row never aborts the batch. */
+/**
+ * One request, many decisions — a failure on one row never aborts the batch.
+ *
+ * Pass U12: every pair reports its own outcome, and each outcome is *verified*
+ * against the database afterwards (link actually gone for unlink/reject, link
+ * actually confirmed for approve/confirm). The client only hides rows the
+ * server says really changed, so nothing can "vanish then come back".
+ */
 export const bulkMatchDecision = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data) => BulkDecisionInput.parse(data))
@@ -1880,8 +1887,13 @@ export const bulkMatchDecision = createServerFn({ method: "POST" })
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    let succeeded = 0;
-    const failed: string[] = [];
+    const results: {
+      episodeId: string;
+      movieId: string;
+      ok: boolean;
+      /** Set when ok is false — shown to the admin instead of a silent no-op. */
+      error?: string;
+    }[] = [];
 
     for (const pair of data.pairs) {
       try {
@@ -1895,7 +1907,13 @@ export const bulkMatchDecision = createServerFn({ method: "POST" })
         if (data.action === "retire") {
           // Retiring covers the whole episode: links removed, rejections recorded.
           await retireEpisode(supabaseAdmin, context.userId, pair.episodeId);
-          succeeded += 1;
+          const { data: stillLinked } = await supabaseAdmin
+            .from("episode_movies")
+            .select("movie_id")
+            .eq("episode_id", pair.episodeId)
+            .limit(1);
+          if ((stillLinked ?? []).length > 0) throw new Error("links remained after retire");
+          results.push({ ...pair, ok: true });
           continue;
         }
 
@@ -1907,10 +1925,22 @@ export const bulkMatchDecision = createServerFn({ method: "POST" })
               match_method: "manual",
               match_confidence: data.action === "confirm" ? 1.0 : 0.95,
               is_primary_subject: true,
+              // Without this the link stayed "auto_linked" and reappeared in the
+              // unconfirmed queue on the next refresh.
+              review_state: "confirmed",
+              reviewed_at: new Date().toISOString(),
+              reviewed_by: context.userId,
             },
             { onConflict: "episode_id, movie_id" },
           );
           if (error) throw error;
+          const { data: check } = await supabaseAdmin
+            .from("episode_movies")
+            .select("review_state")
+            .eq("episode_id", pair.episodeId)
+            .eq("movie_id", pair.movieId)
+            .maybeSingle();
+          if (check?.review_state !== "confirmed") throw new Error("link did not persist as confirmed");
           await supabaseAdmin
             .from("episode_match_rejections")
             .delete()
@@ -1922,12 +1952,26 @@ export const bulkMatchDecision = createServerFn({ method: "POST" })
             .eq("id", pair.episodeId);
           await resolveOpenFlags(supabaseAdmin, pair.episodeId, pair.movieId, "dismissed");
         } else {
-          const { error } = await supabaseAdmin
+          // `.select()` makes the delete report the rows it actually removed —
+          // a bare delete returns no error even when it matched nothing.
+          const { data: removed, error } = await supabaseAdmin
             .from("episode_movies")
             .delete()
             .eq("episode_id", pair.episodeId)
-            .eq("movie_id", pair.movieId);
+            .eq("movie_id", pair.movieId)
+            .select("episode_id");
           if (error) throw error;
+          if ((removed ?? []).length === 0) {
+            // Nothing deleted: only acceptable if the link is genuinely absent
+            // (someone else already removed it). Otherwise it is a real failure.
+            const { data: stillThere } = await supabaseAdmin
+              .from("episode_movies")
+              .select("episode_id")
+              .eq("episode_id", pair.episodeId)
+              .eq("movie_id", pair.movieId)
+              .maybeSingle();
+            if (stillThere) throw new Error("link could not be removed");
+          }
           const { error: rejError } = await supabaseAdmin.from("episode_match_rejections").upsert(
             { episode_id: pair.episodeId, movie_id: pair.movieId, rejected_by: context.userId },
             { onConflict: "episode_id, movie_id" },
@@ -1943,14 +1987,20 @@ export const bulkMatchDecision = createServerFn({ method: "POST" })
           previousMethod: existing?.match_method ?? null,
           previousConfidence: existing ? Number(existing.match_confidence) : null,
         });
-        succeeded += 1;
-
+        results.push({ ...pair, ok: true });
       } catch (e) {
-        failed.push(e instanceof Error ? e.message : "unknown error");
+        results.push({ ...pair, ok: false, error: e instanceof Error ? e.message : "unknown error" });
       }
     }
 
-    return { attempted: data.pairs.length, succeeded, failed: failed.slice(0, 10) };
+    const failures = results.filter((r) => !r.ok);
+    return {
+      attempted: data.pairs.length,
+      succeeded: results.length - failures.length,
+      /** Per-pair truth: the client hides only the pairs marked ok. */
+      results,
+      failed: failures.slice(0, 10).map((r) => r.error ?? "unknown error"),
+    };
   });
 
 /** Recent match decisions, newest first, so a misclick can be undone. */
