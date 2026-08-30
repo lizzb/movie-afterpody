@@ -66,8 +66,12 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
   const [search, setSearch] = useState("");
   const [submitted, setSubmitted] = useState("");
   const [maxConfidence, setMaxConfidence] = useState<number>(0.8);
+  // Confirmed work is inspectable, not invisible: this filter drives the
+  // Existing links tab's review-state scope.
+  const [reviewState, setReviewState] = useState<ReviewStateFilter>("unconfirmed");
   // One knob instead of endless refresh cycles: review 50, 100 or 200 at a time.
   const [pageSize, setPageSize] = useState(50);
+
 
   const [selected, setSelected] = useState<Record<string, true>>({});
   const [done, setDone] = useState<Record<string, true>>({});
