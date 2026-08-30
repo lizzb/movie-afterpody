@@ -111,13 +111,16 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
   });
 
   const links = useQuery({
-    queryKey: ["episode-links", submitted, maxConfidence, pageSize],
+    queryKey: ["episode-links", submitted, maxConfidence, pageSize, reviewState],
     queryFn: () =>
-      linksFn({ data: { search: submitted || undefined, maxConfidence, limit: pageSize } }),
+      linksFn({
+        data: { search: submitted || undefined, maxConfidence, limit: pageSize, reviewState },
+      }),
     retry: false,
     refetchOnWindowFocus: false,
     placeholderData: keepPreviousData,
   });
+
 
 
 
