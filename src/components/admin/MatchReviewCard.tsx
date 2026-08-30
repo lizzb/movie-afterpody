@@ -575,6 +575,11 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
           <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
               Showing {rows.length} of {total} {noun}
+              {offset > 0 ? (
+                <span className="ml-2 normal-case tracking-normal text-muted-foreground">
+                  (from #{offset + 1})
+                </span>
+              ) : null}
               {busy ? (
                 <span className="ml-2 inline-flex items-center gap-1 normal-case tracking-normal text-teal">
                   <Loader2 className="size-3 animate-spin" aria-hidden />
