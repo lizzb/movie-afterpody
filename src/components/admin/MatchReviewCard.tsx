@@ -466,7 +466,10 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
         {tab !== "flagged" ? (
           <select
             value={maxConfidence}
-            onChange={(e) => setMaxConfidence(Number(e.target.value))}
+            onChange={(e) => {
+              setMaxConfidence(Number(e.target.value));
+              resetOffsets();
+            }}
             aria-label="Confidence band"
             className="rounded-full border border-border bg-background px-3 py-2 text-sm"
           >
