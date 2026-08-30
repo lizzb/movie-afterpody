@@ -253,6 +253,18 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows.length, hasMorePages, loading, busy, queryError, tab, offset, pageSize]);
 
+  // Pass U12 — stale optimistic state. `done` keys belong to one query scope;
+  // keeping them across a tab/filter/page change hid unrelated rows and skewed
+  // the "Showing X of Y" arithmetic. Drop them whenever the scope changes.
+  const scopeKey = `${tab}|${submitted}|${maxConfidence}|${reviewState}|${pageSize}|${offset}`;
+  const lastScope = useRef(scopeKey);
+  useEffect(() => {
+    if (lastScope.current === scopeKey) return;
+    lastScope.current = scopeKey;
+    setDone({});
+    setSelected({});
+  }, [scopeKey]);
+
 
   /** Background catch-up: the UI has already moved on. */
   const refresh = () => {
