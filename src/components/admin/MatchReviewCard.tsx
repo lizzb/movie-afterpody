@@ -487,6 +487,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
               setReviewState(e.target.value as ReviewStateFilter);
               setSelected({});
               setDone({});
+              resetOffsets();
             }}
             aria-label="Review state"
             className="rounded-full border border-border bg-background px-3 py-2 text-sm"
@@ -501,7 +502,10 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
 
         <select
           value={pageSize}
-          onChange={(e) => setPageSize(Number(e.target.value))}
+          onChange={(e) => {
+            setPageSize(Number(e.target.value));
+            resetOffsets();
+          }}
           aria-label="Rows per batch"
           className="rounded-full border border-border bg-background px-3 py-2 text-sm"
         >
