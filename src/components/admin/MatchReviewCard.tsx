@@ -422,8 +422,11 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
     const flagged = chosen
       .filter((r) => r.flagged)
       .map((r) => ({ episodeId: r.episodeId, movieId: r.movieId }));
+    // Pair -> row key, so per-pair server outcomes can be applied to the list.
+    const keyByPair: Record<string, string> = {};
+    for (const r of chosen) keyByPair[`${r.episodeId}:${r.movieId}`] = r.key;
     markDone(chosen.map((r) => r.key));
-    bulk.mutate({ action, pairs, flagged });
+    bulk.mutate({ action, pairs, flagged, keyByPair });
   };
 
   return (
