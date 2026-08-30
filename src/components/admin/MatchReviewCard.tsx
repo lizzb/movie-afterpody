@@ -498,7 +498,10 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
               ? "Nothing flagged as wrong. Flags raised in the app land here."
               : tab === "proposed"
                 ? `Queue clear — no unconfirmed links at or below ${Math.round(maxConfidence * 100)}% confidence.`
-                : "Queue clear — every saved link in this band has been reviewed."}
+                : reviewState === "unconfirmed"
+                  ? "Queue clear — every saved link in this band has been reviewed."
+                  : `No links in this band with review state “${REVIEW_STATES.find((s) => s.value === reviewState)?.label}”.`}
+
         </p>
       ) : (
         <>
