@@ -82,6 +82,17 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
   const [reviewState, setReviewState] = useState<ReviewStateFilter>("unconfirmed");
   // One knob instead of endless refresh cycles: review 50, 100 or 200 at a time.
   const [pageSize, setPageSize] = useState(50);
+  // Pass U10: each tab keeps its own page cursor so a decided page can advance
+  // to the next batch instead of pretending the queue is empty.
+  const [offsets, setOffsets] = useState<Record<Tab, number>>({
+    flagged: 0,
+    proposed: 0,
+    existing: 0,
+  });
+  const offset = offsets[tab];
+  const setOffsetFor = (t: Tab, value: number) =>
+    setOffsets((prev) => (prev[t] === value ? prev : { ...prev, [t]: value }));
+  const resetOffsets = () => setOffsets({ flagged: 0, proposed: 0, existing: 0 });
 
 
   const [selected, setSelected] = useState<Record<string, true>>({});
