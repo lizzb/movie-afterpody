@@ -55,6 +55,17 @@ export function methodLabel(method: string): string {
 
 const IMDB_RE = /^tt\d{6,10}$/i;
 
+type ReviewStateFilter = "unconfirmed" | "proposed" | "auto_linked" | "confirmed" | "all";
+
+const REVIEW_STATES: { value: ReviewStateFilter; label: string }[] = [
+  { value: "unconfirmed", label: "Unconfirmed" },
+  { value: "proposed", label: "Proposed only" },
+  { value: "auto_linked", label: "Auto-linked only" },
+  { value: "confirmed", label: "Confirmed only" },
+  { value: "all", label: "All states" },
+];
+
+
 /**
  * One place for the whole review job: pairs a human flagged as wrong, proposals
  * the matcher computed, and links that already exist. Rows disappear the instant
