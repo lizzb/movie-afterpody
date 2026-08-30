@@ -332,16 +332,25 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
    * Pairs travel as mutation variables, never read from state inside the
    * handler: clearing the selection optimistically would otherwise leave the
    * request with an empty array (server rejects it as "too_small").
+   *
+   * Pass U12: `keyByPair` maps each pair back to its row key so only pairs the
+   * server actually changed stay hidden — failures reappear with a message
+   * instead of silently returning on the next refresh.
    */
   const bulk = useMutation({
     mutationFn: async (vars: {
       action: "approve" | "reject" | "confirm" | "unlink" | "retire";
       pairs: { episodeId: string; movieId: string }[];
       flagged: { episodeId: string; movieId: string }[];
+      keyByPair: Record<string, string>;
     }) => {
-
       const result = await bulkFn({ data: { action: vars.action, pairs: vars.pairs } });
+      const okPairs = new Set(
+        result.results.filter((r) => r.ok).map((r) => `${r.episodeId}:${r.movieId}`),
+      );
+      // Only clear flags for pairs whose decision actually landed.
       for (const pair of vars.flagged) {
+        if (!okPairs.has(`${pair.episodeId}:${pair.movieId}`)) continue;
         await resolveFlagsFn({
           data: {
             episodeId: pair.episodeId,
@@ -352,14 +361,27 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
       }
       return result;
     },
-    onSuccess: (result) => {
-      setError(null);
+    onSuccess: (result, vars) => {
+      const failedKeys = result.results
+        .filter((r) => !r.ok)
+        .map((r) => vars.keyByPair[`${r.episodeId}:${r.movieId}`])
+        .filter((k): k is string => Boolean(k));
+      unmarkDone(failedKeys);
+      setError(
+        failedKeys.length
+          ? `${failedKeys.length} row(s) could not be changed and are still listed: ${result.failed[0] ?? "unknown error"}`
+          : null,
+      );
       setNote(
-        `${result.succeeded} of ${result.attempted} applied${result.failed.length ? ` · ${result.failed.length} failed` : ""}.`,
+        `${result.succeeded} of ${result.attempted} applied${failedKeys.length ? ` · ${failedKeys.length} failed` : ""}.`,
       );
       refresh();
     },
-    onError: (e: Error) => setError(e.message),
+    onError: (e: Error, vars) => {
+      // The whole request failed — nothing changed, so put every row back.
+      unmarkDone(Object.values(vars.keyByPair));
+      setError(e.message);
+    },
   });
 
   const selectedCount = Object.keys(selected).length;
