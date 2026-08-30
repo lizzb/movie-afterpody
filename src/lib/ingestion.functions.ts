@@ -898,6 +898,16 @@ export const listIngestionStats = createServerFn({ method: "GET" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { fetchUnlinkedEpisodes } = await import("./ingestion-helpers.server");
 
+    const awaitingByStatus = (status: "active" | "parked") =>
+      supabaseAdmin
+        .from("episode_movies")
+        .select("episode_id, podcast_episodes!inner(podcasts!inner(curation_status))", {
+          count: "exact",
+          head: true,
+        })
+        .neq("review_state", "confirmed")
+        .eq("podcast_episodes.podcasts.curation_status", status);
+
     const [
       { count: movieCount },
       { count: podcastCount },
@@ -905,6 +915,9 @@ export const listIngestionStats = createServerFn({ method: "GET" })
       { count: episodeCount },
       { count: linkCount },
       { count: reviewLinkCount },
+      { count: confirmedLinkCount },
+      { count: awaitingActiveCount },
+      { count: awaitingParkedCount },
       { count: flaggedCount },
       { count: retiredCount },
       { count: tmdbLinkedCount },
@@ -928,6 +941,13 @@ export const listIngestionStats = createServerFn({ method: "GET" })
         .from("episode_movies")
         .select("*", { count: "exact", head: true })
         .neq("review_state", "confirmed"),
+      // Progress you can watch grow, not just a shrinking backlog.
+      supabaseAdmin
+        .from("episode_movies")
+        .select("*", { count: "exact", head: true })
+        .eq("review_state", "confirmed"),
+      awaitingByStatus("active"),
+      awaitingByStatus("parked"),
       supabaseAdmin
         .from("episode_link_flags")
         .select("*", { count: "exact", head: true })
@@ -952,12 +972,16 @@ export const listIngestionStats = createServerFn({ method: "GET" })
       episodes: episodeCount ?? 0,
       links: linkCount ?? 0,
       linksToReview: reviewLinkCount ?? 0,
+      linksConfirmed: confirmedLinkCount ?? 0,
+      linksToReviewActive: awaitingActiveCount ?? 0,
+      linksToReviewParked: awaitingParkedCount ?? 0,
       flagged: flaggedCount ?? 0,
       retiredEpisodes: retiredCount ?? 0,
       tmdbLinked: tmdbLinkedCount ?? 0,
       unmatchedEpisodes: unlinked.length,
       unmatchedEpisodesAll: unlinkedAll.length,
     };
+
   });
 
 
@@ -1606,6 +1630,15 @@ export const listEpisodeLinks = createServerFn({ method: "POST" })
         offset: z.number().int().min(0).default(0),
         /** Parked shows are out of scope by default, matching the Proposed tab. */
         includeParked: z.boolean().default(false),
+        /**
+         * Which review states to show. Default keeps the historical behaviour
+         * (everything still awaiting a decision), but confirmed work is now
+         * inspectable instead of invisible.
+         */
+        reviewState: z
+          .enum(["unconfirmed", "proposed", "auto_linked", "confirmed", "all"])
+          .default("unconfirmed"),
+
       })
       .parse(data),
   )
@@ -1643,13 +1676,13 @@ export const listEpisodeLinks = createServerFn({ method: "POST" })
           "episode_id, movie_id, match_method, match_confidence, review_state, podcast_episodes!inner(title, released_at, podcast_id, disposition, podcasts!inner(id, name, curation_status)), movies!inner(id, title, release_year, slug)",
         )
         .lte("match_confidence", data.maxConfidence)
-        // Confirmed links are settled by an explicit review decision.
-        .neq("review_state", "confirmed")
         // Retired episodes are settled — they must not reappear as review work.
         .neq("podcast_episodes.disposition", "not_about_a_movie")
         .order("match_confidence", { ascending: true })
         .order("episode_id", { ascending: true })
         .range(from, to);
+      if (data.reviewState === "unconfirmed") q = q.neq("review_state", "confirmed");
+      else if (data.reviewState !== "all") q = q.eq("review_state", data.reviewState);
       if (data.podcastId) q = q.eq("podcast_episodes.podcast_id", data.podcastId);
       if (!data.includeParked) q = q.eq("podcast_episodes.podcasts.curation_status", "active");
       return q;
@@ -1665,10 +1698,12 @@ export const listEpisodeLinks = createServerFn({ method: "POST" })
           { count: "exact", head: true },
         )
         .lte("match_confidence", data.maxConfidence)
-        .neq("review_state", "confirmed")
         .neq("podcast_episodes.disposition", "not_about_a_movie");
+      if (data.reviewState === "unconfirmed") q = q.neq("review_state", "confirmed");
+      else if (data.reviewState !== "all") q = q.eq("review_state", data.reviewState);
       if (data.podcastId) q = q.eq("podcast_episodes.podcast_id", data.podcastId);
       if (!data.includeParked) q = q.eq("podcast_episodes.podcasts.curation_status", "active");
+
       const { count } = await q;
       return count ?? 0;
     };

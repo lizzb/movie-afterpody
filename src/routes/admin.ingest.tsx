@@ -150,7 +150,19 @@ function IngestPage() {
             <Stat label="Parked shows" value={stats.data.parkedPodcasts} href="#coverage" />
             <Stat label="Episodes" value={stats.data.episodes} href="#coverage" />
             <Stat label="Flagged as wrong" value={stats.data.flagged} href="#match-review" />
-            <Stat label="Links awaiting review" value={stats.data.linksToReview} href="#match-review" />
+            <Stat
+              label="Links awaiting review"
+              value={stats.data.linksToReview}
+              sub={`${stats.data.linksToReviewActive} active · ${stats.data.linksToReviewParked} parked`}
+              href="#match-review"
+            />
+            <Stat
+              label="Confirmed links"
+              value={stats.data.linksConfirmed}
+              sub={`of ${stats.data.links} total links`}
+              href="#match-review"
+            />
+
             <Stat label="Episode → movie links" value={stats.data.links} href="#match-review" />
             <Stat
               label="Unmatched episodes"
@@ -1143,9 +1155,10 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
           </p>
           <p className={`text-xs ${p.fullyReviewed ? "text-teal" : "text-muted-foreground"}`}>
             {p.fullyReviewed
-              ? "All episodes reviewed"
-              : `${p.reviewed} reviewed · ${p.awaitingReview} awaiting review`}
+              ? `All episodes reviewed (${isParked ? "parked" : "active"} show)`
+              : `${p.reviewed} reviewed · ${p.awaitingReview} awaiting review · ${isParked ? "parked" : "active"}`}
           </p>
+
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           <button

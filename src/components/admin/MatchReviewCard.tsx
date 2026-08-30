@@ -55,6 +55,17 @@ export function methodLabel(method: string): string {
 
 const IMDB_RE = /^tt\d{6,10}$/i;
 
+type ReviewStateFilter = "unconfirmed" | "proposed" | "auto_linked" | "confirmed" | "all";
+
+const REVIEW_STATES: { value: ReviewStateFilter; label: string }[] = [
+  { value: "unconfirmed", label: "Unconfirmed" },
+  { value: "proposed", label: "Proposed only" },
+  { value: "auto_linked", label: "Auto-linked only" },
+  { value: "confirmed", label: "Confirmed only" },
+  { value: "all", label: "All states" },
+];
+
+
 /**
  * One place for the whole review job: pairs a human flagged as wrong, proposals
  * the matcher computed, and links that already exist. Rows disappear the instant
@@ -66,8 +77,12 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
   const [search, setSearch] = useState("");
   const [submitted, setSubmitted] = useState("");
   const [maxConfidence, setMaxConfidence] = useState<number>(0.8);
+  // Confirmed work is inspectable, not invisible: this filter drives the
+  // Existing links tab's review-state scope.
+  const [reviewState, setReviewState] = useState<ReviewStateFilter>("unconfirmed");
   // One knob instead of endless refresh cycles: review 50, 100 or 200 at a time.
   const [pageSize, setPageSize] = useState(50);
+
 
   const [selected, setSelected] = useState<Record<string, true>>({});
   const [done, setDone] = useState<Record<string, true>>({});
@@ -111,13 +126,16 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
   });
 
   const links = useQuery({
-    queryKey: ["episode-links", submitted, maxConfidence, pageSize],
+    queryKey: ["episode-links", submitted, maxConfidence, pageSize, reviewState],
     queryFn: () =>
-      linksFn({ data: { search: submitted || undefined, maxConfidence, limit: pageSize } }),
+      linksFn({
+        data: { search: submitted || undefined, maxConfidence, limit: pageSize, reviewState },
+      }),
     retry: false,
     refetchOnWindowFocus: false,
     placeholderData: keepPreviousData,
   });
+
 
 
 
@@ -417,6 +435,25 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
             ))}
           </select>
         ) : null}
+        {tab === "existing" ? (
+          <select
+            value={reviewState}
+            onChange={(e) => {
+              setReviewState(e.target.value as ReviewStateFilter);
+              setSelected({});
+              setDone({});
+            }}
+            aria-label="Review state"
+            className="rounded-full border border-border bg-background px-3 py-2 text-sm"
+          >
+            {REVIEW_STATES.map((s) => (
+              <option key={s.value} value={s.value}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+        ) : null}
+
         <select
           value={pageSize}
           onChange={(e) => setPageSize(Number(e.target.value))}
@@ -461,7 +498,10 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
               ? "Nothing flagged as wrong. Flags raised in the app land here."
               : tab === "proposed"
                 ? `Queue clear — no unconfirmed links at or below ${Math.round(maxConfidence * 100)}% confidence.`
-                : "Queue clear — every saved link in this band has been reviewed."}
+                : reviewState === "unconfirmed"
+                  ? "Queue clear — every saved link in this band has been reviewed."
+                  : `No links in this band with review state “${REVIEW_STATES.find((s) => s.value === reviewState)?.label}”.`}
+
         </p>
       ) : (
         <>
