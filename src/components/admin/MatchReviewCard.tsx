@@ -114,21 +114,31 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
   // All three run so every tab can show its queue size, and previous data is
   // kept while a new search loads so the badges never flicker to zero.
   const flags = useQuery({
-    queryKey: ["flagged-links", submitted, pageSize],
-    queryFn: () => flagsFn({ data: { search: submitted || undefined, limit: pageSize } }),
+    queryKey: ["flagged-links", submitted, pageSize, offsets.flagged],
+    queryFn: () =>
+      flagsFn({
+        data: { search: submitted || undefined, limit: pageSize, offset: offsets.flagged },
+      }),
     retry: false,
     refetchOnWindowFocus: false,
     placeholderData: keepPreviousData,
   });
 
   const proposals = useQuery({
-    queryKey: ["match-suggestions", submitted, Math.round(maxConfidence * 100), pageSize],
+    queryKey: [
+      "match-suggestions",
+      submitted,
+      Math.round(maxConfidence * 100),
+      pageSize,
+      offsets.proposed,
+    ],
     queryFn: () =>
       suggestFn({
         data: {
           search: submitted || undefined,
           maxConfidence: Math.round(maxConfidence * 100),
           limit: pageSize,
+          offset: offsets.proposed,
         },
       }),
     retry: false,
@@ -137,10 +147,16 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
   });
 
   const links = useQuery({
-    queryKey: ["episode-links", submitted, maxConfidence, pageSize, reviewState],
+    queryKey: ["episode-links", submitted, maxConfidence, pageSize, reviewState, offsets.existing],
     queryFn: () =>
       linksFn({
-        data: { search: submitted || undefined, maxConfidence, limit: pageSize, reviewState },
+        data: {
+          search: submitted || undefined,
+          maxConfidence,
+          limit: pageSize,
+          reviewState,
+          offset: offsets.existing,
+        },
       }),
     retry: false,
     refetchOnWindowFocus: false,
