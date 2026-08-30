@@ -90,6 +90,23 @@ Pass G2's `.layout-locked` hardening is now scoped to touch-primary viewports: o
 - **Pass U5 — Training/evaluation dashboard — M (~3-5 credits).** Turn "Score the matcher" scorecard output into recommended rule changes with before/after evals (extends `matcher-eval.server.ts`).
 - **Pass U6 — Low-confidence link maintenance — S (~1-2 credits).** A safe "clear low-confidence auto links and rerun the current engine" maintenance action with a dry-run preview, guarding manual/confirmed links and parked shows (related to Pass Z).
 
+### Review visibility, match review reliability, admin actions (approved backlog 2026-08-30, not scheduled)
+
+Full detail and the "what exists vs. what does not" analysis: `.lovable/plan/review-state-visibility-match-review-reliability-admin-actio-2026-08-30.md`.
+
+- **Pass U7 — Make review progress visible — M (~3-5 credits) — Priority 1.** Confirmed-links count tile beside "Links awaiting review", awaiting-review split into active vs parked shows, and a Review state filter on Existing links (Unconfirmed / Auto-linked / Proposed / Confirmed / All) — today `listEpisodeLinks` excludes confirmed rows, so confirmed work is invisible.
+- **Pass U8 — Episode-level "review complete" — L (~6-10 credits) — Priority 2.** Per-episode review record (episode, reviewed_at, reviewed_by, feed sync generation), Mark reviewed / Reopen per row plus bulk, auto-reopen on new proposal/flag/link removal, coverage reads `Reviewed X of Y episodes as of sync D`. One migration.
+- **Pass U9 — Learning evidence over time — M (~3-5 credits) — Priority 3.** Persist each Score the matcher run and show current vs previous with deltas and a short history. One migration.
+- **Pass U10 — Match review empty-state and pagination honesty — S (~1-2 credits) — Priority 1.** Auto-load the next page (page size = dropdown) when every visible row is decided but the unfiltered total is larger; empty-state copy distinguishes page exhausted / queue clear / no search match / filtered out.
+- **Pass U11 — "Updating results…" and busy-state conditions — S (~1-2 credits) — Priority 1.** Spinner is driven by `isFetching`, so background refetches and refocus make it spin with nothing changing; scope busy indicators to user-initiated fetches and give rows their own pending state.
+- **Pass U12 — Bulk unlink that actually sticks — M (~3-5 credits) — Priority 1.** Rows vanish then return on refresh; report per-pair success/failure from the bulk function, only mark actually-deleted pairs done, surface partial failures, clear stale `done` keys on query-key change. Also fixes the greyed-out, spinning bulk bar on the next "select all".
+- **Pass U13 — Match review reliability sweep — L (~6-10 credits) — Priority 2.** Counts vs `unfilteredTotal` vs the `Math.max(rows.length, rawTotal - done)` fudge, auto-refresh vs manual Refresh, persistence of tab/band/page-size/search, stale copy, invalidation fan-out, 200-row render cost. Recorded browser pass as the deliverable. Depends on U10–U12.
+- **Pass U14 — Serialised admin actions — M (~3-5 credits) — Priority 2.** Park/re-activate and per-show sync share one `busyId`, so a second click abandons the first; disable during flight short term, then a click-ordered action queue with per-row pending state and per-action results.
+- **Pass U15 — Summary stats for backfill and enrichment tools — S (~1-2 credits) — Priority 3.** Backfill content ratings and Enrich movies from TMDB get never-checked / checked / oldest-check / last-run readouts like the coverage card.
+- **Pass U16 — Treat "live" as a special word in the matcher — S (~1-2 credits) — Priority 2.** Standalone `live` is show-format language; suppress weak matches hinging on it, require corroboration, leave real titles containing "Live" unaffected. Verify with local scoring checks.
+
+
+
 ### New backlog passes (approved 2026-08-23, not scheduled)
 
 
