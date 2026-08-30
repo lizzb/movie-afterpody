@@ -539,19 +539,37 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
       ) : queryError ? (
         <p className="mt-4 text-sm text-destructive">{(queryError as Error).message}</p>
       ) : rows.length === 0 ? (
-        <p className="mt-4 text-sm text-muted-foreground">
-          {/* A search that found nothing is not the same thing as an empty queue. */}
-          {submitted
-            ? `No ${noun} match “${submitted}”. Clear the search to see the rest of the queue.`
-            : tab === "flagged"
-              ? "Nothing flagged as wrong. Flags raised in the app land here."
-              : tab === "proposed"
-                ? `Queue clear — no unconfirmed links at or below ${Math.round(maxConfidence * 100)}% confidence.`
-                : reviewState === "unconfirmed"
-                  ? "Queue clear — every saved link in this band has been reviewed."
-                  : `No links in this band with review state “${REVIEW_STATES.find((s) => s.value === reviewState)?.label}”.`}
-
-        </p>
+        <div className="mt-4 space-y-2">
+          {/* Four different reasons a page can be blank — say which one it is. */}
+          <p className="text-sm text-muted-foreground">
+            {hasMorePages
+              ? `Page decided — loading the next ${pageSize} ${noun}…`
+              : pageExhausted
+                ? `End of the queue — you have worked through all ${rawTotal} ${noun}${submitted ? ` matching “${submitted}”` : ""}.`
+                : submitted
+                  ? `No ${noun} match “${submitted}”. Clear the search to see the rest of the queue.`
+                  : tab === "flagged"
+                    ? "Nothing flagged as wrong. Flags raised in the app land here."
+                    : tab === "proposed"
+                      ? `Queue clear — no unconfirmed links at or below ${Math.round(maxConfidence * 100)}% confidence.`
+                      : reviewState === "unconfirmed"
+                        ? "Queue clear — every saved link in this band has been reviewed."
+                        : `No links in this band with review state “${REVIEW_STATES.find((s) => s.value === reviewState)?.label}”.`}
+          </p>
+          {offset > 0 && !hasMorePages ? (
+            <button
+              type="button"
+              onClick={() => {
+                setDone({});
+                setSelected({});
+                setOffsetFor(tab, 0);
+              }}
+              className="rounded-full border border-border px-3 py-2 text-xs font-semibold hover:bg-secondary"
+            >
+              Back to the start of the queue
+            </button>
+          ) : null}
+        </div>
       ) : (
         <>
           <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
