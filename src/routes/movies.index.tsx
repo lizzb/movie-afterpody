@@ -8,6 +8,7 @@ import { MovieCard } from "@/components/MovieCard";
 import { PageHeader } from "@/components/PageHeader";
 import { ViewToggle } from "@/components/ViewToggle";
 import { applyFilters, useDiscovery } from "@/lib/discovery";
+import { NO_FILTERS, prefsActions } from "@/lib/prefs";
 
 export const Route = createFileRoute("/movies/")({
   head: () => ({
