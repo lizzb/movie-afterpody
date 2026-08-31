@@ -276,6 +276,8 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
       movieId: string;
       episodeTitle: string;
       podcastName: string;
+      releasedAt: string | null;
+      durationSeconds: number | null;
       movieTitle: string;
       movieYear: number | null;
       detail: string;
@@ -290,6 +292,8 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
           movieId: f.movieId,
           episodeTitle: f.episodeTitle,
           podcastName: f.podcastName,
+          releasedAt: f.releasedAt,
+          durationSeconds: f.durationSeconds,
           movieTitle: f.movieTitle,
           movieYear: f.movieYear,
           detail: `Flagged ${new Date(f.createdAt).toLocaleDateString()}`,
@@ -303,6 +307,8 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
         movieId: s.topCandidate!.movieId,
         episodeTitle: s.episodeTitle,
         podcastName: s.podcastName,
+        releasedAt: s.releasedAt,
+        durationSeconds: s.durationSeconds,
         movieTitle: s.topCandidate!.title,
         movieYear: s.topCandidate!.releaseYear,
         detail: `${s.topCandidate!.confidence}% — ${s.topCandidate!.reason}`,
@@ -316,6 +322,8 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
         movieId: l.movieId,
         episodeTitle: l.episodeTitle,
         podcastName: l.podcastName,
+        releasedAt: l.releasedAt,
+        durationSeconds: l.durationSeconds,
         movieTitle: l.movieTitle,
         movieYear: l.movieYear,
         detail: `${reviewStateLabel(l.reviewState)} · ${methodLabel(l.method)} · ${Math.round(l.confidence * 100)}%`,
@@ -1006,12 +1014,36 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
   );
 }
 
+/**
+ * Pass I companion — episode release date + duration on every review row.
+ * A 90-second "episode" is an ad or trailer; the date often settles which
+ * year's film an ambiguous title refers to.
+ */
+function formatEpisodeMeta(releasedAt: string | null, durationSeconds: number | null): string {
+  const parts: string[] = [];
+  if (releasedAt) {
+    const parsed = new Date(`${releasedAt}T12:00:00`);
+    if (!Number.isNaN(parsed.getTime())) {
+      parts.push(
+        parsed.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }),
+      );
+    }
+  }
+  if (durationSeconds && durationSeconds > 0) {
+    const mins = Math.round(durationSeconds / 60);
+    parts.push(mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins}m`);
+  }
+  return parts.join(" · ");
+}
+
 type ReviewRowData = {
   key: string;
   episodeId: string;
   movieId: string;
   episodeTitle: string;
   podcastName: string;
+  releasedAt: string | null;
+  durationSeconds: number | null;
   movieTitle: string;
   movieYear: number | null;
   detail: string;
@@ -1095,7 +1127,12 @@ const ReviewRow = memo(function ReviewRow({
           <span className="block break-anywhere text-sm font-semibold leading-snug">
             {row.episodeTitle}
           </span>
-          <span className="mt-0.5 block text-xs text-muted-foreground">{row.podcastName}</span>
+          <span className="mt-0.5 block text-xs text-muted-foreground">
+            {row.podcastName}
+            {formatEpisodeMeta(row.releasedAt, row.durationSeconds)
+              ? ` · ${formatEpisodeMeta(row.releasedAt, row.durationSeconds)}`
+              : ""}
+          </span>
           <span className="mt-2 block text-xs">
             {tab === "proposed" ? "Suggested: " : "Linked to "}
             <span className="font-semibold text-foreground">
