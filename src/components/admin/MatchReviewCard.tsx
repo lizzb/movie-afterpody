@@ -580,6 +580,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
           <select
             value={maxConfidence}
             onChange={(e) => {
+              setIntent("search");
               setMaxConfidence(Number(e.target.value));
               resetOffsets();
             }}
