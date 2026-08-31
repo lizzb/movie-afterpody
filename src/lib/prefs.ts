@@ -70,7 +70,11 @@ export interface Prefs {
   /** slug -> ISO date (yyyy-mm-dd) the movie was marked watched. */
   watchedDates: Record<string, string>;
   lists: LocalList[];
+  /** Tonight's recommendation parameters. */
   filters: Filters;
+  /** Pass H5 — the All Movies browse surface keeps its own, unfiltered state. */
+  movieFilters: Filters;
+
   /** Movies you never want suggested. Excluded from Tonight unconditionally. */
   notInterestedSlugs: string[];
   /** Pass G app settings. */
@@ -98,7 +102,30 @@ export function defaultHolidayExclusion(date: Date = new Date()): boolean {
   return false; // Nov 3 - Jan 7 off
 }
 
+/**
+ * Pass H5 — the "no filters at all" baseline used by the All Movies surface.
+ * Browsing starts wide open: search is the primary tool there, filters opt-in.
+ */
+export const NO_FILTERS: Filters = {
+  onlyMyServices: false,
+  serviceSlugs: [],
+  genreSlugs: [],
+  yearMin: YEAR_FLOOR,
+  yearMax: YEAR_CEILING,
+  maxRuntime: RUNTIME_CEILING,
+  hideWatched: false,
+  commentaryOnly: false,
+  preferredOnly: false,
+  minRating: 1,
+  maxRating: 7,
+  allowUnrated: true,
+  hideNotInterested: false,
+  excludeHoliday: false,
+  sortBy: "title",
+};
+
 export const DEFAULT_PREFS: Prefs = {
+
   theme: "dark",
   viewModes: {},
   serviceSlugs: ["netflix", "prime-video", "disney-plus"],
@@ -188,6 +215,8 @@ filters: {
     excludeHoliday: defaultHolidayExclusion(),
     sortBy: "commentary",
   },
+  movieFilters: NO_FILTERS,
+
   notInterestedSlugs: [],
   viewportLock: true,
   dimWatched: false,
@@ -214,6 +243,8 @@ function hydrate() {
         lists: parsed.lists ?? DEFAULT_PREFS.lists,
         notInterestedSlugs: parsed.notInterestedSlugs ?? [],
         filters: { ...DEFAULT_PREFS.filters, ...(parsed.filters ?? {}) },
+        movieFilters: { ...NO_FILTERS, ...(parsed.movieFilters ?? {}) },
+
       };
     }
   } catch {
@@ -340,6 +371,14 @@ export const prefsActions = {
   resetFilters() {
     write({ ...current, filters: DEFAULT_PREFS.filters });
   },
+  /** Pass H5 — Movies keeps its own filter object; Tonight is untouched. */
+  setMovieFilters(patch: Partial<Filters>) {
+    write({ ...current, movieFilters: { ...current.movieFilters, ...patch } });
+  },
+  resetMovieFilters() {
+    write({ ...current, movieFilters: NO_FILTERS });
+  },
+
 };
 
 /** Projects slug-keyed local prefs onto the catalog's UUIDs. */

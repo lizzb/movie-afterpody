@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Check, RotateCcw, Search, SlidersHorizontal, X } from "lucide-react";
+import { Check, ChevronDown, RotateCcw, Search, SlidersHorizontal, X } from "lucide-react";
 import { BrandBadge } from "@/components/BrandBadge";
 import { YearRange } from "@/components/YearRange";
 import {
@@ -25,7 +25,16 @@ interface Props {
   variant?: "tonight" | "movies";
   /** Tonight never shows "Not interested" titles, so hide that control there. */
   showNotInterested?: boolean;
+  /** Where applied filters are written. Defaults to Tonight's filter object. */
+  onApply?: (next: Filters) => void;
+  /** What "Reset" restores, and the baseline for the "N filters active" count. */
+  defaults?: Filters;
+  /** Pass H5 — Movies keeps the whole panel collapsed until asked for. */
+  collapsible?: boolean;
+  /** Total catalogue size, shown while the panel is collapsed. */
+  totalCount?: number;
 }
+
 
 function Chip({
   active,
@@ -137,10 +146,15 @@ export function FilterBar({
   resultCount,
   variant = "tonight",
   showNotInterested = false,
+  onApply,
+  defaults = DEFAULT_PREFS.filters,
+  collapsible = false,
+  totalCount,
 }: Props) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [term, setTerm] = useState("");
   const [draft, setDraft] = useState<Filters>(filters);
+  const [expanded, setExpanded] = useState(false);
 
   // Re-seed the draft whenever the applied filters change from elsewhere
   // (page load/hydration, Reset, another surface committing a change).
@@ -151,10 +165,15 @@ export function FilterBar({
   const patch = (next: Partial<Filters>) => setDraft((prev) => ({ ...prev, ...next }));
   const pendingChanges = countChanges(draft, filters);
   const dirty = pendingChanges > 0;
+  // Sort is an ordering, not a filter — it never counts as "active".
+  const activeCount = countChanges({ ...filters, sortBy: defaults.sortBy }, defaults);
 
   const apply = () => {
-    if (dirty) prefsActions.setFilters(draft);
+    if (!dirty) return;
+    if (onApply) onApply(draft);
+    else prefsActions.setFilters(draft);
   };
+
 
   const selected = genres.filter((g) => draft.genreSlugs.includes(g.slug));
   const summary =
@@ -187,8 +206,63 @@ export function FilterBar({
         : [...draft.genreSlugs, slug],
     });
 
+  const trigger = collapsible ? (
+    <button
+      type="button"
+      onClick={() => setExpanded((v) => !v)}
+      aria-expanded={expanded}
+      className="group flex w-full items-center justify-between gap-3 rounded-2xl border border-dashed border-border bg-card/60 p-3.5 text-left transition-colors hover:bg-card"
+    >
+      <span className="flex min-w-0 items-center gap-3">
+        <span className="rounded-xl bg-muted p-2 text-muted-foreground transition-colors group-hover:text-primary">
+          <SlidersHorizontal className="size-5" aria-hidden />
+        </span>
+        <span className="min-w-0">
+          <span className="block font-display text-sm font-semibold text-foreground">
+            Movie filters
+          </span>
+          <span className="block text-xs text-muted-foreground">
+            {activeCount === 0
+              ? "No filters — searching everything"
+              : `${activeCount} filter${activeCount === 1 ? "" : "s"} active`}
+            {typeof totalCount === "number"
+              ? ` · ${resultCount} of ${totalCount} titles`
+              : ` · ${resultCount} match${resultCount === 1 ? "" : "es"}`}
+          </span>
+        </span>
+      </span>
+      <span className="flex shrink-0 items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground transition-colors group-hover:text-coral">
+        {expanded ? "Hide" : "Expand"}
+        <ChevronDown
+          className={`size-4 transition-transform ${expanded ? "rotate-180" : ""}`}
+          aria-hidden
+        />
+      </span>
+    </button>
+  ) : null;
+
+  if (collapsible && !expanded) {
+    return (
+      <div className="space-y-2">
+        {trigger}
+        {activeCount > 0 ? (
+          <button
+            type="button"
+            onClick={() => onApply?.(defaults)}
+            className="flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
+          >
+            <RotateCcw className="size-3" aria-hidden />
+            Clear all filters
+          </button>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
-    <section className="rounded-2xl border border-border bg-card p-3 shadow-card">
+    <div className={collapsible ? "space-y-2" : undefined}>
+      {trigger}
+      <section className="rounded-2xl border border-border bg-card p-3 shadow-card">
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 sm:flex sm:justify-between">
         <h2 className="flex min-w-0 items-center gap-1.5 truncate text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">
           <SlidersHorizontal className="size-3.5 shrink-0" aria-hidden />
@@ -203,13 +277,14 @@ export function FilterBar({
         </h2>
         <button
           type="button"
-          onClick={() => setDraft(DEFAULT_PREFS.filters)}
+          onClick={() => setDraft(defaults)}
           className="flex shrink-0 items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
         >
           <RotateCcw className="size-3" aria-hidden />
           Reset
         </button>
       </div>
+
 
       {!isMovies ? (
         <div className="mt-2 grid gap-x-4 gap-y-2 sm:grid-cols-2">
@@ -531,6 +606,8 @@ export function FilterBar({
           </div>
         </div>
       ) : null}
-    </section>
+      </section>
+    </div>
   );
+
 }

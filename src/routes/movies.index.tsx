@@ -8,6 +8,7 @@ import { MovieCard } from "@/components/MovieCard";
 import { PageHeader } from "@/components/PageHeader";
 import { ViewToggle } from "@/components/ViewToggle";
 import { applyFilters, useDiscovery } from "@/lib/discovery";
+import { NO_FILTERS, prefsActions } from "@/lib/prefs";
 
 export const Route = createFileRoute("/movies/")({
   head: () => ({
@@ -35,12 +36,13 @@ function MoviesPage() {
   const view = prefs.viewModes["movies"] ?? "rows";
   const [term, setTerm] = useState("");
 
+  // Pass H5 — Movies browses with its own filter object, wide open by default.
   const results = useMemo(() => {
     const needle = term.trim().toLowerCase();
-    return applyFilters(entries, prefs.filters).filter(
+    return applyFilters(entries, prefs.movieFilters).filter(
       (e) => !needle || e.movie.title.toLowerCase().includes(needle),
     );
-  }, [entries, prefs.filters, term]);
+  }, [entries, prefs.movieFilters, term]);
 
   const showMatches = useMemo(() => {
     const needle = term.trim().toLowerCase();
@@ -53,7 +55,12 @@ function MoviesPage() {
   return (
     <AppShell>
       <main className="mx-auto w-full max-w-3xl px-4 pb-16 pt-4">
-        <PageHeader icon={Clapperboard} eyebrow="Movies" title="Browse all movies" />
+        <PageHeader
+          icon={Clapperboard}
+          eyebrow="Movies"
+          title="Browse all movies"
+          subtitle={`${entries.length} title${entries.length === 1 ? "" : "s"} in the catalogue`}
+        />
 
         <div className="mt-4 flex items-center gap-2">
           <label className="relative block flex-1">
@@ -64,9 +71,9 @@ function MoviesPage() {
           <input
             value={term}
             onChange={(e) => setTerm(e.target.value)}
-            placeholder="Search titles"
+            placeholder="Search every movie in the app"
             aria-label="Search movies"
-            className="w-full rounded-full border border-border bg-card py-2.5 pl-9 pr-4 text-base shadow-card sm:text-sm"
+            className="w-full rounded-xl border border-border bg-card py-3.5 pl-9 pr-4 text-base shadow-card transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 sm:text-sm"
           />
           </label>
           <ViewToggle surface="movies" value={view} />
@@ -74,15 +81,20 @@ function MoviesPage() {
 
         <div className="mt-3">
           <FilterBar
-            filters={prefs.filters}
+            filters={prefs.movieFilters}
             genres={catalog?.genres ?? []}
             services={catalog?.services ?? []}
             mySlugs={prefs.serviceSlugs}
             resultCount={results.length}
+            totalCount={entries.length}
             variant="movies"
             showNotInterested
+            collapsible
+            defaults={NO_FILTERS}
+            onApply={(next) => prefsActions.setMovieFilters(next)}
           />
         </div>
+
 
         {showMatches.length > 0 ? (
           <section className="mt-5 rounded-2xl border border-border bg-card p-3 shadow-card">
