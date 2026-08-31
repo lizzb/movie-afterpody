@@ -245,9 +245,29 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
 
   const active = tab === "flagged" ? flags : tab === "proposed" ? proposals : links;
   const loading = active.isLoading;
-  const busy = active.isFetching;
+  const fetching = active.isFetching;
+  // Pass U11 — only a fetch the user asked for counts as "busy".
+  const busy = intent !== null;
   const queryError = active.error;
   const noun = tab === "flagged" ? "flags" : tab === "proposed" ? "proposals" : "links";
+
+  // Clear the intent once its fetch has actually completed. The short fallback
+  // covers a cache hit where no network fetch ever starts.
+  const sawFetch = useRef(false);
+  useEffect(() => {
+    if (!intent) return;
+    if (fetching) {
+      sawFetch.current = true;
+      return;
+    }
+    if (sawFetch.current) {
+      sawFetch.current = false;
+      setIntent(null);
+      return;
+    }
+    const t = setTimeout(() => setIntent(null), 400);
+    return () => clearTimeout(t);
+  }, [intent, fetching]);
 
   // Pass U10 — pagination honesty. `rawTotal` is the whole filtered queue, so a
   // page that has been fully decided is not an empty queue: there are more rows
@@ -256,11 +276,12 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
   const pageExhausted = rows.length === 0 && offset > 0 && !hasMorePages;
 
   useEffect(() => {
-    if (loading || busy || queryError) return;
+    if (loading || fetching || queryError) return;
     if (rows.length > 0 || !hasMorePages) return;
+    setIntent("page");
     setOffsetFor(tab, offset + pageSize);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows.length, hasMorePages, loading, busy, queryError, tab, offset, pageSize]);
+  }, [rows.length, hasMorePages, loading, fetching, queryError, tab, offset, pageSize]);
 
   // Pass U12 — stale optimistic state. `done` keys belong to one query scope;
   // keeping them across a tab/filter/page change hid unrelated rows and skewed
@@ -272,6 +293,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
     lastScope.current = scopeKey;
     setDone({});
     setSelected({});
+    setPending({});
   }, [scopeKey]);
 
 
