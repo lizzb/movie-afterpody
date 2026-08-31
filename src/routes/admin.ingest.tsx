@@ -190,6 +190,16 @@ function IngestPage() {
             <MatcherScoreCard />
           </CollapsibleCard>
 
+          <CollapsibleCard
+            id="coverage"
+            title="Podcast show curation & episode coverage"
+            description="Coverage and progress per show; park shows you're not reviewing yet."
+            storageKey="coverage-v2"
+            defaultOpen
+          >
+            <PodcastCoverageCard onSuccess={() => stats.refetch()} />
+          </CollapsibleCard>
+
 
           <CollapsibleCard id="add-movie" title="Add movie from TMDB" storageKey="enrich-movie">
             <EnrichMovieForm onSuccess={() => stats.refetch()} />
@@ -230,16 +240,6 @@ function IngestPage() {
 
           <CollapsibleCard id="artwork" title="Backfill podcast cover art" storageKey="artwork">
             <BackfillArtworkCard onSuccess={() => stats.refetch()} />
-          </CollapsibleCard>
-
-          <CollapsibleCard
-            id="coverage"
-            title="Episode coverage & show curation"
-            description="Coverage and progress per show; park shows you're not reviewing yet."
-            storageKey="coverage-v2"
-            defaultOpen
-          >
-            <PodcastCoverageCard onSuccess={() => stats.refetch()} />
           </CollapsibleCard>
 
           <CollapsibleCard

@@ -143,7 +143,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
   const [tab, setTab] = useState<Tab>("flagged");
   const [search, setSearch] = useState("");
   const [submitted, setSubmitted] = useState("");
-  const [maxConfidence, setMaxConfidence] = useState<number>(0.8);
+  const [maxConfidence, setMaxConfidence] = useState<number>(1);
   // Confirmed work is inspectable, not invisible: this filter drives the
   // Existing links tab's review-state scope.
   const [reviewState, setReviewState] = useState<ReviewStateFilter>("unconfirmed");
