@@ -914,8 +914,10 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
                       Not about a movie
                     </button>
                     <RelinkPicker
+                      disabled={isPending}
                       onPick={async (movieId) => {
                         markDone([row.key]);
+                        startPending([row.key]);
                         try {
                           if (tab === "proposed") {
                             await approveFn({ data: { episodeId: row.episodeId, movieId } });
@@ -933,6 +935,9 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
                           refresh();
                         } catch (e) {
                           setError(e instanceof Error ? e.message : "Could not relink.");
+                          unmarkDone([row.key]);
+                        } finally {
+                          endPending([row.key]);
                         }
                       }}
                     />
