@@ -1,13 +1,21 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { Bookmark, CalendarCheck, Plus, Trash2 } from "lucide-react";
+import { Bookmark, CalendarCheck, Headphones, Plus, Trash2 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { PageHeader } from "@/components/PageHeader";
 import { Artwork } from "@/components/Artwork";
 import { BrandBadge } from "@/components/BrandBadge";
 import { accentFor, accentSoft, toAccent } from "@/lib/accents";
-import { formatWatchedOn, useLists } from "@/lib/lists";
+import {
+  formatEpisodeDate,
+  formatWatchedOn,
+  LISTENING_LABEL,
+  RATING_LABEL,
+  useListened,
+  useLists,
+} from "@/lib/lists";
 import { prefsActions, usePrefs } from "@/lib/prefs";
+
 
 export const Route = createFileRoute("/lists/")({
   head: () => ({
@@ -30,10 +38,11 @@ export const Route = createFileRoute("/lists/")({
   component: ListsPage,
 });
 
-type Tab = "lists" | "history";
+type Tab = "lists" | "history" | "listened";
 
 function ListsPage() {
   const { lists, history, isLoading } = useLists();
+  const { listened } = useListened();
   const prefs = usePrefs();
   const [tab, setTab] = useState<Tab>("lists");
   const [name, setName] = useState("");
@@ -48,6 +57,7 @@ function ListsPage() {
             [
               { value: "lists", label: `Lists (${lists.length})` },
               { value: "history", label: `Watched (${history.length})` },
+              { value: "listened", label: `Listened (${listened.length})` },
             ] as const
           ).map((option) => (
             <button
@@ -183,7 +193,7 @@ function ListsPage() {
               })}
             </ul>
           </>
-        ) : (
+        ) : tab === "history" ? (
           <ul className="mt-6 space-y-2">
             {history.length === 0 ? (
               <li className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
@@ -218,6 +228,61 @@ function ListsPage() {
                   </span>
                   <span className="shrink-0 text-xs font-semibold text-muted-foreground">
                     {entry.episodes.length} ep
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <ul className="mt-6 space-y-2">
+            {listened.length === 0 ? (
+              <li className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                Nothing here yet. Rate an episode or mark it started/finished on a movie page and
+                it shows up here.
+              </li>
+            ) : null}
+            {listened.map((item) => (
+              <li
+                key={item.episode.id}
+                className="rounded-2xl border border-border bg-card shadow-card"
+              >
+                <Link
+                  to="/podcasts/$slug"
+                  params={{ slug: item.podcast.slug }}
+                  className="flex items-start gap-3 p-3"
+                >
+                  <Artwork
+                    src={item.podcast.artwork_url}
+                    title={item.podcast.name}
+                    seed={item.podcast.slug}
+                    accent={item.podcast.accent}
+                    className="w-12 text-lg"
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="block break-anywhere text-sm font-semibold leading-snug">
+                      {item.episode.title}
+                    </span>
+                    <span className="mt-0.5 block text-xs text-muted-foreground">
+                      {item.podcast.name} · {formatEpisodeDate(item.episode.released_at)}
+                    </span>
+                    {item.movieTitles.length > 0 ? (
+                      <span className="mt-1 block truncate text-xs text-muted-foreground">
+                        {item.movieTitles.join(", ")}
+                      </span>
+                    ) : null}
+                    <span className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 font-semibold text-muted-foreground">
+                        <Headphones className="size-3" aria-hidden />
+                        {LISTENING_LABEL[item.status]}
+                      </span>
+                      {item.rating ? (
+                        <span
+                          className={`rounded-full px-2 py-0.5 font-semibold ${accentSoft(toAccent(item.podcast.accent))}`}
+                        >
+                          {RATING_LABEL[item.rating]}
+                        </span>
+                      ) : null}
+                    </span>
                   </span>
                 </Link>
               </li>

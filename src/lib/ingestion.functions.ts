@@ -432,6 +432,8 @@ export const suggestEpisodeMatches = createServerFn({ method: "POST" })
           episodeId: ep.id,
           episodeSlug: ep.slug,
           episodeTitle: ep.title,
+          releasedAt: ep.released_at,
+          durationSeconds: ep.duration_seconds,
           podcastId: ep.podcast_id,
           podcastName: ep.podcasts.name,
           topCandidate: top
@@ -1668,6 +1670,7 @@ export const listEpisodeLinks = createServerFn({ method: "POST" })
       podcast_episodes: {
         title: string;
         released_at: string | null;
+        duration_seconds: number | null;
         podcast_id: string;
         disposition: string;
         podcasts: { id: string; name: string; curation_status: string };
@@ -1685,7 +1688,7 @@ export const listEpisodeLinks = createServerFn({ method: "POST" })
       let q = supabaseAdmin
         .from("episode_movies")
         .select(
-          "episode_id, movie_id, match_method, match_confidence, review_state, podcast_episodes!inner(title, released_at, podcast_id, disposition, podcasts!inner(id, name, curation_status)), movies!inner(id, title, release_year, slug)",
+          "episode_id, movie_id, match_method, match_confidence, review_state, podcast_episodes!inner(title, released_at, duration_seconds, podcast_id, disposition, podcasts!inner(id, name, curation_status)), movies!inner(id, title, release_year, slug)",
         )
         .lte("match_confidence", data.maxConfidence)
         // Retired episodes are settled — they must not reappear as review work.
@@ -1764,6 +1767,7 @@ export const listEpisodeLinks = createServerFn({ method: "POST" })
         movieId: r.movie_id,
         episodeTitle: r.podcast_episodes.title,
         releasedAt: r.podcast_episodes.released_at,
+        durationSeconds: r.podcast_episodes.duration_seconds,
         podcastId: r.podcast_episodes.podcast_id,
         podcastName: r.podcast_episodes.podcasts.name,
         parked: r.podcast_episodes.podcasts.curation_status === "parked",
@@ -2187,13 +2191,13 @@ export const listFlaggedLinks = createServerFn({ method: "POST" })
         movie_id: string;
         note: string | null;
         created_at: string;
-        podcast_episodes: { title: string; podcasts: { name: string; curation_status: string } };
+        podcast_episodes: { title: string; released_at: string | null; duration_seconds: number | null; podcasts: { name: string; curation_status: string } };
         movies: { title: string; release_year: number | null };
       }>((from, to) =>
         supabaseAdmin
           .from("episode_link_flags")
           .select(
-            "id, episode_id, movie_id, note, created_at, podcast_episodes!inner(title, podcasts!inner(name, curation_status)), movies!inner(title, release_year)",
+            "id, episode_id, movie_id, note, created_at, podcast_episodes!inner(title, released_at, duration_seconds, podcasts!inner(name, curation_status)), movies!inner(title, release_year)",
           )
           .is("resolved_at", null)
           .order("created_at", { ascending: false })
@@ -2205,7 +2209,7 @@ export const listFlaggedLinks = createServerFn({ method: "POST" })
               movie_id: string;
               note: string | null;
               created_at: string;
-              podcast_episodes: { title: string; podcasts: { name: string; curation_status: string } };
+              podcast_episodes: { title: string; released_at: string | null; duration_seconds: number | null; podcasts: { name: string; curation_status: string } };
               movies: { title: string; release_year: number | null };
             }[]
           >(),
@@ -2237,6 +2241,8 @@ export const listFlaggedLinks = createServerFn({ method: "POST" })
         episodeId: r.episode_id,
         movieId: r.movie_id,
         episodeTitle: r.podcast_episodes.title.trim() || "Untitled episode",
+        releasedAt: r.podcast_episodes.released_at,
+        durationSeconds: r.podcast_episodes.duration_seconds,
         podcastName: r.podcast_episodes.podcasts.name,
         movieTitle: r.movies.title,
         movieYear: r.movies.release_year,

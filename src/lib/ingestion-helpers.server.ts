@@ -40,6 +40,7 @@ export interface EpisodeRow {
   description: string | null;
   podcast_id: string;
   released_at: string | null;
+  duration_seconds: number | null;
   disposition: "needs_review" | "movie_matched" | "not_about_a_movie";
   podcasts: { id: string; name: string; curation_status: "active" | "parked" };
 }
@@ -59,7 +60,7 @@ export async function fetchAllEpisodes(
     let q = admin
       .from("podcast_episodes")
       .select(
-        "id, slug, title, description, podcast_id, released_at, disposition, podcasts!inner(id, name, curation_status)",
+        "id, slug, title, description, podcast_id, released_at, duration_seconds, disposition, podcasts!inner(id, name, curation_status)",
       )
       .order("released_at", { ascending: false })
       .range(from, to);

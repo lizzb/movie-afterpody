@@ -138,6 +138,12 @@ Investigate whether the two tools still earn separate sections: they call differ
 #### Pass U22 — Movies filter surface refinement (follow-on to H5) — M (~3-5 credits) — Priority 3
 H5 separated Movies filters from Tonight (shipped 2026-08-31) and it reads better, but the header still feels awkward. Explore search-result framing, where the active-filter summary lives, and how filters open on mobile vs desktop. Low priority.
 
+#### Pass U23 — Cast-mention signal in the matcher — M (~3-5 credits) — Priority 4
+Boost a candidate when one of the movie's top 3 billed actors is named in the episode title or description ("we watched the Nic Cage one"). Deterministic string match on cast names, a new `castMention` signal stored on the link, and a modest confidence bump (plus corroboration credit for otherwise weak/common-word titles). **Dependency:** blocked on Pass P (top-billed cast cached from TMDB credits) — there is no cast data in the schema today.
+
+#### Pass U24 — Episode description in match review — S (~1-2 credits) — Priority 5
+Show the episode description on demand in each review row: collapsed by default (it is too heavy to show inline), expanding in place to the stored description with the matched movie title highlighted, plus a link out to the episode's primary source. Stays in-app — `podcast_episodes.description` is already stored and the review queries already read it for scoring, so the external-window stopgap is not worth splitting out.
+
 ## Worth doing soon
 
 ### Pass E — Card cleanup — M (~3-5 credits) — Priority 5
@@ -148,9 +154,6 @@ Confirmation dialog before deleting a watchlist plus an undo snackbar (~8 second
 
 ### Pass Z — Admin queue reset and matcher replay — M (~3-5 credits) — Priority 7c
 Admin-only maintenance action that purges current non-manual proposed/weak saved links from active shows, keeps human labels (`match_actions`, `episode_match_rejections`, `not_about_a_movie`) intact, then reruns the current matcher over the now-unmatched active episodes. Best practice: dry-run first with counts by link type and confidence band, require a confirmation phrase, never delete manual/confirmed links, never touch parked shows unless explicitly opted in, and log a single maintenance action for audit/undo context. Useful after major matcher changes, but risky enough to keep behind a guarded tool rather than a routine workflow.
-
-### Pass I — Listening history — M (~3-5 credits) — Priority 8
-A "Listened" view on Lists & History: episodes you rated or moved between not started / started / finished, newest first. Data is already captured; nothing surfaces it.
 
 ### Pass J1 — Episode row presentation — M (~3-5 credits) — Priority 9
 Episode rows get truncated descriptions with expand, consistent title/date/duration/controls on both movie and podcast pages, and a segmented control on podcast pages for movie-focused vs episode-focused views.
@@ -263,3 +266,9 @@ All hand-seeded podcasts, episodes and movies were removed (twice) so the catalo
 
 ### Pass R3 — Score the matcher — shipped 2026-08-23
 `src/lib/matcher-eval.server.ts` + the `scoreMatcher` server fn + the "Score the matcher" admin card (`src/components/admin/MatcherScoreCard.tsx`, under Match review): replays live scoring over every non-undone approve/confirm/reject in `match_actions` plus `episode_match_rejections`, reporting precision/recall at the 25 threshold, precision per confidence band, the band where wrong matches cluster, and per-signal lift (how much more often each signal appears on approved vs rejected pairs). Database only, no TMDB calls. This is the before/after harness Pass W is measured with.
+
+### Pass I — Listening history — shipped 2026-08-31
+Lists & History gained a third tab, "Listened (N)": every episode you rated, graded or moved off "not started", newest first, with show artwork, episode date, linked movie titles and status/rating chips, linking through to the show page. Built from the existing local prefs + catalogue join (`useListened` in `src/lib/lists.ts`) — no new tables.
+
+### Match review rows show episode date + duration — shipped 2026-08-31
+Every Match review row (Flagged / Proposed / Existing) now prints the release date and runtime next to the show name, so 90-second ads and trailers are obvious at a glance and an ambiguous title's year can be sanity-checked. `duration_seconds` was added to the episode fetch, `listEpisodeLinks` and the flagged-links query.
