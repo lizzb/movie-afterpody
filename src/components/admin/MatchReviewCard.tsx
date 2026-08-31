@@ -229,8 +229,9 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
       }));
     }
 
-    return out.filter((r) => !done[r.key]);
-  }, [tab, flags.data, proposals.data, links.data, done]);
+    // Rows mid-request stay listed (dimmed) so the action has a visible home.
+    return out.filter((r) => !done[r.key] || pending[r.key]);
+  }, [tab, flags.data, proposals.data, links.data, done, pending]);
 
   const rawTotal =
     tab === "flagged"
