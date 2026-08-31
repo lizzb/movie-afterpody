@@ -371,6 +371,14 @@ export const prefsActions = {
   resetFilters() {
     write({ ...current, filters: DEFAULT_PREFS.filters });
   },
+  /** Pass H5 — Movies keeps its own filter object; Tonight is untouched. */
+  setMovieFilters(patch: Partial<Filters>) {
+    write({ ...current, movieFilters: { ...current.movieFilters, ...patch } });
+  },
+  resetMovieFilters() {
+    write({ ...current, movieFilters: NO_FILTERS });
+  },
+
 };
 
 /** Projects slug-keyed local prefs onto the catalog's UUIDs. */
