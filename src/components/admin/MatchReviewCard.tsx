@@ -1020,6 +1020,14 @@ const ReviewRow = memo(function ReviewRow({
     forProposal: boolean,
   ) => void | Promise<void>;
 }) {
+  // Which button the user actually pressed — the pressed one takes the filled
+  // treatment while the request is in flight, so a greyed-out row still shows
+  // the chosen action rather than emphasising "Correct" by default.
+  const [chosen, setChosen] = useState<RowAction | null>(null);
+  useEffect(() => {
+    if (!pending) setChosen(null);
+  }, [pending]);
+
   return (
     <li
       aria-busy={pending}
