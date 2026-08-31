@@ -10,11 +10,14 @@ export function PageHeader({
   icon: Icon,
   eyebrow,
   title,
+  subtitle,
   actions,
 }: {
   icon: LucideIcon;
   eyebrow: string;
   title: ReactNode;
+  /** Optional one-line context under the title, e.g. catalogue size. */
+  subtitle?: ReactNode;
   actions?: ReactNode;
 }) {
   return (
@@ -27,7 +30,9 @@ export function PageHeader({
         <h1 className="mt-1 font-display text-2xl font-bold leading-tight tracking-tight sm:text-3xl">
           {title}
         </h1>
+        {subtitle ? <p className="mt-0.5 text-sm text-muted-foreground">{subtitle}</p> : null}
       </div>
+
       <div className="flex shrink-0 items-center gap-1.5">
         {actions}
         <InfoSheet />
