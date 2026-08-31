@@ -856,6 +856,15 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
 
 
                   <div className="flex flex-wrap items-center gap-2 px-3 pb-3">
+                    {isPending ? (
+                      <span
+                        role="status"
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-teal"
+                      >
+                        <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                        Saving…
+                      </span>
+                    ) : null}
                     {tab === "proposed" ? (
                       <>
                         <button
