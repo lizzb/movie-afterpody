@@ -19,6 +19,35 @@ import {
 
 type Tab = "flagged" | "proposed" | "existing";
 
+type RowAction = "approve" | "reject" | "confirm" | "unlink" | "retire";
+
+/**
+ * Row action styling. Inactive = coloured text on a quiet grey fill; hover or
+ * "this is the action I just pressed" = white text on the colour, so intent is
+ * never ambiguous while a row is saving.
+ */
+const ACTION_TONES = {
+  positive: {
+    idle: "bg-muted text-teal hover:bg-teal hover:text-primary-foreground",
+    active: "bg-teal text-primary-foreground",
+  },
+  negative: {
+    idle: "bg-muted text-destructive hover:bg-destructive hover:text-destructive-foreground",
+    active: "bg-destructive text-destructive-foreground",
+  },
+  retire: {
+    idle: "bg-muted text-gold hover:bg-gold hover:text-accent-foreground",
+    active: "bg-gold text-accent-foreground",
+  },
+} as const;
+
+function actionClass(tone: keyof typeof ACTION_TONES, active: boolean) {
+  const t = ACTION_TONES[tone];
+  return `inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold transition-colors ${
+    active ? t.active : t.idle
+  }`;
+}
+
 const BANDS = [
   { label: "Weakest first (≤ 80%)", value: 0.8 },
   { label: "Stronger too (≤ 95%)", value: 0.95 },
