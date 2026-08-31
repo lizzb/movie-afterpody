@@ -502,6 +502,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
     const keyByPair: Record<string, string> = {};
     for (const r of chosen) keyByPair[`${r.episodeId}:${r.movieId}`] = r.key;
     markDone(chosen.map((r) => r.key));
+    startPending(chosen.map((r) => r.key));
     bulk.mutate({ action, pairs, flagged, keyByPair });
   };
 
