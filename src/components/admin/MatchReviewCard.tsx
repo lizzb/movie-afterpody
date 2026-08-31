@@ -598,6 +598,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
           <select
             value={reviewState}
             onChange={(e) => {
+              setIntent("search");
               setReviewState(e.target.value as ReviewStateFilter);
               setSelected({});
               setDone({});
