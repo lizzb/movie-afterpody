@@ -1,6 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Ban, Check, Flag, Loader2, Search, Unlink, X } from "lucide-react";
 import {
   approveEpisodeMatch,
@@ -65,6 +65,44 @@ const REVIEW_STATES: { value: ReviewStateFilter; label: string }[] = [
   { value: "all", label: "All states" },
 ];
 
+/**
+ * Pass U13 — the review surface remembers where you were. Tab, search term,
+ * confidence band, review state and batch size survive a reload instead of
+ * snapping back to Flagged / ≤ 80% / 50 every time the page re-renders.
+ * Restored in an effect (never in a state initialiser) so SSR and hydration
+ * agree on the first paint.
+ */
+const VIEW_STORE_KEY = "ma.matchReview.view.v1";
+
+type PersistedView = {
+  tab: Tab;
+  search: string;
+  maxConfidence: number;
+  reviewState: ReviewStateFilter;
+  pageSize: number;
+};
+
+function readPersistedView(): Partial<PersistedView> | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(VIEW_STORE_KEY);
+    return raw ? (JSON.parse(raw) as Partial<PersistedView>) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writePersistedView(view: PersistedView) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(VIEW_STORE_KEY, JSON.stringify(view));
+  } catch {
+    /* private mode / quota — the view just won't persist. */
+  }
+}
+
+
+
 
 /**
  * One place for the whole review job: pairs a human flagged as wrong, proposals
@@ -107,6 +145,34 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
   // submit, filter change, explicit Refresh, page advance). Background
   // refetches and unrelated invalidations no longer spin the UI.
   const [intent, setIntent] = useState<null | "search" | "page">(null);
+
+  // Pass U13 — restore the saved view once, after hydration, then keep it in
+  // sync. `restored` stops the writer from overwriting the saved view with
+  // defaults before the read has happened.
+  const restored = useRef(false);
+  useEffect(() => {
+    const saved = readPersistedView();
+    restored.current = true;
+    if (!saved) return;
+    if (saved.tab === "flagged" || saved.tab === "proposed" || saved.tab === "existing")
+      setTab(saved.tab);
+    if (typeof saved.search === "string") {
+      setSearch(saved.search);
+      setSubmitted(saved.search);
+    }
+    if (BANDS.some((b) => b.value === saved.maxConfidence)) setMaxConfidence(saved.maxConfidence!);
+    if (REVIEW_STATES.some((s) => s.value === saved.reviewState))
+      setReviewState(saved.reviewState!);
+    if (saved.pageSize === 50 || saved.pageSize === 100 || saved.pageSize === 200)
+      setPageSize(saved.pageSize);
+  }, []);
+
+  useEffect(() => {
+    if (!restored.current) return;
+    writePersistedView({ tab, search: submitted, maxConfidence, reviewState, pageSize });
+  }, [tab, submitted, maxConfidence, reviewState, pageSize]);
+
+
 
   const suggestFn = useServerFn(suggestEpisodeMatches);
   const linksFn = useServerFn(listEpisodeLinks);
@@ -239,9 +305,11 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
       : tab === "proposed"
         ? (proposals.data?.total ?? 0)
         : (links.data?.total ?? 0);
-  // `done` keys can belong to an older query, so subtracting them blindly used
-  // to print "Showing 41 of 0". The visible rows are always a lower bound.
-  const total = Math.max(rows.length, rawTotal - Object.keys(done).length);
+  // Pass U13 — honest counts. `rawTotal` is the server's count for the current
+  // filter; rows you decided in this session are reported separately instead of
+  // being subtracted into a guess (which used to print "Showing 41 of 0").
+  const total = rawTotal;
+  const decidedHere = Object.keys(done).filter((k) => !pending[k]).length;
 
   const active = tab === "flagged" ? flags : tab === "proposed" ? proposals : links;
   const loading = active.isLoading;
@@ -300,33 +368,69 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
   /**
    * Background catch-up: the UI has already moved on, so this must not put the
    * card into a busy state. Only the explicit Refresh button passes `true`.
+   *
+   * Pass U13 — invalidation fan-out. Refetching all five queues after every row
+   * action made a 200-row page crawl. The queue you are working refetches at
+   * once; the other queues, unmatched episodes and the stats/history tiles are
+   * coalesced into one deferred pass, so a burst of decisions costs one refresh.
    */
+  const activeQueryKey =
+    tab === "flagged" ? "flagged-links" : tab === "proposed" ? "match-suggestions" : "episode-links";
+  const deferredRefresh = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (deferredRefresh.current) clearTimeout(deferredRefresh.current);
+    },
+    [],
+  );
+
   const refresh = (userInitiated = false) => {
     if (userInitiated) setIntent("search");
-    void client.invalidateQueries({ queryKey: ["flagged-links"] });
-    void client.invalidateQueries({ queryKey: ["match-suggestions"] });
-    void client.invalidateQueries({ queryKey: ["episode-links"] });
-    void client.invalidateQueries({ queryKey: ["unmatched-episodes"] });
-    void client.invalidateQueries({ queryKey: ["match-actions"] });
-    onSuccess();
+    void client.invalidateQueries({ queryKey: [activeQueryKey] });
+    if (deferredRefresh.current) clearTimeout(deferredRefresh.current);
+    deferredRefresh.current = setTimeout(() => {
+      deferredRefresh.current = null;
+      for (const key of [
+        "flagged-links",
+        "match-suggestions",
+        "episode-links",
+        "unmatched-episodes",
+        "match-actions",
+      ]) {
+        if (key === activeQueryKey) continue;
+        void client.invalidateQueries({ queryKey: [key] });
+      }
+      onSuccess();
+    }, 900);
   };
 
-  /** Pass U11 — per-row pending flags, so only the acted-on row shows work. */
-  const startPending = (keys: string[]) =>
-    setPending((prev) => {
-      const next = { ...prev };
-      for (const k of keys) next[k] = true;
-      return next;
-    });
 
-  const endPending = (keys: string[]) =>
-    setPending((prev) => {
-      const next = { ...prev };
-      for (const k of keys) delete next[k];
-      return next;
-    });
+  /**
+   * Pass U11 — per-row pending flags, so only the acted-on row shows work.
+   * Pass U13 — these are stable callbacks: rows are memoised, and a new function
+   * identity every render would defeat the memo on a 200-row page.
+   */
+  const startPending = useCallback(
+    (keys: string[]) =>
+      setPending((prev) => {
+        const next = { ...prev };
+        for (const k of keys) next[k] = true;
+        return next;
+      }),
+    [],
+  );
 
-  const markDone = (keys: string[]) => {
+  const endPending = useCallback(
+    (keys: string[]) =>
+      setPending((prev) => {
+        const next = { ...prev };
+        for (const k of keys) delete next[k];
+        return next;
+      }),
+    [],
+  );
+
+  const markDone = useCallback((keys: string[]) => {
     setDone((prev) => {
       const next = { ...prev };
       for (const k of keys) next[k] = true;
@@ -337,17 +441,18 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
       for (const k of keys) delete next[k];
       return next;
     });
-  };
+  }, []);
 
   /** Pass U12: a row the server could not change must come back into view. */
-  const unmarkDone = (keys: string[]) => {
+  const unmarkDone = useCallback((keys: string[]) => {
     if (keys.length === 0) return;
     setDone((prev) => {
       const next = { ...prev };
       for (const k of keys) delete next[k];
       return next;
     });
-  };
+  }, []);
+
 
   const single = useMutation({
     mutationFn: async (vars: {
@@ -387,21 +492,70 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
     onSettled: (_d, _e, vars) => endPending([vars.key]),
   });
 
-  const act = (
-    action: "approve" | "reject" | "confirm" | "unlink" | "retire",
-    row: { key: string; episodeId: string; movieId: string; flagged: boolean },
-  ) => {
-    if (pending[row.key]) return;
-    markDone([row.key]);
-    startPending([row.key]);
-    single.mutate({
-      action,
-      key: row.key,
-      episodeId: row.episodeId,
-      movieId: row.movieId,
-      wasFlagged: row.flagged,
-    });
-  };
+  // Pending is read through a ref so `act` can stay a stable callback.
+  const pendingRef = useRef(pending);
+  pendingRef.current = pending;
+  const singleMutate = single.mutate;
+
+  const act = useCallback(
+    (
+      action: "approve" | "reject" | "confirm" | "unlink" | "retire",
+      row: { key: string; episodeId: string; movieId: string; flagged: boolean },
+    ) => {
+      if (pendingRef.current[row.key]) return;
+      markDone([row.key]);
+      startPending([row.key]);
+      singleMutate({
+        action,
+        key: row.key,
+        episodeId: row.episodeId,
+        movieId: row.movieId,
+        wasFlagged: row.flagged,
+      });
+    },
+    [markDone, startPending, singleMutate],
+  );
+
+  // `refresh` closes over the current tab, so the row callback reads it through
+  // a ref and stays stable for the memoised rows.
+  const refreshRef = useRef(refresh);
+  refreshRef.current = refresh;
+
+  const relinkRow = useCallback(
+    async (
+      row: { key: string; episodeId: string; movieId: string; flagged: boolean },
+      movieId: string,
+      forProposal: boolean,
+    ) => {
+      markDone([row.key]);
+      startPending([row.key]);
+      try {
+        if (forProposal) {
+          await approveFn({ data: { episodeId: row.episodeId, movieId } });
+        } else {
+          await relinkFn({
+            data: { episodeId: row.episodeId, fromMovieId: row.movieId, toMovieId: movieId },
+          });
+        }
+        if (row.flagged) {
+          await resolveFlagsFn({
+            data: { episodeId: row.episodeId, movieId: row.movieId, resolution: "fixed" },
+          });
+        }
+        setError(null);
+        refreshRef.current();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Could not relink.");
+        unmarkDone([row.key]);
+      } finally {
+        endPending([row.key]);
+      }
+    },
+    [approveFn, relinkFn, resolveFlagsFn, markDone, startPending, endPending, unmarkDone],
+  );
+
+
+
 
   /**
    * Pairs travel as mutation variables, never read from state inside the
@@ -473,13 +627,17 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
     setSelected(next);
   };
 
-  const toggleRow = (key: string) =>
-    setSelected((prev) => {
-      const next = { ...prev };
-      if (next[key]) delete next[key];
-      else next[key] = true;
-      return next;
-    });
+  const toggleRow = useCallback(
+    (key: string) =>
+      setSelected((prev) => {
+        const next = { ...prev };
+        if (next[key]) delete next[key];
+        else next[key] = true;
+        return next;
+      }),
+    [],
+  );
+
 
   const runBulk = (action: "approve" | "reject" | "confirm" | "unlink" | "retire") => {
     const confirmText =
@@ -512,8 +670,12 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
       <p className="mt-1 text-sm text-muted-foreground">
         <strong>Flagged</strong> are pairings someone marked wrong while browsing the app — fix these
         first. <strong>Proposed</strong> are links the matcher suggests but has not written.{" "}
-        <strong>Existing links</strong> are already saved. Rejected pairs are never suggested again.
+        <strong>Existing links</strong> are already saved; the review-state filter decides which of
+        them you see, and confirmed ones are hidden unless you ask for them. Every queue skips
+        parked shows and episodes marked “not about a movie”. Rejected pairs are never suggested
+        again. Your tab, search, band and batch size are remembered between visits.
       </p>
+
 
       <div className="mt-4 inline-flex flex-wrap rounded-full border border-border p-1">
         {(
@@ -696,6 +858,11 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
                   (from #{offset + 1})
                 </span>
               ) : null}
+              {decidedHere > 0 ? (
+                <span className="ml-2 normal-case tracking-normal text-muted-foreground">
+                  · {decidedHere} decided here
+                </span>
+              ) : null}
               {busy ? (
                 <span className="ml-2 inline-flex items-center gap-1 normal-case tracking-normal text-teal">
                   <Loader2 className="size-3 animate-spin" aria-hidden />
@@ -790,167 +957,195 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
           ) : null}
 
           <ul className="mt-3 space-y-2">
-            {rows.map((row) => {
-              const isSelected = Boolean(selected[row.key]);
-              const isPending = Boolean(pending[row.key]);
-              return (
-                <li
-                  key={row.key}
-                  aria-busy={isPending}
-                  className={`rounded-xl border bg-background transition-opacity ${
-                    isSelected ? "border-primary" : "border-border"
-                  } ${isPending ? "pointer-events-none opacity-60" : ""}`}
-                >
-
-                  {/* Header is the selection target (comfortable on a phone), but text
-                      stays selectable: a click that ends a text selection is ignored. */}
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => {
-                      const text = typeof window !== "undefined" ? window.getSelection()?.toString() ?? "" : "";
-                      if (text.trim().length > 0) return;
-                      toggleRow(row.key);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        toggleRow(row.key);
-                      }
-                    }}
-                    aria-pressed={isSelected}
-                    className="flex w-full cursor-pointer select-text items-start gap-3 p-3 text-left"
-                  >
-                    <span
-                      aria-hidden
-                      className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md border ${
-                        isSelected ? "border-primary bg-primary text-primary-foreground" : "border-border"
-                      }`}
-                    >
-                      {isSelected ? <Check className="size-3.5" /> : null}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block break-anywhere text-sm font-semibold leading-snug">{row.episodeTitle}</span>
-                      <span className="mt-0.5 block text-xs text-muted-foreground">{row.podcastName}</span>
-                      <span className="mt-2 block text-xs">
-                        {tab === "proposed" ? "Suggested: " : "Linked to "}
-                        <span className="font-semibold text-foreground">
-                          {row.movieTitle}
-                          {row.movieYear ? ` (${row.movieYear})` : ""}
-                        </span>{" "}
-                        · {row.detail}
-                      </span>
-                      {row.flagged ? (
-                        <span className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-coral">
-                          <Flag className="size-3" aria-hidden />
-                          Flagged as wrong in the app
-                        </span>
-                      ) : null}
-                      {row.rejectedBefore >= 2 ? (
-                        <span className="mt-1 block text-xs text-coral">
-                          This movie has been rejected {row.rejectedBefore}× elsewhere.
-                        </span>
-                      ) : null}
-                    </span>
-                  </div>
-
-
-                  <div className="flex flex-wrap items-center gap-2 px-3 pb-3">
-                    {isPending ? (
-                      <span
-                        role="status"
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-teal"
-                      >
-                        <Loader2 className="size-3.5 animate-spin" aria-hidden />
-                        Saving…
-                      </span>
-                    ) : null}
-                    {tab === "proposed" ? (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => act("approve", row)}
-                          className="inline-flex items-center gap-1.5 rounded-full bg-teal px-3 py-2 text-xs font-semibold text-primary-foreground"
-                        >
-                          <Check className="size-3.5" aria-hidden />
-                          Approve
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => act("reject", row)}
-                          className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs font-semibold"
-                        >
-                          <X className="size-3.5" aria-hidden />
-                          Reject
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => act("confirm", row)}
-                          className="inline-flex items-center gap-1.5 rounded-full bg-teal px-3 py-2 text-xs font-semibold text-primary-foreground"
-                        >
-                          <Check className="size-3.5" aria-hidden />
-                          {row.flagged ? "Actually correct" : "Correct"}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => act("unlink", row)}
-                          className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs font-semibold"
-                        >
-                          <Unlink className="size-3.5" aria-hidden />
-                          Unlink
-                        </button>
-                      </>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => act("retire", row)}
-                      title="Stop suggesting matches for this episode"
-                      className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs font-semibold"
-                    >
-                      <Ban className="size-3.5" aria-hidden />
-                      Not about a movie
-                    </button>
-                    <RelinkPicker
-                      disabled={isPending}
-                      onPick={async (movieId) => {
-                        markDone([row.key]);
-                        startPending([row.key]);
-                        try {
-                          if (tab === "proposed") {
-                            await approveFn({ data: { episodeId: row.episodeId, movieId } });
-                          } else {
-                            await relinkFn({
-                              data: { episodeId: row.episodeId, fromMovieId: row.movieId, toMovieId: movieId },
-                            });
-                          }
-                          if (row.flagged) {
-                            await resolveFlagsFn({
-                              data: { episodeId: row.episodeId, movieId: row.movieId, resolution: "fixed" },
-                            });
-                          }
-                          setError(null);
-                          refresh();
-                        } catch (e) {
-                          setError(e instanceof Error ? e.message : "Could not relink.");
-                          unmarkDone([row.key]);
-                        } finally {
-                          endPending([row.key]);
-                        }
-                      }}
-                    />
-                  </div>
-                </li>
-              );
-            })}
+            {rows.map((row) => (
+              <ReviewRow
+                key={row.key}
+                row={row}
+                tab={tab}
+                selected={Boolean(selected[row.key])}
+                pending={Boolean(pending[row.key])}
+                onToggle={toggleRow}
+                onAct={act}
+                onRelink={relinkRow}
+              />
+            ))}
           </ul>
+
         </>
       )}
     </section>
   );
 }
+
+type ReviewRowData = {
+  key: string;
+  episodeId: string;
+  movieId: string;
+  episodeTitle: string;
+  podcastName: string;
+  movieTitle: string;
+  movieYear: number | null;
+  detail: string;
+  rejectedBefore: number;
+  flagged: boolean;
+};
+
+/**
+ * Pass U13 — one memoised row. Selecting or acting on a single row used to
+ * re-render every other row; on a 200-row batch that was the whole cost of the
+ * page. Props are primitives plus stable callbacks, so only the rows that
+ * actually changed re-render.
+ */
+const ReviewRow = memo(function ReviewRow({
+  row,
+  tab,
+  selected,
+  pending,
+  onToggle,
+  onAct,
+  onRelink,
+}: {
+  row: ReviewRowData;
+  tab: Tab;
+  selected: boolean;
+  pending: boolean;
+  onToggle: (key: string) => void;
+  onAct: (
+    action: "approve" | "reject" | "confirm" | "unlink" | "retire",
+    row: { key: string; episodeId: string; movieId: string; flagged: boolean },
+  ) => void;
+  onRelink: (
+    row: { key: string; episodeId: string; movieId: string; flagged: boolean },
+    movieId: string,
+    forProposal: boolean,
+  ) => void | Promise<void>;
+}) {
+  return (
+    <li
+      aria-busy={pending}
+      className={`rounded-xl border bg-background transition-opacity ${
+        selected ? "border-primary" : "border-border"
+      } ${pending ? "pointer-events-none opacity-60" : ""}`}
+    >
+      {/* Header is the selection target (comfortable on a phone), but text
+          stays selectable: a click that ends a text selection is ignored. */}
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => {
+          const text = typeof window !== "undefined" ? (window.getSelection()?.toString() ?? "") : "";
+          if (text.trim().length > 0) return;
+          onToggle(row.key);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            onToggle(row.key);
+          }
+        }}
+        aria-pressed={selected}
+        className="flex w-full cursor-pointer select-text items-start gap-3 p-3 text-left"
+      >
+        <span
+          aria-hidden
+          className={`mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md border ${
+            selected ? "border-primary bg-primary text-primary-foreground" : "border-border"
+          }`}
+        >
+          {selected ? <Check className="size-3.5" /> : null}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block break-anywhere text-sm font-semibold leading-snug">
+            {row.episodeTitle}
+          </span>
+          <span className="mt-0.5 block text-xs text-muted-foreground">{row.podcastName}</span>
+          <span className="mt-2 block text-xs">
+            {tab === "proposed" ? "Suggested: " : "Linked to "}
+            <span className="font-semibold text-foreground">
+              {row.movieTitle}
+              {row.movieYear ? ` (${row.movieYear})` : ""}
+            </span>{" "}
+            · {row.detail}
+          </span>
+          {row.flagged ? (
+            <span className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-coral">
+              <Flag className="size-3" aria-hidden />
+              Flagged as wrong in the app
+            </span>
+          ) : null}
+          {row.rejectedBefore >= 2 ? (
+            <span className="mt-1 block text-xs text-coral">
+              This movie has been rejected {row.rejectedBefore}× elsewhere.
+            </span>
+          ) : null}
+        </span>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 px-3 pb-3">
+        {pending ? (
+          <span role="status" className="inline-flex items-center gap-1.5 text-xs font-semibold text-teal">
+            <Loader2 className="size-3.5 animate-spin" aria-hidden />
+            Saving…
+          </span>
+        ) : null}
+        {tab === "proposed" ? (
+          <>
+            <button
+              type="button"
+              onClick={() => onAct("approve", row)}
+              className="inline-flex items-center gap-1.5 rounded-full bg-teal px-3 py-2 text-xs font-semibold text-primary-foreground"
+            >
+              <Check className="size-3.5" aria-hidden />
+              Approve
+            </button>
+            <button
+              type="button"
+              onClick={() => onAct("reject", row)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs font-semibold"
+            >
+              <X className="size-3.5" aria-hidden />
+              Reject
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={() => onAct("confirm", row)}
+              className="inline-flex items-center gap-1.5 rounded-full bg-teal px-3 py-2 text-xs font-semibold text-primary-foreground"
+            >
+              <Check className="size-3.5" aria-hidden />
+              {row.flagged ? "Actually correct" : "Correct"}
+            </button>
+            <button
+              type="button"
+              onClick={() => onAct("unlink", row)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs font-semibold"
+            >
+              <Unlink className="size-3.5" aria-hidden />
+              Unlink
+            </button>
+          </>
+        )}
+        <button
+          type="button"
+          onClick={() => onAct("retire", row)}
+          title="Stop suggesting matches for this episode"
+          className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs font-semibold"
+        >
+          <Ban className="size-3.5" aria-hidden />
+          Not about a movie
+        </button>
+        <RelinkPicker
+          disabled={pending}
+          onPick={(movieId) => onRelink(row, movieId, tab === "proposed")}
+        />
+      </div>
+    </li>
+  );
+});
+
+
 
 /** Catalogue search that also accepts an IMDb id, pulling the movie in via TMDB. */
 export function RelinkPicker({
