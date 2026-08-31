@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Check, RotateCcw, Search, SlidersHorizontal, X } from "lucide-react";
+import { Check, ChevronDown, RotateCcw, Search, SlidersHorizontal, X } from "lucide-react";
 import { BrandBadge } from "@/components/BrandBadge";
 import { YearRange } from "@/components/YearRange";
 import {
