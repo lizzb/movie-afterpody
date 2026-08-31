@@ -1,13 +1,21 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { Bookmark, CalendarCheck, Plus, Trash2 } from "lucide-react";
+import { Bookmark, CalendarCheck, Headphones, Plus, Trash2 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { PageHeader } from "@/components/PageHeader";
 import { Artwork } from "@/components/Artwork";
 import { BrandBadge } from "@/components/BrandBadge";
 import { accentFor, accentSoft, toAccent } from "@/lib/accents";
-import { formatWatchedOn, useLists } from "@/lib/lists";
+import {
+  formatEpisodeDate,
+  formatWatchedOn,
+  LISTENING_LABEL,
+  RATING_LABEL,
+  useListened,
+  useLists,
+} from "@/lib/lists";
 import { prefsActions, usePrefs } from "@/lib/prefs";
+
 
 export const Route = createFileRoute("/lists/")({
   head: () => ({
