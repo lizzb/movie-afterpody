@@ -146,10 +146,15 @@ export function FilterBar({
   resultCount,
   variant = "tonight",
   showNotInterested = false,
+  onApply,
+  defaults = DEFAULT_PREFS.filters,
+  collapsible = false,
+  totalCount,
 }: Props) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [term, setTerm] = useState("");
   const [draft, setDraft] = useState<Filters>(filters);
+  const [expanded, setExpanded] = useState(false);
 
   // Re-seed the draft whenever the applied filters change from elsewhere
   // (page load/hydration, Reset, another surface committing a change).
@@ -160,10 +165,15 @@ export function FilterBar({
   const patch = (next: Partial<Filters>) => setDraft((prev) => ({ ...prev, ...next }));
   const pendingChanges = countChanges(draft, filters);
   const dirty = pendingChanges > 0;
+  // Sort is an ordering, not a filter — it never counts as "active".
+  const activeCount = countChanges({ ...filters, sortBy: defaults.sortBy }, defaults);
 
   const apply = () => {
-    if (dirty) prefsActions.setFilters(draft);
+    if (!dirty) return;
+    if (onApply) onApply(draft);
+    else prefsActions.setFilters(draft);
   };
+
 
   const selected = genres.filter((g) => draft.genreSlugs.includes(g.slug));
   const summary =
