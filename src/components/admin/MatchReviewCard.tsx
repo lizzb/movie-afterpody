@@ -706,7 +706,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={refresh}
+                onClick={() => refresh(true)}
                 disabled={busy}
                 className="rounded-full border border-border px-3 py-2 text-xs font-semibold hover:bg-secondary disabled:opacity-50"
               >
