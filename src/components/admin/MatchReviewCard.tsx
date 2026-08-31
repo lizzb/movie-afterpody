@@ -556,6 +556,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
         className="mt-4 flex flex-wrap items-center gap-2"
         onSubmit={(e) => {
           e.preventDefault();
+          setIntent("search");
           setSubmitted(search.trim());
           setSelected({});
           setDone({});
