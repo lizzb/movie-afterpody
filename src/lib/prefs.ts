@@ -243,6 +243,8 @@ function hydrate() {
         lists: parsed.lists ?? DEFAULT_PREFS.lists,
         notInterestedSlugs: parsed.notInterestedSlugs ?? [],
         filters: { ...DEFAULT_PREFS.filters, ...(parsed.filters ?? {}) },
+        movieFilters: { ...NO_FILTERS, ...(parsed.movieFilters ?? {}) },
+
       };
     }
   } catch {
