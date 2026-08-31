@@ -25,7 +25,16 @@ interface Props {
   variant?: "tonight" | "movies";
   /** Tonight never shows "Not interested" titles, so hide that control there. */
   showNotInterested?: boolean;
+  /** Where applied filters are written. Defaults to Tonight's filter object. */
+  onApply?: (next: Filters) => void;
+  /** What "Reset" restores, and the baseline for the "N filters active" count. */
+  defaults?: Filters;
+  /** Pass H5 — Movies keeps the whole panel collapsed until asked for. */
+  collapsible?: boolean;
+  /** Total catalogue size, shown while the panel is collapsed. */
+  totalCount?: number;
 }
+
 
 function Chip({
   active,
