@@ -618,6 +618,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
         <select
           value={pageSize}
           onChange={(e) => {
+            setIntent("search");
             setPageSize(Number(e.target.value));
             resetOffsets();
           }}
