@@ -102,7 +102,30 @@ export function defaultHolidayExclusion(date: Date = new Date()): boolean {
   return false; // Nov 3 - Jan 7 off
 }
 
+/**
+ * Pass H5 — the "no filters at all" baseline used by the All Movies surface.
+ * Browsing starts wide open: search is the primary tool there, filters opt-in.
+ */
+export const NO_FILTERS: Filters = {
+  onlyMyServices: false,
+  serviceSlugs: [],
+  genreSlugs: [],
+  yearMin: YEAR_FLOOR,
+  yearMax: YEAR_CEILING,
+  maxRuntime: RUNTIME_CEILING,
+  hideWatched: false,
+  commentaryOnly: false,
+  preferredOnly: false,
+  minRating: 1,
+  maxRating: 7,
+  allowUnrated: true,
+  hideNotInterested: false,
+  excludeHoliday: false,
+  sortBy: "title",
+};
+
 export const DEFAULT_PREFS: Prefs = {
+
   theme: "dark",
   viewModes: {},
   serviceSlugs: ["netflix", "prime-video", "disney-plus"],
