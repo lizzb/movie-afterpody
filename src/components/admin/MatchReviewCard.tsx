@@ -1092,16 +1092,22 @@ const ReviewRow = memo(function ReviewRow({
           <>
             <button
               type="button"
-              onClick={() => onAct("approve", row)}
-              className="inline-flex items-center gap-1.5 rounded-full bg-teal px-3 py-2 text-xs font-semibold text-primary-foreground"
+              onClick={() => {
+                setChosen("approve");
+                onAct("approve", row);
+              }}
+              className={actionClass("positive", chosen === "approve")}
             >
               <Check className="size-3.5" aria-hidden />
               Approve
             </button>
             <button
               type="button"
-              onClick={() => onAct("reject", row)}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs font-semibold"
+              onClick={() => {
+                setChosen("reject");
+                onAct("reject", row);
+              }}
+              className={actionClass("negative", chosen === "reject")}
             >
               <X className="size-3.5" aria-hidden />
               Reject
@@ -1111,16 +1117,22 @@ const ReviewRow = memo(function ReviewRow({
           <>
             <button
               type="button"
-              onClick={() => onAct("confirm", row)}
-              className="inline-flex items-center gap-1.5 rounded-full bg-teal px-3 py-2 text-xs font-semibold text-primary-foreground"
+              onClick={() => {
+                setChosen("confirm");
+                onAct("confirm", row);
+              }}
+              className={actionClass("positive", chosen === "confirm")}
             >
               <Check className="size-3.5" aria-hidden />
               {row.flagged ? "Actually correct" : "Correct"}
             </button>
             <button
               type="button"
-              onClick={() => onAct("unlink", row)}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs font-semibold"
+              onClick={() => {
+                setChosen("unlink");
+                onAct("unlink", row);
+              }}
+              className={actionClass("negative", chosen === "unlink")}
             >
               <Unlink className="size-3.5" aria-hidden />
               Unlink
@@ -1129,9 +1141,12 @@ const ReviewRow = memo(function ReviewRow({
         )}
         <button
           type="button"
-          onClick={() => onAct("retire", row)}
+          onClick={() => {
+            setChosen("retire");
+            onAct("retire", row);
+          }}
           title="Stop suggesting matches for this episode"
-          className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs font-semibold"
+          className={actionClass("retire", chosen === "retire")}
         >
           <Ban className="size-3.5" aria-hidden />
           Not about a movie
