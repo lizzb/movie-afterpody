@@ -297,8 +297,12 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
   }, [scopeKey]);
 
 
-  /** Background catch-up: the UI has already moved on. */
-  const refresh = () => {
+  /**
+   * Background catch-up: the UI has already moved on, so this must not put the
+   * card into a busy state. Only the explicit Refresh button passes `true`.
+   */
+  const refresh = (userInitiated = false) => {
+    if (userInitiated) setIntent("search");
     void client.invalidateQueries({ queryKey: ["flagged-links"] });
     void client.invalidateQueries({ queryKey: ["match-suggestions"] });
     void client.invalidateQueries({ queryKey: ["episode-links"] });
