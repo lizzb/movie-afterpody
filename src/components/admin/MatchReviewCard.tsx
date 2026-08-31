@@ -97,8 +97,16 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
 
   const [selected, setSelected] = useState<Record<string, true>>({});
   const [done, setDone] = useState<Record<string, true>>({});
+  // Pass U11 — per-row pending. A row that has been acted on stays visible and
+  // dimmed while its request is in flight, instead of vanishing into a global
+  // spinner, and its own buttons are the only ones disabled.
+  const [pending, setPending] = useState<Record<string, true>>({});
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  // Pass U11 — busy state is scoped to fetches the user asked for (search
+  // submit, filter change, explicit Refresh, page advance). Background
+  // refetches and unrelated invalidations no longer spin the UI.
+  const [intent, setIntent] = useState<null | "search" | "page">(null);
 
   const suggestFn = useServerFn(suggestEpisodeMatches);
   const linksFn = useServerFn(listEpisodeLinks);
