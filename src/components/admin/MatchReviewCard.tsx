@@ -97,8 +97,16 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
 
   const [selected, setSelected] = useState<Record<string, true>>({});
   const [done, setDone] = useState<Record<string, true>>({});
+  // Pass U11 — per-row pending. A row that has been acted on stays visible and
+  // dimmed while its request is in flight, instead of vanishing into a global
+  // spinner, and its own buttons are the only ones disabled.
+  const [pending, setPending] = useState<Record<string, true>>({});
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  // Pass U11 — busy state is scoped to fetches the user asked for (search
+  // submit, filter change, explicit Refresh, page advance). Background
+  // refetches and unrelated invalidations no longer spin the UI.
+  const [intent, setIntent] = useState<null | "search" | "page">(null);
 
   const suggestFn = useServerFn(suggestEpisodeMatches);
   const linksFn = useServerFn(listEpisodeLinks);
@@ -221,8 +229,9 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
       }));
     }
 
-    return out.filter((r) => !done[r.key]);
-  }, [tab, flags.data, proposals.data, links.data, done]);
+    // Rows mid-request stay listed (dimmed) so the action has a visible home.
+    return out.filter((r) => !done[r.key] || pending[r.key]);
+  }, [tab, flags.data, proposals.data, links.data, done, pending]);
 
   const rawTotal =
     tab === "flagged"
@@ -236,9 +245,29 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
 
   const active = tab === "flagged" ? flags : tab === "proposed" ? proposals : links;
   const loading = active.isLoading;
-  const busy = active.isFetching;
+  const fetching = active.isFetching;
+  // Pass U11 — only a fetch the user asked for counts as "busy".
+  const busy = intent !== null;
   const queryError = active.error;
   const noun = tab === "flagged" ? "flags" : tab === "proposed" ? "proposals" : "links";
+
+  // Clear the intent once its fetch has actually completed. The short fallback
+  // covers a cache hit where no network fetch ever starts.
+  const sawFetch = useRef(false);
+  useEffect(() => {
+    if (!intent) return;
+    if (fetching) {
+      sawFetch.current = true;
+      return;
+    }
+    if (sawFetch.current) {
+      sawFetch.current = false;
+      setIntent(null);
+      return;
+    }
+    const t = setTimeout(() => setIntent(null), 400);
+    return () => clearTimeout(t);
+  }, [intent, fetching]);
 
   // Pass U10 — pagination honesty. `rawTotal` is the whole filtered queue, so a
   // page that has been fully decided is not an empty queue: there are more rows
@@ -247,11 +276,12 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
   const pageExhausted = rows.length === 0 && offset > 0 && !hasMorePages;
 
   useEffect(() => {
-    if (loading || busy || queryError) return;
+    if (loading || fetching || queryError) return;
     if (rows.length > 0 || !hasMorePages) return;
+    setIntent("page");
     setOffsetFor(tab, offset + pageSize);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows.length, hasMorePages, loading, busy, queryError, tab, offset, pageSize]);
+  }, [rows.length, hasMorePages, loading, fetching, queryError, tab, offset, pageSize]);
 
   // Pass U12 — stale optimistic state. `done` keys belong to one query scope;
   // keeping them across a tab/filter/page change hid unrelated rows and skewed
@@ -263,11 +293,16 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
     lastScope.current = scopeKey;
     setDone({});
     setSelected({});
+    setPending({});
   }, [scopeKey]);
 
 
-  /** Background catch-up: the UI has already moved on. */
-  const refresh = () => {
+  /**
+   * Background catch-up: the UI has already moved on, so this must not put the
+   * card into a busy state. Only the explicit Refresh button passes `true`.
+   */
+  const refresh = (userInitiated = false) => {
+    if (userInitiated) setIntent("search");
     void client.invalidateQueries({ queryKey: ["flagged-links"] });
     void client.invalidateQueries({ queryKey: ["match-suggestions"] });
     void client.invalidateQueries({ queryKey: ["episode-links"] });
@@ -275,6 +310,21 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
     void client.invalidateQueries({ queryKey: ["match-actions"] });
     onSuccess();
   };
+
+  /** Pass U11 — per-row pending flags, so only the acted-on row shows work. */
+  const startPending = (keys: string[]) =>
+    setPending((prev) => {
+      const next = { ...prev };
+      for (const k of keys) next[k] = true;
+      return next;
+    });
+
+  const endPending = (keys: string[]) =>
+    setPending((prev) => {
+      const next = { ...prev };
+      for (const k of keys) delete next[k];
+      return next;
+    });
 
   const markDone = (keys: string[]) => {
     setDone((prev) => {
@@ -302,6 +352,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
   const single = useMutation({
     mutationFn: async (vars: {
       action: "approve" | "reject" | "confirm" | "unlink" | "retire";
+      key: string;
       episodeId: string;
       movieId: string;
       wasFlagged: boolean;
@@ -329,15 +380,27 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
       setError(null);
       refresh();
     },
-    onError: (e: Error) => setError(e.message),
+    onError: (e: Error, vars) => {
+      setError(e.message);
+      unmarkDone([vars.key]);
+    },
+    onSettled: (_d, _e, vars) => endPending([vars.key]),
   });
 
   const act = (
     action: "approve" | "reject" | "confirm" | "unlink" | "retire",
     row: { key: string; episodeId: string; movieId: string; flagged: boolean },
   ) => {
+    if (pending[row.key]) return;
     markDone([row.key]);
-    single.mutate({ action, episodeId: row.episodeId, movieId: row.movieId, wasFlagged: row.flagged });
+    startPending([row.key]);
+    single.mutate({
+      action,
+      key: row.key,
+      episodeId: row.episodeId,
+      movieId: row.movieId,
+      wasFlagged: row.flagged,
+    });
   };
 
   /**
@@ -394,6 +457,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
       unmarkDone(Object.values(vars.keyByPair));
       setError(e.message);
     },
+    onSettled: (_d, _e, vars) => endPending(Object.values(vars.keyByPair)),
   });
 
   const selectedCount = Object.keys(selected).length;
@@ -438,6 +502,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
     const keyByPair: Record<string, string> = {};
     for (const r of chosen) keyByPair[`${r.episodeId}:${r.movieId}`] = r.key;
     markDone(chosen.map((r) => r.key));
+    startPending(chosen.map((r) => r.key));
     bulk.mutate({ action, pairs, flagged, keyByPair });
   };
 
@@ -491,6 +556,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
         className="mt-4 flex flex-wrap items-center gap-2"
         onSubmit={(e) => {
           e.preventDefault();
+          setIntent("search");
           setSubmitted(search.trim());
           setSelected({});
           setDone({});
@@ -514,6 +580,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
           <select
             value={maxConfidence}
             onChange={(e) => {
+              setIntent("search");
               setMaxConfidence(Number(e.target.value));
               resetOffsets();
             }}
@@ -531,6 +598,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
           <select
             value={reviewState}
             onChange={(e) => {
+              setIntent("search");
               setReviewState(e.target.value as ReviewStateFilter);
               setSelected({});
               setDone({});
@@ -550,6 +618,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
         <select
           value={pageSize}
           onChange={(e) => {
+            setIntent("search");
             setPageSize(Number(e.target.value));
             resetOffsets();
           }}
@@ -637,7 +706,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={refresh}
+                onClick={() => refresh(true)}
                 disabled={busy}
                 className="rounded-full border border-border px-3 py-2 text-xs font-semibold hover:bg-secondary disabled:opacity-50"
               >
@@ -723,13 +792,16 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
           <ul className="mt-3 space-y-2">
             {rows.map((row) => {
               const isSelected = Boolean(selected[row.key]);
+              const isPending = Boolean(pending[row.key]);
               return (
                 <li
                   key={row.key}
-                  className={`rounded-xl border bg-background ${
+                  aria-busy={isPending}
+                  className={`rounded-xl border bg-background transition-opacity ${
                     isSelected ? "border-primary" : "border-border"
-                  }`}
+                  } ${isPending ? "pointer-events-none opacity-60" : ""}`}
                 >
+
                   {/* Header is the selection target (comfortable on a phone), but text
                       stays selectable: a click that ends a text selection is ignored. */}
                   <div
@@ -784,6 +856,15 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
 
 
                   <div className="flex flex-wrap items-center gap-2 px-3 pb-3">
+                    {isPending ? (
+                      <span
+                        role="status"
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-teal"
+                      >
+                        <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                        Saving…
+                      </span>
+                    ) : null}
                     {tab === "proposed" ? (
                       <>
                         <button
@@ -833,8 +914,10 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
                       Not about a movie
                     </button>
                     <RelinkPicker
+                      disabled={isPending}
                       onPick={async (movieId) => {
                         markDone([row.key]);
+                        startPending([row.key]);
                         try {
                           if (tab === "proposed") {
                             await approveFn({ data: { episodeId: row.episodeId, movieId } });
@@ -852,6 +935,9 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
                           refresh();
                         } catch (e) {
                           setError(e instanceof Error ? e.message : "Could not relink.");
+                          unmarkDone([row.key]);
+                        } finally {
+                          endPending([row.key]);
                         }
                       }}
                     />
