@@ -352,6 +352,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
   const single = useMutation({
     mutationFn: async (vars: {
       action: "approve" | "reject" | "confirm" | "unlink" | "retire";
+      key: string;
       episodeId: string;
       movieId: string;
       wasFlagged: boolean;
