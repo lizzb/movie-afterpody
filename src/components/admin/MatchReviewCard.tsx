@@ -380,15 +380,27 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
       setError(null);
       refresh();
     },
-    onError: (e: Error) => setError(e.message),
+    onError: (e: Error, vars) => {
+      setError(e.message);
+      unmarkDone([vars.key]);
+    },
+    onSettled: (_d, _e, vars) => endPending([vars.key]),
   });
 
   const act = (
     action: "approve" | "reject" | "confirm" | "unlink" | "retire",
     row: { key: string; episodeId: string; movieId: string; flagged: boolean },
   ) => {
+    if (pending[row.key]) return;
     markDone([row.key]);
-    single.mutate({ action, episodeId: row.episodeId, movieId: row.movieId, wasFlagged: row.flagged });
+    startPending([row.key]);
+    single.mutate({
+      action,
+      key: row.key,
+      episodeId: row.episodeId,
+      movieId: row.movieId,
+      wasFlagged: row.flagged,
+    });
   };
 
   /**
