@@ -96,7 +96,7 @@ Full detail and the "what exists vs. what does not" analysis: `.lovable/plan/rev
 
 - **Pass U8 — Episode-level "review complete" — L (~6-10 credits) — Priority 2.** Per-episode review record (episode, reviewed_at, reviewed_by, feed sync generation), Mark reviewed / Reopen per row plus bulk, auto-reopen on new proposal/flag/link removal, coverage reads `Reviewed X of Y episodes as of sync D`. One migration.
 - **Pass U9 — Learning evidence over time — M (~3-5 credits) — Priority 3.** Persist each Score the matcher run and show current vs previous with deltas and a short history. One migration.
-- **Pass U11 — "Updating results…" and busy-state conditions — S (~1-2 credits) — Priority 1.** Spinner is driven by `isFetching`, so background refetches and refocus make it spin with nothing changing; scope busy indicators to user-initiated fetches and give rows their own pending state.
+
 - **Pass U13 — Match review reliability sweep — L (~6-10 credits) — Priority 2.** Counts vs `unfilteredTotal` vs the `Math.max(rows.length, rawTotal - done)` fudge, auto-refresh vs manual Refresh, persistence of tab/band/page-size/search, stale copy, invalidation fan-out, 200-row render cost. Recorded browser pass as the deliverable. Depends on U10–U12.
 - **Pass U14 — Serialised admin actions — M (~3-5 credits) — Priority 2.** Park/re-activate and per-show sync share one `busyId`, so a second click abandons the first; disable during flight short term, then a click-ordered action queue with per-row pending state and per-action results.
 - **Pass U15 — Summary stats for backfill and enrichment tools — S (~1-2 credits) — Priority 3.** Backfill content ratings and Enrich movies from TMDB get never-checked / checked / oldest-check / last-run readouts like the coverage card.
