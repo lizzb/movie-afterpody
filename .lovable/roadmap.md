@@ -121,6 +121,23 @@ Recommendation: build X1 first — it is free, needs no new vendor, and answers 
 
 
 
+### New backlog passes (approved 2026-08-31, not scheduled)
+
+#### Pass U18 — Cover art on show curation rows — S (~1-2 credits) — Priority 1
+Each show card/row in "Podcast show curation & episode coverage" gets the podcast's cover art as a left thumbnail (reuse `Artwork` with `shape="cover"`, accent fallback for shows without art), so shows are recognisable at a glance instead of read line by line.
+
+#### Pass U19 — Filter unconfirmed links by link strength — M (~3-5 credits) — Priority 1
+Add an explicit strength scope (Weak only / Strong only / All) alongside the existing review-state filter, so bulk workflows split cleanly: bulk-reject the weak pile, bulk-confirm the strong pile. Today the band dropdown only sets a ceiling, so "strong only" is impossible except indirectly via "auto-linked only". Needs a min-confidence argument on `listEpisodeLinks` plus persistence in the saved review view.
+
+#### Pass U20 — Ingest page load speed and progressive stats — M (~3-5 credits) — Priority 1
+Short term: skeleton/loading state for the summary-stat tiles instead of an empty box. Longer term: split the single stats server fn into fast counts (rows, shows, links) and slow aggregates (coverage, awaiting review, freshness), render each as it lands, and cache the slow set with a visible "as of <time>" plus a Recalculate button. Also audit what the Ingest route loads on first paint — collapsed cards should not fetch until opened.
+
+#### Pass U21 — Consolidate or retire "Enrich movies from TMDB" and "Backfill content ratings" — S (~1-2 credits) — Priority 2
+Investigate whether the two tools still earn separate sections: they call different TMDB endpoints (movie details/credits vs release-dates certifications), and the podcast-first pipeline may already populate both at create time. Deliverable: a written answer to "when would a movie exist without this data?", then either merge them into one "Fill in missing movie data" tool, or run each once across the whole catalogue and remove them from the UI.
+
+#### Pass U22 — Movies filter surface refinement (follow-on to H5) — M (~3-5 credits) — Priority 3
+H5 separated Movies filters from Tonight (shipped 2026-08-31) and it reads better, but the header still feels awkward. Explore search-result framing, where the active-filter summary lives, and how filters open on mobile vs desktop. Low priority.
+
 ## Worth doing soon
 
 ### Pass E — Card cleanup — M (~3-5 credits) — Priority 5
@@ -161,6 +178,9 @@ Expand from movies-only to both `movie` and `tv` catalog items using the existin
 ---
 
 # Already done
+
+### Pass U16 — Treat "live" as a special word in the matcher — shipped 2026-08-31
+`matching.server.ts` caps confidence at 15 for any non-exact candidate whose only shared token with the episode title is `live` (or whose whole title is "Live"), unless the year agrees or the description names the title with its year. Multi-word titles containing "Live" are unaffected.
 
 ### Pass U13 — Match review reliability sweep — shipped 2026-08-31
 Counts are honest: the `Math.max(rows.length, rawTotal - done)` fudge is gone — "Showing X of Y" reports the server's total for the current filter and adds "· N decided here" for rows settled in this session, so the arithmetic can never print "Showing 41 of 0". View state (tab, submitted search, confidence band, review state, batch size) persists in `localStorage` and is restored after hydration, so a reload no longer snaps back to Flagged / ≤ 80% / 50. Invalidation fan-out is scoped: a row decision refetches only the queue you are working, while the other queues, unmatched episodes and the stats/history tiles are coalesced into one deferred pass ~1s later, so a burst of decisions costs one background refresh instead of five per click. Render cost on 200-row pages is fixed by extracting a memoised `ReviewRow` with stable callbacks (`toggleRow`, `act`, `relinkRow`), so selecting or acting on one row no longer re-renders the whole list. Stale intro copy now states that confirmed links are hidden unless requested, that every queue skips parked shows and retired episodes, and that the view is remembered. Follow-ups: U8, U9, U14.
