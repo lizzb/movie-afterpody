@@ -192,6 +192,8 @@ filters: {
     excludeHoliday: defaultHolidayExclusion(),
     sortBy: "commentary",
   },
+  movieFilters: NO_FILTERS,
+
   notInterestedSlugs: [],
   viewportLock: true,
   dimWatched: false,
