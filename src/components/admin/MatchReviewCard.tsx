@@ -457,6 +457,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
       unmarkDone(Object.values(vars.keyByPair));
       setError(e.message);
     },
+    onSettled: (_d, _e, vars) => endPending(Object.values(vars.keyByPair)),
   });
 
   const selectedCount = Object.keys(selected).length;
