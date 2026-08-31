@@ -311,6 +311,21 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
     onSuccess();
   };
 
+  /** Pass U11 — per-row pending flags, so only the acted-on row shows work. */
+  const startPending = (keys: string[]) =>
+    setPending((prev) => {
+      const next = { ...prev };
+      for (const k of keys) next[k] = true;
+      return next;
+    });
+
+  const endPending = (keys: string[]) =>
+    setPending((prev) => {
+      const next = { ...prev };
+      for (const k of keys) delete next[k];
+      return next;
+    });
+
   const markDone = (keys: string[]) => {
     setDone((prev) => {
       const next = { ...prev };
