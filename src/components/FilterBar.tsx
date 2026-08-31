@@ -606,6 +606,8 @@ export function FilterBar({
           </div>
         </div>
       ) : null}
-    </section>
+      </section>
+    </div>
   );
+
 }
