@@ -444,6 +444,24 @@ export function matchEpisodeToMovies(
       }
     }
 
+    // Pass U16 — "live" on its own is show-format language ("live show",
+    // "live at the Bell House", "live from Chicago"), not a title token. A
+    // match whose only shared word is "live" needs corroboration; real titles
+    // that merely contain "Live" (Live Free or Die Hard) share other words too.
+    const sharedTokenList = [...movieTokens].filter((t) => episodeTokens.has(t));
+    const hingesOnLive =
+      rule !== "exact" &&
+      ((sharedTokenList.length > 0 && sharedTokenList.every((t) => t === "live")) ||
+        onlyToken === "live");
+    if (hingesOnLive) {
+      const corroborated = yearMatch === "same" || (descTitle && descYear === "same");
+      if (!corroborated) {
+        confidence = Math.min(confidence, 15);
+        reason += " - hinges on the word \"live\"";
+      }
+    }
+
+
     // "Interview with…", "Mailbag", "Trailer": weak evidence should not stand.
     if (keywordSuppressed && (rule === "weak" || rule === "description" || coverage < 0.75)) {
       confidence = Math.min(confidence, 15);

@@ -19,6 +19,35 @@ import {
 
 type Tab = "flagged" | "proposed" | "existing";
 
+type RowAction = "approve" | "reject" | "confirm" | "unlink" | "retire";
+
+/**
+ * Row action styling. Inactive = coloured text on a quiet grey fill; hover or
+ * "this is the action I just pressed" = white text on the colour, so intent is
+ * never ambiguous while a row is saving.
+ */
+const ACTION_TONES = {
+  positive: {
+    idle: "bg-muted text-teal hover:bg-teal hover:text-primary-foreground",
+    active: "bg-teal text-primary-foreground",
+  },
+  negative: {
+    idle: "bg-muted text-destructive hover:bg-destructive hover:text-destructive-foreground",
+    active: "bg-destructive text-destructive-foreground",
+  },
+  retire: {
+    idle: "bg-muted text-gold hover:bg-gold hover:text-accent-foreground",
+    active: "bg-gold text-accent-foreground",
+  },
+} as const;
+
+function actionClass(tone: keyof typeof ACTION_TONES, active: boolean) {
+  const t = ACTION_TONES[tone];
+  return `inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold transition-colors ${
+    active ? t.active : t.idle
+  }`;
+}
+
 const BANDS = [
   { label: "Weakest first (≤ 80%)", value: 0.8 },
   { label: "Stronger too (≤ 95%)", value: 0.95 },
@@ -114,7 +143,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
   const [tab, setTab] = useState<Tab>("flagged");
   const [search, setSearch] = useState("");
   const [submitted, setSubmitted] = useState("");
-  const [maxConfidence, setMaxConfidence] = useState<number>(0.8);
+  const [maxConfidence, setMaxConfidence] = useState<number>(1);
   // Confirmed work is inspectable, not invisible: this filter drives the
   // Existing links tab's review-state scope.
   const [reviewState, setReviewState] = useState<ReviewStateFilter>("unconfirmed");
@@ -1020,6 +1049,14 @@ const ReviewRow = memo(function ReviewRow({
     forProposal: boolean,
   ) => void | Promise<void>;
 }) {
+  // Which button the user actually pressed — the pressed one takes the filled
+  // treatment while the request is in flight, so a greyed-out row still shows
+  // the chosen action rather than emphasising "Correct" by default.
+  const [chosen, setChosen] = useState<RowAction | null>(null);
+  useEffect(() => {
+    if (!pending) setChosen(null);
+  }, [pending]);
+
   return (
     <li
       aria-busy={pending}
@@ -1092,16 +1129,22 @@ const ReviewRow = memo(function ReviewRow({
           <>
             <button
               type="button"
-              onClick={() => onAct("approve", row)}
-              className="inline-flex items-center gap-1.5 rounded-full bg-teal px-3 py-2 text-xs font-semibold text-primary-foreground"
+              onClick={() => {
+                setChosen("approve");
+                onAct("approve", row);
+              }}
+              className={actionClass("positive", chosen === "approve")}
             >
               <Check className="size-3.5" aria-hidden />
               Approve
             </button>
             <button
               type="button"
-              onClick={() => onAct("reject", row)}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs font-semibold"
+              onClick={() => {
+                setChosen("reject");
+                onAct("reject", row);
+              }}
+              className={actionClass("negative", chosen === "reject")}
             >
               <X className="size-3.5" aria-hidden />
               Reject
@@ -1111,16 +1154,22 @@ const ReviewRow = memo(function ReviewRow({
           <>
             <button
               type="button"
-              onClick={() => onAct("confirm", row)}
-              className="inline-flex items-center gap-1.5 rounded-full bg-teal px-3 py-2 text-xs font-semibold text-primary-foreground"
+              onClick={() => {
+                setChosen("confirm");
+                onAct("confirm", row);
+              }}
+              className={actionClass("positive", chosen === "confirm")}
             >
               <Check className="size-3.5" aria-hidden />
               {row.flagged ? "Actually correct" : "Correct"}
             </button>
             <button
               type="button"
-              onClick={() => onAct("unlink", row)}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs font-semibold"
+              onClick={() => {
+                setChosen("unlink");
+                onAct("unlink", row);
+              }}
+              className={actionClass("negative", chosen === "unlink")}
             >
               <Unlink className="size-3.5" aria-hidden />
               Unlink
@@ -1129,9 +1178,12 @@ const ReviewRow = memo(function ReviewRow({
         )}
         <button
           type="button"
-          onClick={() => onAct("retire", row)}
+          onClick={() => {
+            setChosen("retire");
+            onAct("retire", row);
+          }}
           title="Stop suggesting matches for this episode"
-          className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs font-semibold"
+          className={actionClass("retire", chosen === "retire")}
         >
           <Ban className="size-3.5" aria-hidden />
           Not about a movie
