@@ -70,7 +70,11 @@ export interface Prefs {
   /** slug -> ISO date (yyyy-mm-dd) the movie was marked watched. */
   watchedDates: Record<string, string>;
   lists: LocalList[];
+  /** Tonight's recommendation parameters. */
   filters: Filters;
+  /** Pass H5 — the All Movies browse surface keeps its own, unfiltered state. */
+  movieFilters: Filters;
+
   /** Movies you never want suggested. Excluded from Tonight unconditionally. */
   notInterestedSlugs: string[];
   /** Pass G app settings. */
