@@ -792,13 +792,16 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
           <ul className="mt-3 space-y-2">
             {rows.map((row) => {
               const isSelected = Boolean(selected[row.key]);
+              const isPending = Boolean(pending[row.key]);
               return (
                 <li
                   key={row.key}
-                  className={`rounded-xl border bg-background ${
+                  aria-busy={isPending}
+                  className={`rounded-xl border bg-background transition-opacity ${
                     isSelected ? "border-primary" : "border-border"
-                  }`}
+                  } ${isPending ? "pointer-events-none opacity-60" : ""}`}
                 >
+
                   {/* Header is the selection target (comfortable on a phone), but text
                       stays selectable: a click that ends a text selection is ignored. */}
                   <div
