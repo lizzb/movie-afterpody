@@ -144,6 +144,11 @@ Boost a candidate when one of the movie's top 3 billed actors is named in the ep
 #### Pass U24 — Episode description in match review — S (~1-2 credits) — Priority 5
 Show the episode description on demand in each review row: collapsed by default (it is too heavy to show inline), expanding in place to the stored description with the matched movie title highlighted, plus a link out to the episode's primary source. Stays in-app — `podcast_episodes.description` is already stored and the review queries already read it for scoring, so the external-window stopgap is not worth splitting out.
 
+#### Pass U25 — Parked shows still surface confirmed content — M (~3-5 credits) — Priority 2
+Parking a show currently removes it from the app entirely: the catalogue loader drops parked podcasts plus all their episodes, metrics, sources and links regardless of review state, so a hand-confirmed link (e.g. How Did This Get Made ↔ Doppelgänger) is stored but unreachable. Change parking to mean "confirmed only" on the app side while keeping its current admin meaning (out of every queue, stat scope and episode sync). A parked show stays listed and contributes only `review_state = 'confirmed'` links and the episodes carrying them; auto-linked/proposed links stay hidden; a "Reviewed picks only" badge plus a short explanatory line keeps the trimmed feed from reading as data loss; parked shows tie-break below active ones. Show curation rows gain `N confirmed links live in the app`. No migration — reuses `review_state` and `curation_status`. Full write-up: `.lovable/plan/parked-shows-should-still-surface-confirmed-content-backlog-2026-09-01.md`.
+
+
+
 ## Worth doing soon
 
 ### Pass E — Card cleanup — M (~3-5 credits) — Priority 5
