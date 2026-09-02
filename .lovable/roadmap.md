@@ -94,7 +94,7 @@ Pass G2's `.layout-locked` hardening is now scoped to touch-primary viewports: o
 
 Full detail and the "what exists vs. what does not" analysis: `.lovable/plan/review-state-visibility-match-review-reliability-admin-actio-2026-08-30.md`.
 
-- **Pass U8 — Episode-level "review complete" — L (~6-10 credits) — Priority 2.** Per-episode review record (episode, reviewed_at, reviewed_by, feed sync generation), Mark reviewed / Reopen per row plus bulk, auto-reopen on new proposal/flag/link removal, coverage reads `Reviewed X of Y episodes as of sync D`. One migration.
+- **Pass U8 — Episode-level "review complete" — L (~6-10 credits) — Priority 2.** Per-episode review record (episode, reviewed_at, reviewed_by, feed sync generation), Mark reviewed / Reopen per row plus bulk, auto-reopen on new proposal/flag/link removal, coverage reads `Reviewed X of Y episodes as of sync D`. One migration. **Framing (added 2026-09-02):** U8 is infrastructure for goal-directed review (Pass U27), not the end product. Completeness reporting ("these 11 episodes are unreviewed") must coexist with relevance reporting ("these 4 are the only unreviewed episodes likely to help you choose tonight's movie"), so the per-episode record needs to be queryable by movie, by podcast preference and by Tonight candidacy — not just by show.
 - **Pass U9 — Learning evidence over time — M (~3-5 credits) — Priority 3.** Persist each Score the matcher run and show current vs previous with deltas and a short history. One migration.
 
 
