@@ -149,7 +149,37 @@ Parking a show currently removes it from the app entirely: the catalogue loader 
 
 
 
-## Worth doing soon
+### New backlog passes (filed 2026-09-02, not scheduled — nothing built)
+
+Product framing for this whole group lives in `.lovable/product-principles.md` (created 2026-09-02): administrative scope ≠ consumer visibility; the app absorbs choice burden; information is only valuable if it reduces uncertainty; the review flywheel; and the primary product metric (never increase human decisions faster than useful confirmed coverage).
+
+#### Pass U26 — Shipped-pass ledger export — M (~3-5 credits) — Priority 3
+A summary table of every completed pass with: original effort estimate (band), datetime built, datetime approved in build, the prompt text that triggered it, actual credits used, and a variance note explaining why the estimate was high or low. Deliverable is an exportable table (CSV/Markdown, generated into `.lovable/` and downloadable) plus the rule that each future shipped entry appends its ledger row in the same edit.
+**Known data gaps to resolve before building:** actual credit spend per pass is not visible from inside the project — it comes from account usage, so the ledger needs either a manual "actual credits" column the user fills in from usage history, or a per-pass estimate marked as such. Original prompts are recoverable from chat history but only approximately for early milestones; the ledger should mark backfilled rows as reconstructed rather than presenting them as exact. Approval datetimes exist only where a plan was formally approved.
+
+#### Pass U27 — Goal-directed review / just-in-time curation — L (~6-10 credits) — Priority 1
+Reframe admin work from "clean the database" to "unlock the thing you actually want tonight". Instead of a 843-row global queue, the app offers scoped review jobs with an obvious payoff:
+- On a movie page: `1 confirmed episode · 3 possible · 5 unreviewed that might cover it` with a **Review 3 possible matches** action that opens a review session scoped to that movie only.
+- From taste: "You liked these three movies — 14 unreviewed episodes from your preferred podcasts probably discuss similar ones."
+- From Tonight: "23 of tonight's movies have no confirmed coverage. Review 6 likely episodes to potentially unlock 4 of them."
+Scope: a reusable scoped-review session (same row UI and actions as Match review, but filtered by movie / podcast preference / Tonight candidacy), candidate-relevance queries, entry points on movie detail and Tonight, and a completion summary that states what got unlocked ("2 movies now have confirmed commentary"). **Depends on U8** for the per-episode review record, and reads well next to U19 (strength scoping) and U24 (in-row descriptions).
+
+#### Pass U28 — "Why this?" rationale and score decomposition — M (~3-5 credits) — Priority 2
+Two levels of explanation over the existing deterministic score in `src/lib/scoring.ts` (which already returns `reasons`, currently only partly surfaced):
+- **User level:** one unobtrusive line per recommendation — `Why this? 3 podcasts you follow covered it · similar to movies you've liked · available tonight`.
+- **Creator/admin level:** a full breakdown behind a tap — every contributing term with its signed points (`+28 preferred-podcast coverage`, `+20 commentary quality`, `+12 runtime fit`, …), capped/clamped terms shown as capped, and the final total. Requires `scoreFromEpisodes` to return a structured contribution list rather than prose reasons, plus any Tonight-level ranking terms (runtime fit, era fit, unseen) being computed through the same accounting so the numbers add up to what is displayed.
+Acceptance: the admin breakdown's terms sum to the shown score, and no explanation invents a factor the code does not use.
+
+#### Pass U29 — "Pick something for me" — L (~6-10 credits) — Priority 2b
+Signature decision-absorbing feature with three modes: **Surprise me** (one movie), **Give me 3** (three meaningfully *different* choices — enforced diversity across decade, genre and podcast source rather than the top 3 by score), and **Fast decision mode** (a 5-minute timed flow: one pick at a time, Watch / Not for me, next). Each pick carries its "Why this?" line (U28) and star-style commentary-coverage shorthand (U30). Reuses the existing deterministic ranking; the new work is diversity selection, the picker UI, and "Not for me" feeding hidden/not-interested state. Related to H2 (Tonight volume) — Tonight's end state is a small curated set with **Give me more**, not a browsable list.
+
+#### Pass U30 — Coverage quality, not coverage count — M (~3-5 credits) — Priority 2c
+Today a movie reports "5 podcast episodes" with no quality distinction. Split coverage into tiers derived from data already stored (`review_state`, `match_confidence`, `is_primary_subject`, link `signals`, podcast preference, episode duration): **deep dive** (confirmed primary-subject episode from a full-length episode), **possible** (auto-linked/unreviewed with decent confidence), **brief mention** (low confidence or non-primary). Surfaces as `Commentary coverage: Excellent` / `Covered by 4 podcasts` / `Deep-dive coverage` vs `Mentioned briefly`, plus the tier counts used by U27's review prompt. Feeds Commentary Score as weighted tiers instead of a flat episode count — a scoring change, so it needs a "Score the matcher"-style before/after sanity check on ranking, and the tier definitions must be written down in `.lovable/product-principles.md`.
+
+#### Pass U31 — Coverage-vs-workload instrumentation — S (~1-2 credits) — Priority 3b
+Make the primary product metric measurable: per matcher change and per review session, record confirmed movie↔commentary relationships unlocked against human decisions required, and show the ratio in the admin surface next to the matcher scorecard. Cheap, and it is the guardrail that keeps volume work honest.
+
+
 
 ### Pass E — Card cleanup — M (~3-5 credits) — Priority 5
 Drop the redundant "Watched" badge now that the eye/check control exists, and shrink the commentary badge to icon + number with the label on tap. Recommended option: "N episodes" text with the score as a thin accent bar on the card edge.
