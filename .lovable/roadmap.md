@@ -180,6 +180,7 @@ Today a movie reports "5 podcast episodes" with no quality distinction. Split co
 Make the primary product metric measurable: per matcher change and per review session, record confirmed movie↔commentary relationships unlocked against human decisions required, and show the ratio in the admin surface next to the matcher scorecard. Cheap, and it is the guardrail that keeps volume work honest.
 
 
+## Worth doing soon
 
 ### Pass E — Card cleanup — M (~3-5 credits) — Priority 5
 Drop the redundant "Watched" badge now that the eye/check control exists, and shrink the commentary badge to icon + number with the label on tap. Recommended option: "N episodes" text with the score as a thin accent bar on the card edge.
