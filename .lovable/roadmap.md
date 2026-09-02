@@ -86,7 +86,7 @@ Pass G2's `.layout-locked` hardening is now scoped to touch-primary viewports: o
 
 - **Pass U2 — Multi-movie episode editor — L (~6-10 credits).** Handle double features, trilogies, franchises and "covered in passing" vs "primary subject" by letting one episode link to multiple movies with a coverage role; UI to add/remove/reorder links per episode.
 - **Pass U3 — Curated blocklist/allowlist — M (~3-5 credits).** Admin-managed high-noise phrase lists (ad/promo/joke titles) and per-title allowlist overrides feeding the matcher's keyword suppression.
-- **Pass U4 — Per-podcast matcher tuning — M (~3-5 credits).** Show-level tuning because some feeds use clean title formats while others use joke/chatter titles; per-show overrides for strictness and parsing.
+- **Pass U4 — Per-podcast matcher tuning — M (~3-5 credits).** Show-level tuning because some feeds use clean title formats while others use joke/chatter titles; per-show overrides for strictness and parsing. **Design direction (added 2026-09-02):** resist solving this with one ever-growing universal matcher. Model it as a set of named, selectable per-podcast *strategies* — clean-title parser, year-aware parser, noisy-title + description strategy, actor/name corroboration, special-word suppression, stricter confidence threshold — each independently testable against the labels via "Score the matcher", with a per-show assignment (and a default). New strategies get added as the data demonstrates the need instead of being folded into shared scoring code.
 - **Pass U5 — Training/evaluation dashboard — M (~3-5 credits).** Turn "Score the matcher" scorecard output into recommended rule changes with before/after evals (extends `matcher-eval.server.ts`).
 - **Pass U6 — Low-confidence link maintenance — S (~1-2 credits).** A safe "clear low-confidence auto links and rerun the current engine" maintenance action with a dry-run preview, guarding manual/confirmed links and parked shows (related to Pass Z).
 
@@ -94,7 +94,7 @@ Pass G2's `.layout-locked` hardening is now scoped to touch-primary viewports: o
 
 Full detail and the "what exists vs. what does not" analysis: `.lovable/plan/review-state-visibility-match-review-reliability-admin-actio-2026-08-30.md`.
 
-- **Pass U8 — Episode-level "review complete" — L (~6-10 credits) — Priority 2.** Per-episode review record (episode, reviewed_at, reviewed_by, feed sync generation), Mark reviewed / Reopen per row plus bulk, auto-reopen on new proposal/flag/link removal, coverage reads `Reviewed X of Y episodes as of sync D`. One migration.
+- **Pass U8 — Episode-level "review complete" — L (~6-10 credits) — Priority 2.** Per-episode review record (episode, reviewed_at, reviewed_by, feed sync generation), Mark reviewed / Reopen per row plus bulk, auto-reopen on new proposal/flag/link removal, coverage reads `Reviewed X of Y episodes as of sync D`. One migration. **Framing (added 2026-09-02):** U8 is infrastructure for goal-directed review (Pass U27), not the end product. Completeness reporting ("these 11 episodes are unreviewed") must coexist with relevance reporting ("these 4 are the only unreviewed episodes likely to help you choose tonight's movie"), so the per-episode record needs to be queryable by movie, by podcast preference and by Tonight candidacy — not just by show.
 - **Pass U9 — Learning evidence over time — M (~3-5 credits) — Priority 3.** Persist each Score the matcher run and show current vs previous with deltas and a short history. One migration.
 
 
@@ -147,6 +147,37 @@ Show the episode description on demand in each review row: collapsed by default 
 #### Pass U25 — Parked shows still surface confirmed content — M (~3-5 credits) — Priority 2
 Parking a show currently removes it from the app entirely: the catalogue loader drops parked podcasts plus all their episodes, metrics, sources and links regardless of review state, so a hand-confirmed link (e.g. How Did This Get Made ↔ Doppelgänger) is stored but unreachable. Change parking to mean "confirmed only" on the app side while keeping its current admin meaning (out of every queue, stat scope and episode sync). A parked show stays listed and contributes only `review_state = 'confirmed'` links and the episodes carrying them; auto-linked/proposed links stay hidden; a "Reviewed picks only" badge plus a short explanatory line keeps the trimmed feed from reading as data loss; parked shows tie-break below active ones. Show curation rows gain `N confirmed links live in the app`. No migration — reuses `review_state` and `curation_status`. Full write-up: `.lovable/plan/parked-shows-should-still-surface-confirmed-content-backlog-2026-09-01.md`.
 
+
+
+### New backlog passes (filed 2026-09-02, not scheduled — nothing built)
+
+Product framing for this whole group lives in `.lovable/product-principles.md` (created 2026-09-02): administrative scope ≠ consumer visibility; the app absorbs choice burden; information is only valuable if it reduces uncertainty; the review flywheel; and the primary product metric (never increase human decisions faster than useful confirmed coverage).
+
+#### Pass U26 — Shipped-pass ledger export — M (~3-5 credits) — Priority 3
+A summary table of every completed pass with: original effort estimate (band), datetime built, datetime approved in build, the prompt text that triggered it, actual credits used, and a variance note explaining why the estimate was high or low. Deliverable is an exportable table (CSV/Markdown, generated into `.lovable/` and downloadable) plus the rule that each future shipped entry appends its ledger row in the same edit.
+**Known data gaps to resolve before building:** actual credit spend per pass is not visible from inside the project — it comes from account usage, so the ledger needs either a manual "actual credits" column the user fills in from usage history, or a per-pass estimate marked as such. Original prompts are recoverable from chat history but only approximately for early milestones; the ledger should mark backfilled rows as reconstructed rather than presenting them as exact. Approval datetimes exist only where a plan was formally approved.
+
+#### Pass U27 — Goal-directed review / just-in-time curation — L (~6-10 credits) — Priority 1
+Reframe admin work from "clean the database" to "unlock the thing you actually want tonight". Instead of a 843-row global queue, the app offers scoped review jobs with an obvious payoff:
+- On a movie page: `1 confirmed episode · 3 possible · 5 unreviewed that might cover it` with a **Review 3 possible matches** action that opens a review session scoped to that movie only.
+- From taste: "You liked these three movies — 14 unreviewed episodes from your preferred podcasts probably discuss similar ones."
+- From Tonight: "23 of tonight's movies have no confirmed coverage. Review 6 likely episodes to potentially unlock 4 of them."
+Scope: a reusable scoped-review session (same row UI and actions as Match review, but filtered by movie / podcast preference / Tonight candidacy), candidate-relevance queries, entry points on movie detail and Tonight, and a completion summary that states what got unlocked ("2 movies now have confirmed commentary"). **Depends on U8** for the per-episode review record, and reads well next to U19 (strength scoping) and U24 (in-row descriptions).
+
+#### Pass U28 — "Why this?" rationale and score decomposition — M (~3-5 credits) — Priority 2
+Two levels of explanation over the existing deterministic score in `src/lib/scoring.ts` (which already returns `reasons`, currently only partly surfaced):
+- **User level:** one unobtrusive line per recommendation — `Why this? 3 podcasts you follow covered it · similar to movies you've liked · available tonight`.
+- **Creator/admin level:** a full breakdown behind a tap — every contributing term with its signed points (`+28 preferred-podcast coverage`, `+20 commentary quality`, `+12 runtime fit`, …), capped/clamped terms shown as capped, and the final total. Requires `scoreFromEpisodes` to return a structured contribution list rather than prose reasons, plus any Tonight-level ranking terms (runtime fit, era fit, unseen) being computed through the same accounting so the numbers add up to what is displayed.
+Acceptance: the admin breakdown's terms sum to the shown score, and no explanation invents a factor the code does not use.
+
+#### Pass U29 — "Pick something for me" — L (~6-10 credits) — Priority 2b
+Signature decision-absorbing feature with three modes: **Surprise me** (one movie), **Give me 3** (three meaningfully *different* choices — enforced diversity across decade, genre and podcast source rather than the top 3 by score), and **Fast decision mode** (a 5-minute timed flow: one pick at a time, Watch / Not for me, next). Each pick carries its "Why this?" line (U28) and star-style commentary-coverage shorthand (U30). Reuses the existing deterministic ranking; the new work is diversity selection, the picker UI, and "Not for me" feeding hidden/not-interested state. Related to H2 (Tonight volume) — Tonight's end state is a small curated set with **Give me more**, not a browsable list.
+
+#### Pass U30 — Coverage quality, not coverage count — M (~3-5 credits) — Priority 2c
+Today a movie reports "5 podcast episodes" with no quality distinction. Split coverage into tiers derived from data already stored (`review_state`, `match_confidence`, `is_primary_subject`, link `signals`, podcast preference, episode duration): **deep dive** (confirmed primary-subject episode from a full-length episode), **possible** (auto-linked/unreviewed with decent confidence), **brief mention** (low confidence or non-primary). Surfaces as `Commentary coverage: Excellent` / `Covered by 4 podcasts` / `Deep-dive coverage` vs `Mentioned briefly`, plus the tier counts used by U27's review prompt. Feeds Commentary Score as weighted tiers instead of a flat episode count — a scoring change, so it needs a "Score the matcher"-style before/after sanity check on ranking, and the tier definitions must be written down in `.lovable/product-principles.md`.
+
+#### Pass U31 — Coverage-vs-workload instrumentation — S (~1-2 credits) — Priority 3b
+Make the primary product metric measurable: per matcher change and per review session, record confirmed movie↔commentary relationships unlocked against human decisions required, and show the ratio in the admin surface next to the matcher scorecard. Cheap, and it is the guardrail that keeps volume work honest.
 
 
 ## Worth doing soon
