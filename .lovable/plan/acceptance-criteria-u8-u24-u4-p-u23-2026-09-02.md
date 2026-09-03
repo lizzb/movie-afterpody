@@ -17,54 +17,43 @@ Verification device shorthand: **M** = mobile viewport (390x844, coarse pointer)
 ### Acceptance criteria
 
 Database / schema
+
 1. One migration adds a per-episode review record: episode id, `reviewed_at`,
    `reviewed_by`, and the feed `sync_generation` the decision was made against.
    Table is in `public`, has GRANTs for `authenticated` + `service_role`, RLS enabled,
    and admin-scoped policies.
 2. Re-marking an episode reviewed updates the existing row (no duplicate rows per episode).
 
-Review-state behavior
-3. Episode review completeness is independent of link `review_state`: an episode with
-   zero links can be marked reviewed, and an episode with a confirmed link is not
-   automatically "reviewed" unless marked.
-4. An episode marked reviewed against sync generation N is reported as reviewed while the
-   show's generation is still N.
+Review-state behavior 3. Episode review completeness is independent of link `review_state`: an episode with
+zero links can be marked reviewed, and an episode with a confirmed link is not
+automatically "reviewed" unless marked. 4. An episode marked reviewed against sync generation N is reported as reviewed while the
+show's generation is still N.
 
-Row-level controls
-5. Every match-review row exposes Mark reviewed / Reopen, reflecting current state, with the
-   existing U11 per-row pending behavior (only that row dims/spins).
-6. The control writes through and survives a page reload (server truth, not local state).
+Row-level controls 5. Every match-review row exposes Mark reviewed / Reopen, reflecting current state, with the
+existing U11 per-row pending behavior (only that row dims/spins). 6. The control writes through and survives a page reload (server truth, not local state).
 
-Bulk review behavior
-7. Multi-select supports bulk Mark reviewed / Reopen, using U12-style per-episode
-   verification: reported successes are confirmed in the database, failures are surfaced
-   and the affected rows return.
+Bulk review behavior 7. Multi-select supports bulk Mark reviewed / Reopen, using U12-style per-episode
+verification: reported successes are confirmed in the database, failures are surfaced
+and the affected rows return.
 
-Auto-reopen triggers
-8. An episode auto-reopens (review record cleared or marked stale) when: a new proposal is
-   created for it, it is flagged as a wrong match, or one of its links is removed.
-9. A new feed sync that raises the show's generation marks prior review records stale
-   rather than deleting them (history preserved).
+Auto-reopen triggers 8. An episode auto-reopens (review record cleared or marked stale) when: a new proposal is
+created for it, it is flagged as a wrong match, or one of its links is removed. 9. A new feed sync that raises the show's generation marks prior review records stale
+rather than deleting them (history preserved).
 
-Coverage / progress reporting
-10. Show curation/coverage rows read `Reviewed X of Y episodes as of sync D`, where Y is
-    stored episodes for the show and X counts only current-generation review records.
-11. Counts reconcile with the queue: `Y - X` equals the number of episodes still reachable
-    in the unreviewed queue for that show (no phantom or hidden rows — the U7/U12 lesson).
+Coverage / progress reporting 10. Show curation/coverage rows read `Reviewed X of Y episodes as of sync D`, where Y is
+stored episodes for the show and X counts only current-generation review records. 11. Counts reconcile with the queue: `Y - X` equals the number of episodes still reachable
+in the unreviewed queue for that show (no phantom or hidden rows — the U7/U12 lesson).
 
-Persistence / reversibility
-12. Reopen restores the episode to the unreviewed queue immediately and after reload.
-13. Marking reviewed never deletes links or alters link `review_state`.
+Persistence / reversibility 12. Reopen restores the episode to the unreviewed queue immediately and after reload. 13. Marking reviewed never deletes links or alters link `review_state`.
 
-Queryability (U27 infrastructure)
-14. Review state is queryable by episode, by show, and by linked movie, so a later pass can
-    ask "unreviewed episodes for this movie" without schema change.
+Queryability (U27 infrastructure) 14. Review state is queryable by episode, by show, and by linked movie, so a later pass can
+ask "unreviewed episodes for this movie" without schema change.
 
-Regression risks to check
-15. Existing tabs, per-tab pagination offsets (U10), honest counts (U13) and coverage
-    numbers (U7) still behave; parked shows stay out of admin queues.
+Regression risks to check 15. Existing tabs, per-tab pagination offsets (U10), honest counts (U13) and coverage
+numbers (U7) still behave; parked shows stay out of admin queues.
 
 ### Minimum verification steps
+
 - SQL: inspect the new table definition, GRANTs, RLS policies; mark an episode reviewed
   twice and confirm one row (`supabase--read_query`).
 - Browser (D + M): `/admin/ingest` → Match review → Mark reviewed on one row → reload →
@@ -77,6 +66,7 @@ Regression risks to check
 - Arithmetic check: coverage `Y - X` vs. queue count for one show.
 
 ### Not specified (flag before building)
+
 - Whether "reviewed" is per-episode only or also per-episode-per-movie-pair.
 - Whether a stale (post-sync) record shows as unreviewed or as a third "re-check" state.
 - Who may mark reviewed in a future multi-user setup (admin-only assumed).
@@ -86,6 +76,7 @@ Regression risks to check
 ## Pass U24 — Episode description in match review
 
 ### Acceptance criteria
+
 1. Each review row has a collapsed-by-default description control; nothing about row height
    changes until expanded.
 2. Expanding renders the stored `podcast_episodes.description` in place (no navigation, no
@@ -99,6 +90,7 @@ Regression risks to check
    G2 `layout-locked` rule).
 
 ### Minimum verification steps
+
 - Browser M: expand a long description → screenshot → confirm no horizontal drag/overflow and
   the title highlight is visible.
 - Browser D: expand two rows, select one via multi-select, run an action → expansion does not
@@ -106,15 +98,17 @@ Regression risks to check
 - Find an episode with a null/empty description and confirm the empty state.
 - Confirm the source link's `target="_blank"` and correct URL for one row.
 
-### Not specified
-- Whether the description is truncated with a "show more" at some character count.
-- Whether highlight covers only the exact title or also alternate/normalised forms.
+### Resolved decisions
+
+- V1 does not require description truncation or a secondary "Show more" interaction. When expanded, the stored description may render at full length and the page may naturally scroll.
+- Candidate-title highlighting uses a case-insensitive normalized exact match. Fuzzy or alternate-title highlighting is out of scope for U24.
 
 ---
 
 ## Pass U4 — Per-podcast matcher tuning
 
 ### Acceptance criteria
+
 1. Named strategies exist as separately selectable units (clean-title, year-aware,
    noisy-title + description, actor/name corroboration, special-word suppression, stricter
    threshold), not new branches folded into one universal scorer.
@@ -130,6 +124,7 @@ Regression risks to check
 7. Adding a future strategy requires no edits to the other strategies' scoring code.
 
 ### Minimum verification steps
+
 - Score the matcher before the change; re-score after with all shows on default; confirm the
   headline numbers are unchanged.
 - Assign a noisy-title show (e.g. How Did This Get Made) to the description strategy;
@@ -137,15 +132,18 @@ Regression risks to check
 - SQL: confirm confirmed links and rejection records untouched for that show.
 - Browser D + M: strategy selector visible and persists across reload on the show row.
 
-### Not specified
-- Whether strategy assignment is manual only or suggested automatically from label data.
-- Whether a show can stack multiple strategies or exactly one.
+### Resolved decisions
+
+- V1 uses exactly one assigned matcher strategy per podcast/show.
+- Strategy assignment is manual; automatic strategy suggestions are out of scope for U4.
+- Strategy suggestion based on label data may be considered later after sufficient evaluation evidence exists.
 
 ---
 
 ## Pass P — Richer movie detail (cast)
 
 ### Acceptance criteria
+
 1. Migration adds a cast cache (movie id, person id, name, character, billing order,
    department/role for director) with GRANTs, RLS and public read policy as needed by the
    consumer app.
@@ -159,15 +157,17 @@ Regression risks to check
 7. Cast data is queryable by movie for U23 (top 3 billing order retrievable).
 
 ### Minimum verification steps
+
 - Enrich a small batch; SQL-count cast rows per movie; re-run and confirm counts are stable.
 - Browser M + D: `/movies/<slug>` for an enriched movie shows cast + director; a
   non-enriched movie renders cleanly.
 - Screenshot mobile detail page for overflow.
 - Confirm the ingest summary reports credit-fetch skips/failures honestly.
 
-### Not specified
-- How many cast members to display (assume top 3-8, confirm before building).
-- Whether cast is clickable (Pass N covers person pages) — assumed plain text + external link.
+### Resolved decisions
+
+- Display the top 5 billed cast members plus the director.
+- Individual cast members are plain text in Pass P; person-specific navigation belongs to the later person-discovery work (Pass N2).
 
 ---
 
@@ -176,6 +176,7 @@ Regression risks to check
 **Blocked on Pass P.** Do not start until cast data is cached and P is verified.
 
 ### Acceptance criteria
+
 1. Matching adds a deterministic `castMention` signal: a top-3 billed actor name found in
    the episode title or description (word-boundary match, accent/case normalised).
 2. No AI and no network calls in the matcher path; cast names come from the cache.
@@ -191,12 +192,17 @@ Regression risks to check
 8. Rejected pairs stay rejected; confirmed links unchanged.
 
 ### Minimum verification steps
+
 - Direct matcher run (node/bun script) over crafted cases: actor named in title, actor named
   in description, surname-only mention, actor name that is also a common word.
 - Score the matcher before and after; compare precision/recall on existing labels.
 - SQL: spot-check that new links carry the `castMention` signal and readable reason text.
 - Confirm a common-word title with only a cast mention still lands below auto-link threshold.
 
-### Not specified
-- Whether directors also count as a mention signal (assumed no for this pass).
-- Exact bump size — to be chosen from the scorecard, not guessed, and recorded when built.
+U23
+
+### Resolved decisions
+
+- Directors do not count toward castMention in U23.
+- Initial castMention score contribution is +5 points.
+- The +5 value must be validated with a before/after Score the Matcher run and may be adjusted or deferred if the evidence shows a meaningful precision regression.
