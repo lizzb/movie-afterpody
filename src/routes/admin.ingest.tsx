@@ -130,8 +130,10 @@ function IngestPage() {
   }
 
   return (
+    <AdminActionQueueProvider>
     <AppShell>
       <main id="admin-top" className="mx-auto w-full max-w-3xl px-5 pb-16 pt-8">
+        <AdminQueueStatus />
         <div className="flex items-center justify-between">
           <div>
             <h1 className="font-display text-3xl">Data ingestion</h1>
@@ -279,6 +281,7 @@ function IngestPage() {
 
       </main>
     </AppShell>
+    </AdminActionQueueProvider>
   );
 }
 
