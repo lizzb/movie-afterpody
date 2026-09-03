@@ -1685,6 +1685,41 @@ export const relinkEpisodeMovie = createServerFn({ method: "POST" })
     return { ok: true, relinked: Boolean(data.toMovieId) };
   });
 
+/**
+ * Pass U24 — episode description for match review, fetched lazily when a row is
+ * expanded so the queue payload stays light. Also returns the best external
+ * source so the reviewer can open the episode if the description isn't enough.
+ */
+export const getEpisodeDescription = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) => z.object({ episodeId: z.string().uuid() }).parse(data))
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const [{ data: ep }, { data: sources }] = await Promise.all([
+      supabaseAdmin
+        .from("podcast_episodes")
+        .select("description")
+        .eq("id", data.episodeId)
+        .maybeSingle(),
+      supabaseAdmin
+        .from("episode_sources")
+        .select("url, platform, is_primary")
+        .eq("episode_id", data.episodeId),
+    ]);
+
+    const list = sources ?? [];
+    const best = list.find((s) => s.is_primary) ?? list[0] ?? null;
+
+    return {
+      description: ep?.description?.trim() || null,
+      sourceUrl: best?.url ?? null,
+      sourcePlatform: best?.platform ?? null,
+    };
+  });
+
+
 /** Worklist of existing links, searchable by podcast, episode or movie title. */
 export const listEpisodeLinks = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
