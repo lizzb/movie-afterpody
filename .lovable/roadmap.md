@@ -241,6 +241,8 @@ Admin-only maintenance action that purges current non-manual proposed/weak saved
 
 Episode rows get truncated descriptions with expand, consistent title/date/duration/controls on both movie and podcast pages, and a segmented control on podcast pages for movie-focused vs episode-focused views.
 
+**Partial 2026-09-03:** admin-only "Mark episode reviewed" / "Reopen" control (stacked-check icon) added to episode rows on movie detail and podcast detail, writing the same `episode_reviews` state as Match review. Acceptance: Verified — button renders admin-only on both surfaces, marking persists to the database and reverts via Reopen, no horizontal overflow. Remaining (not built): truncated descriptions with expand, fully consistent row metadata, movie-focused vs episode-focused segmented control.
+
 ### Pass J2 — Dedicated episode pages — M (~3-5 credits) — Priority 9b
 
 Dedicated per-episode pages are deferred until external ratings/comments or similar episode-level social/context data exists.

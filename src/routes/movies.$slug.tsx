@@ -16,6 +16,9 @@ import { Artwork } from "@/components/Artwork";
 import { BrandBadge } from "@/components/BrandBadge";
 import { ScorePill } from "@/components/ScorePill";
 import { FlagMatchButton } from "@/components/FlagMatchButton";
+import { EpisodeReviewButton } from "@/components/EpisodeReviewButton";
+import { useEpisodeReviewStates } from "@/lib/episode-reviews";
+
 import { useDiscovery, type EpisodeEntry } from "@/lib/discovery";
 import { isUnrated, ratingLabel } from "@/lib/ratings";
 import { prefsActions } from "@/lib/prefs";
@@ -85,6 +88,8 @@ function MovieDetailPage() {
   const { entries, prefs, isLoading } = useDiscovery();
   const entry = entries.find((e) => e.movie.slug === slug);
   const [notesOpen, setNotesOpen] = useState(false);
+  const reviewStates = useEpisodeReviewStates(entry?.episodes.map((ep) => ep.episode.id) ?? []);
+
 
   if (isLoading) {
     return (
@@ -297,12 +302,15 @@ function MovieDetailPage() {
                   key={ep.episode.id}
                   entry={ep}
                   movieId={movie.id}
+                  showReview={reviewStates.isAdmin}
+                  reviewed={reviewStates.reviews[ep.episode.id]?.reviewed ?? false}
                   rating={prefs.ratings[ep.episode.slug] ?? null}
                   listening={prefs.listening[ep.episode.slug] ?? "not_started"}
                   quality={prefs.quality[ep.episode.slug] ?? null}
                 />
               ))}
             </ul>
+
           )}
         </section>
       </main>
@@ -313,16 +321,21 @@ function MovieDetailPage() {
 function EpisodeRow({
   entry,
   movieId,
+  showReview,
+  reviewed,
   rating,
   listening,
   quality,
 }: {
   entry: EpisodeEntry;
   movieId: string;
+  showReview: boolean;
+  reviewed: boolean;
   rating: EpisodeRating | null;
   listening: ListeningStatus;
   quality: ProductionQuality | null;
 }) {
+
   const { episode, podcast, preferred, listenUrl, alsoCovers } = entry;
   const [open, setOpen] = useState(false);
 
@@ -373,8 +386,13 @@ function EpisodeRow({
             </a>
           ) : null}
 
+          {showReview ? (
+            <EpisodeReviewButton episodeId={episode.id} reviewed={reviewed} />
+          ) : null}
+
           <div className="flex items-center gap-1.5">
             <FlagMatchButton episodeId={episode.id} movieId={movieId} />
+
             <button
               type="button"
               onClick={() => prefsActions.togglePreferredPodcast(podcast.slug, !preferred)}

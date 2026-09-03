@@ -6,6 +6,9 @@ import { Artwork } from "@/components/Artwork";
 import { BrandBadge } from "@/components/BrandBadge";
 import { ViewToggle } from "@/components/ViewToggle";
 import { FlagMatchButton } from "@/components/FlagMatchButton";
+import { EpisodeReviewButton } from "@/components/EpisodeReviewButton";
+import { useEpisodeReviewStates } from "@/lib/episode-reviews";
+
 import { usePodcasts, type PodcastMovie } from "@/lib/podcasts";
 import { prefsActions, type ViewMode } from "@/lib/prefs";
 
@@ -46,6 +49,10 @@ function PodcastDetailPage() {
   const { podcastEntries, prefs, isLoading } = usePodcasts();
   const entry = podcastEntries.find((e) => e.podcast.slug === slug);
   const view = prefs.viewModes["podcast-detail"] ?? "rows";
+  const reviewStates = useEpisodeReviewStates(
+    entry?.allEpisodes.map((row) => row.episode.id) ?? [],
+  );
+
 
   if (isLoading) {
     return (
@@ -260,10 +267,17 @@ function PodcastDetailPage() {
                     ) : (
                       <span className="text-muted-foreground">No movie linked yet</span>
                     )}
+                    {reviewStates.isAdmin ? (
+                      <EpisodeReviewButton
+                        episodeId={episode.id}
+                        reviewed={reviewStates.reviews[episode.id]?.reviewed ?? false}
+                      />
+                    ) : null}
                   </div>
                 </li>
               ))}
             </ol>
+
           )}
         </section>
       </main>
