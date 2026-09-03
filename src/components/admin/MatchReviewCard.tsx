@@ -1,12 +1,26 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Ban, Check, CheckCheck, Flag, Loader2, RotateCcw, Search, Unlink, X } from "lucide-react";
+import {
+  Ban,
+  Check,
+  CheckCheck,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
+  Flag,
+  Loader2,
+  RotateCcw,
+  Search,
+  Unlink,
+  X,
+} from "lucide-react";
 import {
   approveEpisodeMatch,
   bulkMatchDecision,
   confirmEpisodeMatch,
   enrichMovie,
+  getEpisodeDescription,
   listEpisodeLinks,
   listEpisodeReviewStates,
   listFlaggedLinks,
@@ -1163,6 +1177,111 @@ function formatEpisodeMeta(releasedAt: string | null, durationSeconds: number | 
   return parts.join(" · ");
 }
 
+/**
+ * Pass U24 — episode description, collapsed by default. Stored descriptions are
+ * feed HTML, so tags are stripped to text (never injected as markup) and the
+ * candidate movie title is highlighted where it appears.
+ */
+function stripHtml(html: string): string {
+  return html
+    .replace(/<br\s*\/?>(\s*)/gi, "\n")
+    .replace(/<\/p>/gi, "\n\n")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/** Case-insensitive exact-title highlight; anything fuzzier is out of U24 scope. */
+function highlightTitle(text: string, title: string) {
+  const needle = title.trim();
+  if (!needle) return text;
+  const parts = text.split(new RegExp(`(${escapeRegExp(needle)})`, "ig"));
+  return parts.map((part, i) =>
+    part.toLowerCase() === needle.toLowerCase() ? (
+      <mark key={i} className="rounded bg-teal/25 px-0.5 text-foreground">
+        {part}
+      </mark>
+    ) : (
+      <span key={i}>{part}</span>
+    ),
+  );
+}
+
+function EpisodeDescription({ episodeId, movieTitle }: { episodeId: string; movieTitle: string }) {
+  const [open, setOpen] = useState(false);
+  const fetchDescription = useServerFn(getEpisodeDescription);
+  const detail = useQuery({
+    queryKey: ["episode-description", episodeId],
+    queryFn: () => fetchDescription({ data: { episodeId } }),
+    enabled: open,
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const text = detail.data?.description ? stripHtml(detail.data.description) : "";
+
+  return (
+    <div className="px-3 pb-3">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground"
+      >
+        {open ? <ChevronUp className="size-3.5" aria-hidden /> : <ChevronDown className="size-3.5" aria-hidden />}
+        Episode description
+      </button>
+      {open ? (
+        <div className="mt-2 rounded-lg border border-border bg-muted/40 p-3">
+          {detail.isPending ? (
+            <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Loader2 className="size-3.5 animate-spin" aria-hidden />
+              Loading description…
+            </p>
+          ) : detail.isError ? (
+            <p className="text-xs text-coral">Couldn’t load the description.</p>
+          ) : (
+            <>
+              {text ? (
+                <p className="whitespace-pre-line break-anywhere text-xs leading-relaxed text-muted-foreground">
+                  {highlightTitle(text, movieTitle)}
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  No description stored for this episode.
+                </p>
+              )}
+              {detail.data?.sourceUrl ? (
+                <a
+                  href={detail.data.sourceUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-teal hover:underline"
+                >
+                  <ExternalLink className="size-3.5" aria-hidden />
+                  Open episode{detail.data.sourcePlatform ? ` on ${detail.data.sourcePlatform}` : ""}
+                </a>
+              ) : null}
+            </>
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+
 type ReviewRowData = {
   key: string;
   episodeId: string;
@@ -1289,7 +1408,10 @@ const ReviewRow = memo(function ReviewRow({
         </span>
       </div>
 
+      <EpisodeDescription episodeId={row.episodeId} movieTitle={row.movieTitle} />
+
       <div className="flex flex-wrap items-center gap-2 px-3 pb-3">
+
         {pending ? (
           <span role="status" className="inline-flex items-center gap-1.5 text-xs font-semibold text-teal">
             <Loader2 className="size-3.5 animate-spin" aria-hidden />
