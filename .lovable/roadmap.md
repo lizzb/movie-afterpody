@@ -28,6 +28,7 @@ The D/O/T5/G/H/Y repair pass is verified and closed (see "Already done"). The re
 
 #### Sliders and touch feel — Priority 2c
 - **Pass D4 — Remove the need for "Apply filters" — M (~3-5 credits)** (filed 2026-08-28). The Apply-filters button shipped 2026-08-28 as the pragmatic fix; this pass makes live filtering fast enough that Apply becomes optional. Root cause is unconfirmed — step one is measurement, not a rewrite: profile a slider drag on Tonight with the full catalogue rendered and record where time goes (`buildEntries` re-deriving on every prefs write, the per-movie `catalog.*.filter(...)` scans being O(movies x rows), `applyFilters` re-sorting, or whole-list re-render). Likely fixes once measured: index catalog rows into maps once, memoise entries independently of filter values, keep drags in local state and commit on release, memoise `MovieCard`, cap rendered rows. Acceptance: smooth sustained drag at 390px with the full catalogue loaded, then decide whether Apply stays as a preference or is removed.
+  - **Added context 2026-09-02 (from the Y2 follow-up):** the Apply button is not only a performance workaround, it is a *feedback* problem — staging changes breaks the cause/effect loop, so the user cannot tell what a filter did. D4's measurement should explicitly separate the cost of (a) recomputing the match **count** for a draft from (b) re-ranking and re-rendering the list. If the count alone is cheap, a live "N movies match" readout can restore feedback even while Apply remains, which is the cheap half of Pass U37. Whether Apply is removed is decided from measurement, not preference.
 - **Pass D2 — Slider treatment and touch responsiveness — M (~3-5 credits) — NEEDS DESIGN.** Options: thick rail with floating handles (32px handle, 48px hit area); inset rail with high-contrast grab knobs and larger touch rings; stepper-assisted slider with minus/plus; compact numeric value chips beside labels plus a larger grab zone. Build must fix drag responsiveness, not just visuals.
 
 #### Ratings and audience controls — Priority 3
@@ -179,6 +180,26 @@ Today a movie reports "5 podcast episodes" with no quality distinction. Split co
 
 #### Pass U31 — Coverage-vs-workload instrumentation — S (~1-2 credits) — Priority 3b
 Make the primary product metric measurable: per matcher change and per review session, record confirmed movie↔commentary relationships unlocked against human decisions required, and show the ratio in the admin surface next to the matcher scorecard. Cheap, and it is the guardrail that keeps volume work honest.
+
+### Match Review UX and filter feedback (filed 2026-09-02, backlog only — full detail in `.lovable/plan/match-review-ux-filter-feedback-backlog-2026-09-02.md`)
+
+#### Pass U32 — Verify single-row unlink like bulk unlink — S (~1-2 credits) — Priority 2
+Follow-up candidate recorded during U12 verification (not a U12 gap): the single-row `relinkEpisodeMovie` unlink deletes without the delete-then-verify readback that bulk unlink now performs. Apply the same per-pair verification, return ok/failed, and restore the row with an error toast when the delete did not persist.
+
+#### Pass U33 — Bulk action button visual states — S (~1-2 credits) — Priority 1
+Bulk buttons must match the row-action family: Approve/Confirm = green text on grey, Unlink/Reject = red text on grey, Not about a movie = amber text on grey; only the pressed button flips to white-on-colour and holds that state (with the spinner) until the operation resolves, while unpressed siblings disable as text-on-grey and never fill. Fixes today's always-green "confirm selected" reading as pre-selected during loading. Semantic tokens only. Full state table in the plan file.
+
+#### Pass U34 — Mobile action-button sizing — S (~1-2 credits) — Priority 1b — NEEDS DESIGN APPROVAL
+Grow Match Review row and bulk action buttons ~20-30% on coarse-pointer/mobile only. Present 2-3 rendered options at 390px against a real row for approval before implementing; no unilateral size/treatment choice.
+
+#### Pass U35 — Mobile Match Review scanning flow — M (~3-5 credits) — Priority 2b — NEEDS DESIGN EXPLORATION
+Reduce the scroll → select → scroll → select burden of reviewing many matches on a phone. Exploration first (no committed solution): dense row mode, one-at-a-time triage view with auto-advance, grouping by episode, sticky per-episode header, thumb-anchored action bar. Constraints: title/year/episode/date/duration/confidence visible at decision time, one-tap undo retained, no swipe-only destructive actions.
+
+#### Pass U36 — Match Review lag and list-jump under the finger — M (~3-5 credits) — Priority 1c
+Root cause: decided rows are filtered out of the derived list the instant their pending flag clears (`out.filter((r) => !done[r.key] || pending[r.key])`), and the completion also triggers query invalidation/refetch that can reorder the page — with no scroll anchoring and no post-action input guard, content moves under the finger and the next tap lands on a different row. Smallest fixes: keep decided rows mounted in a settled "Confirmed / Unlinked · Undo" state until page/tab/filter change or Refresh (S); ~250-300ms input guard after any list mutation (S); scroll anchoring on the top visible row (S). Generalisable fix: refetches never reflow the visible page mid-session, new data lands behind an explicit "N new — refresh" affordance (M). Recommendation from the current architecture: settled rows + input guard first. Acceptance: ten consecutive row actions at 390px produce zero shift under a fixed finger position. Re-verify U10 auto-advance afterwards.
+
+#### Pass U37 — Filter interaction and feedback — M (~3-5 credits) — Priority 2c — NEEDS DESIGN
+Y2's rating range is accepted; this pass addresses the broader filtering-feedback problem it exposed: (1) staged "Apply filters" breaks cause/effect — overlaps and is cross-referenced with Pass D4; (2) filter impact is invisible because the count and list sit outside the panel — candidate is a live "N movies match" readout on the draft plus cheap per-control hints; (3) the expanded filter controls are not discoverable — candidate is a clearer labelled entry point carrying the active-filter summary, plus removable applied-filter chips. Design options first, then build. Depends on D4's measurement for the live-count half.
 
 
 ## Worth doing soon
