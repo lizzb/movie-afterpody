@@ -339,6 +339,74 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
     return out.filter((r) => !done[r.key] || pending[r.key]);
   }, [tab, flags.data, proposals.data, links.data, done, pending]);
 
+  /**
+   * Pass U8 — episode-level "review complete". Completeness lives on the episode,
+   * not the link: an episode with no links can be marked reviewed, and a
+   * confirmed link is not "reviewed" until someone says so. The record is server
+   * truth, so the state survives a reload.
+   */
+  const reviewStatesFn = useServerFn(listEpisodeReviewStates);
+  const setReviewedFn = useServerFn(setEpisodeReviewed);
+  const [hideReviewed, setHideReviewed] = useState(false);
+  const [reviewPending, setReviewPending] = useState<Record<string, true>>({});
+  const episodeIds = useMemo(
+    () => Array.from(new Set(rows.map((r) => r.episodeId))).sort(),
+    [rows],
+  );
+  const reviewStates = useQuery({
+    queryKey: ["episode-review-states", episodeIds.join(",")],
+    queryFn: () => reviewStatesFn({ data: { episodeIds } }),
+    enabled: episodeIds.length > 0,
+    retry: false,
+    refetchOnWindowFocus: false,
+    placeholderData: keepPreviousData,
+  });
+  const reviewMap = reviewStates.data?.reviews ?? {};
+  const visibleRows = useMemo(
+    () => (hideReviewed ? rows.filter((r) => !reviewMap[r.episodeId]?.reviewed) : rows),
+    // reviewMap identity changes with the query result, which is what we want.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rows, hideReviewed, reviewStates.data],
+  );
+
+  const markReviewed = useCallback(
+    async (ids: string[], reviewed: boolean) => {
+      const unique = Array.from(new Set(ids));
+      if (unique.length === 0) return;
+      setReviewPending((prev) => {
+        const next = { ...prev };
+        for (const id of unique) next[id] = true;
+        return next;
+      });
+      try {
+        const result = await setReviewedFn({ data: { episodeIds: unique, reviewed } });
+        setError(
+          result.succeeded === result.attempted
+            ? null
+            : `${result.attempted - result.succeeded} episode(s) could not be updated: ${result.failed[0] ?? "unknown error"}`,
+        );
+        setNote(
+          `${result.succeeded} episode(s) ${reviewed ? "marked reviewed" : "reopened"}${
+            result.succeeded === result.attempted ? "" : ` · ${result.attempted - result.succeeded} failed`
+          }.`,
+        );
+        await client.invalidateQueries({ queryKey: ["episode-review-states"] });
+        void client.invalidateQueries({ queryKey: ["podcast-coverage"] });
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Could not update review state.");
+      } finally {
+        setReviewPending((prev) => {
+          const next = { ...prev };
+          for (const id of unique) delete next[id];
+          return next;
+        });
+      }
+    },
+    [client, setReviewedFn],
+  );
+
+
+
   const rawTotal =
     tab === "flagged"
       ? (flags.data?.total ?? 0)
