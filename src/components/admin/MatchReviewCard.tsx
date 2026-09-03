@@ -991,6 +991,16 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
               ) : null}
             </p>
             <div className="flex items-center gap-2">
+              {/* Pass U8 — work only the episodes you have not signed off yet. */}
+              <label className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs font-semibold">
+                <input
+                  type="checkbox"
+                  checked={hideReviewed}
+                  onChange={(e) => setHideReviewed(e.target.checked)}
+                  className="size-3.5 accent-[currentColor]"
+                />
+                Hide reviewed episodes
+              </label>
               <button
                 type="button"
                 onClick={() => refresh(true)}
@@ -1007,6 +1017,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
                 {allVisibleSelected ? "Clear selection" : "Select all shown"}
               </button>
             </div>
+
           </div>
 
           {selectedCount > 0 ? (
