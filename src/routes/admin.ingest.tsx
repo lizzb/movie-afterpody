@@ -309,7 +309,11 @@ function Stat({
 
 function BulkEnrichCard({ onSuccess }: { onSuccess: () => void }) {
   const fn = useServerFn(enrichAllMovies);
-  const mutation = useMutation({ mutationFn: fn, onSuccess });
+  const action = useQueuedAction("enrich-all", "Enrich next 25 movies");
+  const mutation = useMutation({
+    mutationFn: (vars: Parameters<typeof fn>[0]) => action.start(() => fn(vars)),
+    onSuccess,
+  });
 
   return (
     <div>
@@ -323,8 +327,9 @@ function BulkEnrichCard({ onSuccess }: { onSuccess: () => void }) {
         disabled={mutation.isPending}
         className="mt-4 inline-flex items-center rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
       >
-        {mutation.isPending ? "Enriching…" : "Enrich next 25 movies"}
+        {action.queued ? "Queued…" : action.running ? "Enriching…" : "Enrich next 25 movies"}
       </button>
+
       {mutation.isSuccess ? (
         <div className="mt-3 space-y-1 text-sm">
           <p className="text-teal">
