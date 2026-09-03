@@ -273,6 +273,12 @@ Expand from movies-only to both `movie` and `tv` catalog items using the existin
 
 # Already done
 
+### Triage fix — "Any" runtime slider silently capped results at 180m — shipped 2026-09-03
+
+Verified 2026-09-03 in the running app at `/movies` (390px viewport): searching "Titanic" now returns _Titanic (1997), 194m_ with no filters applied. `applyFilters` in `src/lib/discovery.ts` skipped the runtime test only when `runtime <= maxRuntime`, so the top slider stop — labelled "Any" in `FilterBar` — still excluded every movie over 180 minutes on both Tonight and Movies. The filter now short-circuits when `maxRuntime >= RUNTIME_CEILING`. No other filter behaviour changed.
+
+
+
 ### Pass U16 — Treat "live" as a special word in the matcher — shipped 2026-08-31
 
 Verified 2026-09-02 by direct scoring run against `matchEpisodeToMovies`: "LIVE at the Bell House!" and "Live from Chicago - our anniversary show" now yield no candidate for the movie _Live (2016)_, while "Live Free or Die Hard (2007)" and "Live (2016)" still score 100 on exact title + year.
