@@ -27,7 +27,7 @@ export function EpisodeAdminActions({ episodeId, reviewed, variant = "inline" }:
         }}
         disabled={retire.isPending}
         title="Not about a movie — retires this episode from every review queue"
-        className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-[11px] font-semibold text-amber transition-colors hover:bg-amber hover:text-primary-foreground disabled:opacity-50 ${
+        className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-[11px] font-semibold text-gold transition-colors hover:bg-gold hover:text-primary-foreground disabled:opacity-50 ${
           variant === "block" ? "px-3.5 py-2 text-xs" : ""
         }`}
       >
