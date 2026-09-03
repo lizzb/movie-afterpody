@@ -2607,7 +2607,7 @@ export const listEpisodeReviewStates = createServerFn({ method: "POST" })
     for (const episodeId of data.episodeIds) {
       const meta = generations.get(episodeId);
       const generation = meta?.podcasts?.sync_generation ?? 1;
-      const rec = (rows ?? []).find((r) => r.episode_id === episodeId);
+      const rec = recs.get(episodeId);
       const current = Boolean(rec && !rec.reopened_at && rec.sync_generation === generation);
       reviews[episodeId] = {
         reviewed: current,
