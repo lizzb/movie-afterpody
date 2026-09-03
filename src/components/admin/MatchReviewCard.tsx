@@ -723,7 +723,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
   });
 
   const selectedCount = Object.keys(selected).length;
-  const allVisibleSelected = rows.length > 0 && rows.every((r) => selected[r.key]);
+  const allVisibleSelected = visibleRows.length > 0 && visibleRows.every((r) => selected[r.key]);
 
   const toggleAll = () => {
     if (allVisibleSelected) {
@@ -731,7 +731,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
       return;
     }
     const next: Record<string, true> = {};
-    for (const r of rows) next[r.key] = true;
+    for (const r of visibleRows) next[r.key] = true;
     setSelected(next);
   };
 
@@ -758,7 +758,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
             : null;
     if (confirmText && !window.confirm(confirmText)) return;
 
-    const chosen = rows.filter((r) => selected[r.key]);
+    const chosen = visibleRows.filter((r) => selected[r.key]);
     if (chosen.length === 0) return;
     const pairs = chosen.map((r) => ({ episodeId: r.episodeId, movieId: r.movieId }));
     const flagged = chosen
@@ -924,7 +924,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
         <div className="mt-4 h-32 animate-pulse rounded-2xl bg-muted" />
       ) : queryError ? (
         <p className="mt-4 text-sm text-destructive">{(queryError as Error).message}</p>
-      ) : rows.length === 0 ? (
+      ) : visibleRows.length === 0 ? (
         <div className="mt-4 space-y-2">
           {/* Four different reasons a page can be blank — say which one it is. */}
           <p className="text-sm text-muted-foreground">
@@ -960,7 +960,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
         <>
           <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              Showing {rows.length} of {total} {noun}
+              Showing {visibleRows.length} of {total} {noun}
               {offset > 0 ? (
                 <span className="ml-2 normal-case tracking-normal text-muted-foreground">
                   (from #{offset + 1})
@@ -1065,7 +1065,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
           ) : null}
 
           <ul className="mt-3 space-y-2">
-            {rows.map((row) => (
+            {visibleRows.map((row) => (
               <ReviewRow
                 key={row.key}
                 row={row}
