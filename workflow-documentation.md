@@ -46,5 +46,18 @@ A pass is never called "built" or moved to *Already done* in `.lovable/roadmap.m
 item is Verified or explicitly Deferred. Verification is run proactively — no prompting needed —
 and is mandatory for mobile/PWA layout, popovers, filters and stateful controls.
 
+### Trigger keywords
+
+- `ACCEPT: <PASS_ID>` (also `ACCEPTANCE: <PASS_ID>`) — write/refresh the acceptance-criteria
+  checklist plus minimum verification steps for that pass into a dated plan file. No code,
+  no scope change. Accepts multiple IDs.
+- `BUILD: <PASS_ID>` — if no acceptance checklist exists yet for that pass, derive one first
+  from the roadmap entry and plan context, then build against it, then verify in the running
+  app, then report with labels. Building always ends in a labeled checklist.
+- `PLAN: <PASS_ID>` / `PLAN (backlog only)` — scoping and estimates only. A full testable
+  acceptance checklist is written only when the pass is nontrivial/multi-item or when
+  `ACCEPT:` is used; backlog entries carry a one-line acceptance sentence, not a full set.
+
 Current acceptance-criteria sets: `.lovable/plan/acceptance-criteria-u8-u24-u4-p-u23-2026-09-02.md`
 (U8, U24, U4, P, U23).
+
