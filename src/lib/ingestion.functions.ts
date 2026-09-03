@@ -1531,6 +1531,7 @@ export const listPodcastCoverage = createServerFn({ method: "GET" })
     );
 
     const rows = (podcasts ?? []).map((p) => {
+      const generation = p.sync_generation ?? 1;
       const own = episodes.filter((e) => e.podcast_id === p.id);
       // Retired episodes count as retired even if a stale link still hangs off them.
       const retired = own.filter((e) => retiredEpisodeIds.has(e.id)).length;
@@ -1539,6 +1540,18 @@ export const listPodcastCoverage = createServerFn({ method: "GET" })
       const reviewed = own.filter(
         (e) => (linked.has(e.id) && !openByEpisode.has(e.id)) || e.disposition === "not_about_a_movie",
       ).length;
+      /**
+       * Pass U8 — episode-level review completeness. An episode is reviewed when
+       * it carries a review record made against the current sync generation and
+       * not reopened, or when it is retired ("not about a movie", already
+       * settled and excluded from every queue). `stored - episodesReviewed`
+       * therefore equals the show's unreviewed queue size.
+       */
+      const episodesReviewed = own.filter((e) => {
+        if (retiredEpisodeIds.has(e.id)) return true;
+        const rec = reviewByEpisode.get(e.id);
+        return Boolean(rec && !rec.reopened_at && rec.sync_generation === generation);
+      }).length;
       return {
         podcastId: p.id,
         name: p.name,
@@ -1551,6 +1564,10 @@ export const listPodcastCoverage = createServerFn({ method: "GET" })
         /** Links still proposed or auto-linked — the show is not fully reviewed. */
         awaitingReview,
         reviewed,
+        episodesReviewed,
+        episodesUnreviewed: own.length - episodesReviewed,
+        syncGeneration: generation,
+        lastSyncedAt: p.last_synced_at ?? null,
         fullyReviewed: own.length > 0 && awaitingReview === 0 && own.length - linkedCount - retired === 0,
         /** Feed reports more episodes than we stored — a sync would fetch more. */
         incomplete: (p.episode_count ?? 0) > own.length,
@@ -1558,6 +1575,7 @@ export const listPodcastCoverage = createServerFn({ method: "GET" })
 
       };
     });
+
 
     return { podcasts: rows };
   });
