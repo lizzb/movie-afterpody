@@ -1,5 +1,7 @@
 # Movie Afterparty admin workflow
 
+## Pass acceptance workflow (added 2026-09-02)
+
 Before building a multi-item pass, write a testable acceptance checklist plus the minimum
 verification steps per criterion, and flag anything the spec does not actually cover instead
 of quietly deciding it.
@@ -93,5 +95,3 @@ When a user message begins with `TRIAGE:`:
 4. Use **Not about a movie** for ads, interviews, mailbags, trailers, and non-film episodes.
 5. Run **Score the matcher** before and after matcher-rule changes.
 6. When the queue looks stale after a major rule change, use a future guarded replay tool rather than manually refreshing the same weak historical links.
-
-## Pass acceptance workflow (added 2026-09-02)
