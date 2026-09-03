@@ -1,7 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Ban, Check, Flag, Loader2, Search, Unlink, X } from "lucide-react";
+import { Ban, Check, CheckCheck, Flag, Loader2, RotateCcw, Search, Unlink, X } from "lucide-react";
 import {
   approveEpisodeMatch,
   bulkMatchDecision,
@@ -1189,6 +1189,9 @@ const ReviewRow = memo(function ReviewRow({
   tab,
   selected,
   pending,
+  reviewed,
+  reviewPending,
+  onReview,
   onToggle,
   onAct,
   onRelink,
@@ -1197,6 +1200,10 @@ const ReviewRow = memo(function ReviewRow({
   tab: Tab;
   selected: boolean;
   pending: boolean;
+  /** Pass U8 — the episode carries a current review record. */
+  reviewed: boolean;
+  reviewPending: boolean;
+  onReview: (episodeIds: string[], reviewed: boolean) => void | Promise<void>;
   onToggle: (key: string) => void;
   onAct: (
     action: "approve" | "reject" | "confirm" | "unlink" | "retire",
@@ -1356,6 +1363,30 @@ const ReviewRow = memo(function ReviewRow({
           disabled={pending}
           onPick={(movieId) => onRelink(row, movieId, tab === "proposed")}
         />
+        {/* Pass U8 — episode-level sign-off: independent of the link's review
+            state, reversible, and written straight to the server. */}
+        <button
+          type="button"
+          disabled={reviewPending}
+          onClick={() => void onReview([row.episodeId], !reviewed)}
+          title={
+            reviewed
+              ? "Reopen this episode — it returns to the unreviewed queue"
+              : "Mark this episode reviewed — its links look right and none are missing"
+          }
+          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold transition-colors disabled:opacity-50 ${
+            reviewed ? "bg-teal text-primary-foreground" : "border border-border text-muted-foreground"
+          }`}
+        >
+          {reviewPending ? (
+            <Loader2 className="size-3.5 animate-spin" aria-hidden />
+          ) : reviewed ? (
+            <RotateCcw className="size-3.5" aria-hidden />
+          ) : (
+            <CheckCheck className="size-3.5" aria-hidden />
+          )}
+          {reviewed ? "Reopen" : "Mark reviewed"}
+        </button>
       </div>
     </li>
   );
