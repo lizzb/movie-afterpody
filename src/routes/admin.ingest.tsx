@@ -6,6 +6,12 @@ import { MatchHistoryCard } from "@/components/admin/MatchHistoryCard";
 import { MatcherScoreCard } from "@/components/admin/MatcherScoreCard";
 import { MatchReviewCard, RelinkPicker } from "@/components/admin/MatchReviewCard";
 import { CollapsibleCard } from "@/components/admin/CollapsibleCard";
+import {
+  AdminActionQueueProvider,
+  AdminQueueStatus,
+  useAdminQueue,
+  useQueuedAction,
+} from "@/components/admin/AdminActionQueue";
 import { useAuth } from "@/hooks/useAuth";
 
 import {
@@ -124,8 +130,10 @@ function IngestPage() {
   }
 
   return (
+    <AdminActionQueueProvider>
     <AppShell>
       <main id="admin-top" className="mx-auto w-full max-w-3xl px-5 pb-16 pt-8">
+        <AdminQueueStatus />
         <div className="flex items-center justify-between">
           <div>
             <h1 className="font-display text-3xl">Data ingestion</h1>
@@ -273,6 +281,7 @@ function IngestPage() {
 
       </main>
     </AppShell>
+    </AdminActionQueueProvider>
   );
 }
 
@@ -309,7 +318,11 @@ function Stat({
 
 function BulkEnrichCard({ onSuccess }: { onSuccess: () => void }) {
   const fn = useServerFn(enrichAllMovies);
-  const mutation = useMutation({ mutationFn: fn, onSuccess });
+  const action = useQueuedAction("enrich-all", "Enrich next 25 movies");
+  const mutation = useMutation({
+    mutationFn: (vars: Parameters<typeof fn>[0]) => action.start(() => fn(vars)),
+    onSuccess,
+  });
 
   return (
     <div>
@@ -323,8 +336,9 @@ function BulkEnrichCard({ onSuccess }: { onSuccess: () => void }) {
         disabled={mutation.isPending}
         className="mt-4 inline-flex items-center rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
       >
-        {mutation.isPending ? "Enriching…" : "Enrich next 25 movies"}
+        {action.queued ? "Queued…" : action.running ? "Enriching…" : "Enrich next 25 movies"}
       </button>
+
       {mutation.isSuccess ? (
         <div className="mt-3 space-y-1 text-sm">
           <p className="text-teal">
@@ -352,8 +366,9 @@ function BulkEnrichCard({ onSuccess }: { onSuccess: () => void }) {
 function BackfillRatingsCard({ onSuccess }: { onSuccess: () => void }) {
   const fn = useServerFn(backfillContentRatings);
   const [runUntilDone, setRunUntilDone] = useState(false);
+  const action = useQueuedAction("content-ratings", "Backfill content ratings");
   const mutation = useMutation({
-    mutationFn: fn,
+    mutationFn: (vars: Parameters<typeof fn>[0]) => action.start(() => fn(vars)),
     onSuccess: (result) => {
       onSuccess();
       if (runUntilDone && result.remaining > 0) mutation.mutate({ data: { limit: 60 } });
@@ -374,7 +389,7 @@ function BackfillRatingsCard({ onSuccess }: { onSuccess: () => void }) {
           disabled={mutation.isPending}
           className="inline-flex items-center rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
         >
-          {mutation.isPending ? "Fetching ratings…" : "Backfill next 60"}
+          {action.queued ? "Queued…" : action.running ? "Fetching ratings…" : "Backfill next 60"}
         </button>
         <label className="flex min-h-11 items-center gap-2 text-sm">
           <input
@@ -412,7 +427,11 @@ function BackfillRatingsCard({ onSuccess }: { onSuccess: () => void }) {
 
 function BackfillArtworkCard({ onSuccess }: { onSuccess: () => void }) {
   const fn = useServerFn(backfillPodcastArtwork);
-  const mutation = useMutation({ mutationFn: fn, onSuccess });
+  const action = useQueuedAction("artwork", "Backfill podcast cover art");
+  const mutation = useMutation({
+    mutationFn: (vars: Parameters<typeof fn>[0]) => action.start(() => fn(vars)),
+    onSuccess,
+  });
 
   return (
     <div>
@@ -426,7 +445,7 @@ function BackfillArtworkCard({ onSuccess }: { onSuccess: () => void }) {
         disabled={mutation.isPending}
         className="mt-4 inline-flex items-center rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
       >
-        {mutation.isPending ? "Fetching…" : "Backfill next 25 shows"}
+        {action.queued ? "Queued…" : action.running ? "Fetching…" : "Backfill next 25 shows"}
       </button>
       {mutation.isSuccess ? (
         <div className="mt-3 space-y-1 text-sm">
@@ -448,8 +467,9 @@ function BackfillArtworkCard({ onSuccess }: { onSuccess: () => void }) {
 
 function IngestPodcastForm({ onSuccess }: { onSuccess: () => void }) {
   const fn = useServerFn(ingestPodcast);
+  const action = useQueuedAction("ingest-podcast", "Ingest podcast");
   const mutation = useMutation({
-    mutationFn: fn,
+    mutationFn: (vars: Parameters<typeof fn>[0]) => action.start(() => fn(vars)),
     onSuccess,
   });
   const [query, setQuery] = useState("");
@@ -485,7 +505,7 @@ function IngestPodcastForm({ onSuccess }: { onSuccess: () => void }) {
           disabled={mutation.isPending || (!query && !feedUrl)}
           className="inline-flex items-center rounded-full bg-navy px-5 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
         >
-          {mutation.isPending ? "Ingesting…" : "Ingest podcast"}
+          {action.queued ? "Queued…" : action.running ? "Ingesting…" : "Ingest podcast"}
         </button>
       </form>
       {mutation.isSuccess ? (
@@ -513,8 +533,9 @@ function IngestPodcastForm({ onSuccess }: { onSuccess: () => void }) {
 
 function EnrichMovieForm({ onSuccess }: { onSuccess: () => void }) {
   const fn = useServerFn(enrichMovie);
+  const action = useQueuedAction("enrich-movie", "Add movie from TMDB");
   const mutation = useMutation({
-    mutationFn: fn,
+    mutationFn: (vars: Parameters<typeof fn>[0]) => action.start(() => fn(vars)),
     onSuccess,
   });
   const [title, setTitle] = useState("");
@@ -556,7 +577,7 @@ function EnrichMovieForm({ onSuccess }: { onSuccess: () => void }) {
           disabled={mutation.isPending || !title}
           className="inline-flex items-center rounded-full bg-navy px-5 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
         >
-          {mutation.isPending ? "Looking up…" : "Enrich"}
+          {action.queued ? "Queued…" : action.running ? "Looking up…" : "Enrich"}
         </button>
       </form>
       {mutation.isSuccess ? (
@@ -593,7 +614,8 @@ function RefreshAvailabilityForm({ onSuccess }: { onSuccess: () => void }) {
     refetchOnWindowFocus: false,
   });
 
-  const [running, setRunning] = useState(false);
+  const action = useQueuedAction("availability", "Streaming availability + genres");
+  const running = action.running;
   const [progress, setProgress] = useState<{
     checked: number;
     offers: number;
@@ -611,9 +633,11 @@ function RefreshAvailabilityForm({ onSuccess }: { onSuccess: () => void }) {
   // Chained runs: each request stays small enough to finish, but pressing once
   // works through hundreds of movies, always starting with the stalest.
   // `maxMovies = Infinity` is the "run until done" mode.
-  const run = async (maxMovies: number, staleOnly: boolean) => {
+  const run = (maxMovies: number, staleOnly: boolean) =>
+    action.start(() => runBatches(maxMovies, staleOnly)).catch(() => undefined);
+
+  const runBatches = async (maxMovies: number, staleOnly: boolean) => {
     cancelRef.current = false;
-    setRunning(true);
     setError(null);
     let checked = 0;
     let offers = 0;
@@ -662,8 +686,7 @@ function RefreshAvailabilityForm({ onSuccess }: { onSuccess: () => void }) {
       onSuccess();
     } catch (e) {
       setError((e as Error).message);
-    } finally {
-      setRunning(false);
+      throw e;
     }
   };
 
@@ -707,15 +730,15 @@ function RefreshAvailabilityForm({ onSuccess }: { onSuccess: () => void }) {
         <button
           type="button"
           onClick={() => run(400, true)}
-          disabled={running}
+          disabled={action.pending}
           className="inline-flex items-center rounded-full bg-navy px-5 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
         >
-          {running ? "Syncing…" : "Sync up to 400 stale movies"}
+          {action.queued ? "Queued…" : running ? "Syncing…" : "Sync up to 400 stale movies"}
         </button>
         <button
           type="button"
           onClick={() => run(Number.POSITIVE_INFINITY, true)}
-          disabled={running}
+          disabled={action.pending}
           className="rounded-full border border-border px-4 py-2 text-sm font-semibold disabled:opacity-50"
         >
           Run until done
@@ -723,7 +746,7 @@ function RefreshAvailabilityForm({ onSuccess }: { onSuccess: () => void }) {
         <button
           type="button"
           onClick={() => run(AVAILABILITY_BATCH, true)}
-          disabled={running}
+          disabled={action.pending}
           className="rounded-full border border-border px-4 py-2 text-sm font-semibold disabled:opacity-50"
         >
           Just {AVAILABILITY_BATCH}
@@ -770,7 +793,11 @@ function ResolveEpisodesCard({ onSuccess }: { onSuccess: () => void }) {
     void client.invalidateQueries({ queryKey: ["unmatched-episodes"] });
     void client.invalidateQueries({ queryKey: ["match-suggestions"] });
   };
-  const resolve = useMutation({ mutationFn: resolveFn, onSuccess: refresh });
+  const action = useQueuedAction("resolve", "Build movies from episodes");
+  const resolve = useMutation({
+    mutationFn: (vars: Parameters<typeof resolveFn>[0]) => action.start(() => resolveFn(vars)),
+    onSuccess: refresh,
+  });
 
   return (
     <div>
@@ -786,7 +813,7 @@ function ResolveEpisodesCard({ onSuccess }: { onSuccess: () => void }) {
           disabled={resolve.isPending}
           className="inline-flex items-center rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
         >
-          {resolve.isPending ? "Resolving…" : "Resolve next 100 episodes"}
+          {action.queued ? "Queued…" : action.running ? "Resolving…" : "Resolve next 100 episodes"}
         </button>
       </div>
 
@@ -842,8 +869,9 @@ function UnmatchedEpisodesCard() {
     retry: false,
     refetchOnWindowFocus: false,
   });
+  const rescanAction = useQueuedAction("rescan-all", "Recheck every episode against existing movies");
   const rescan = useMutation({
-    mutationFn: rescanFn,
+    mutationFn: (vars: Parameters<typeof rescanFn>[0]) => rescanAction.start(() => rescanFn(vars)),
     onSuccess: async () => {
       await client.invalidateQueries({ queryKey: ["unmatched-episodes"] });
       await client.invalidateQueries({ queryKey: ["match-suggestions"] });
@@ -866,11 +894,12 @@ function UnmatchedEpisodesCard() {
   const reviewStatesFn = useServerFn(listEpisodeReviewStates);
   const linkFn = useServerFn(approveEpisodeMatch);
 
-  const runRow = async (episodeId: string, work: () => Promise<unknown>) => {
+  const queue = useAdminQueue();
+  const runRow = async (episodeId: string, label: string, work: () => Promise<unknown>) => {
     setPendingId(episodeId);
     setRowError(null);
     try {
-      await work();
+      await queue.run(`unmatched:${episodeId}`, label, work);
       // The row is settled — drop it now, let the queues catch up after.
       setRemoved((prev) => ({ ...prev, [episodeId]: true }));
       void refreshQueues();
@@ -895,7 +924,11 @@ function UnmatchedEpisodesCard() {
     setPendingId(episodeId);
     setRowError(null);
     try {
-      const res = await reviewFn({ data: { episodeIds: [episodeId], reviewed } });
+      const res = await queue.run(
+        `unmatched-review:${episodeId}`,
+        reviewed ? "Mark episode reviewed" : "Reopen episode",
+        () => reviewFn({ data: { episodeIds: [episodeId], reviewed } }),
+      );
       if (res.succeeded !== res.attempted) throw new Error(res.failed[0] ?? "could not update");
       await client.invalidateQueries({ queryKey: ["episode-review-states"] });
       void client.invalidateQueries({ queryKey: ["podcast-coverage"] });
@@ -919,7 +952,11 @@ function UnmatchedEpisodesCard() {
           disabled={rescan.isPending}
           className="inline-flex items-center rounded-full border border-border px-5 py-2.5 text-sm font-semibold disabled:opacity-50"
         >
-          {rescan.isPending ? "Rescanning…" : "Recheck every episode against existing movies"}
+          {rescanAction.queued
+            ? "Queued…"
+            : rescanAction.running
+              ? "Rescanning…"
+              : "Recheck every episode against existing movies"}
         </button>
         <p className="mt-2 text-xs text-muted-foreground">
           Rescores every episode in your active shows against the movies already in the catalogue:
@@ -978,7 +1015,7 @@ function UnmatchedEpisodesCard() {
                       <button
                         type="button"
                         onClick={() =>
-                          void runRow(ep.episodeId, () =>
+                          void runRow(ep.episodeId, "Not about a movie", () =>
                             retireFn({ data: { episodeId: ep.episodeId } }),
                           )
                         }
@@ -990,7 +1027,7 @@ function UnmatchedEpisodesCard() {
                       <RelinkPicker
                         disabled={rowBusy}
                         onPick={async (movieId) => {
-                          await runRow(ep.episodeId, () =>
+                          await runRow(ep.episodeId, "Link episode to movie", () =>
                             linkFn({ data: { episodeId: ep.episodeId, movieId } }),
                           );
                         }}
@@ -1037,7 +1074,8 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
     retry: false,
     refetchOnWindowFocus: false,
   });
-  const [busyId, setBusyId] = useState<string | null>(null);
+  const queue = useAdminQueue();
+  const bulkSync = useQueuedAction("sync-all-incomplete", "Sync all incomplete shows");
   const [error, setError] = useState<string | null>(null);
   const [showParked, setShowParked] = useState(false);
   const [incompleteOnly, setIncompleteOnly] = useState(false);
@@ -1046,8 +1084,14 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
 
   // Per-show sync outcomes so a failed feed is named instead of vanishing.
   const [syncLog, setSyncLog] = useState<{ name: string; message: string; ok: boolean }[]>([]);
-  const [bulkRunning, setBulkRunning] = useState(false);
+  const bulkRunning = bulkSync.pending;
   const bulkCancel = useRef(false);
+
+  /** Pass U14 — every per-show action is a queue entry, so clicks never race. */
+  const showKey = (podcastId: string, action: string) => `podcast:${podcastId}:${action}`;
+  const rowStatus = (podcastId: string, action: string) => queue.status(showKey(podcastId, action));
+  const rowPending = (podcastId: string) =>
+    ["sync", "recheck", "build", "curation"].some((a) => rowStatus(podcastId, a) !== "idle");
 
   const refresh = async () => {
     await queryClient.invalidateQueries({ queryKey: ["podcast-coverage"] });
@@ -1063,25 +1107,23 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
     setSyncLog((prev) => [{ name, message: note, ok: result.episodesFailed === 0 }, ...prev].slice(0, 25));
   };
 
-  const syncPodcast = async (podcastId: string, name: string) => {
-    setBusyId(podcastId);
-    setError(null);
-    try {
-      await syncOne(podcastId, name);
-      await refresh();
-    } catch (e) {
-      setSyncLog((prev) => [{ name, message: (e as Error).message, ok: false }, ...prev].slice(0, 25));
-      setError((e as Error).message);
-    } finally {
-      setBusyId(null);
-    }
-  };
+  const syncPodcast = (podcastId: string, name: string) =>
+    queue
+      .run(showKey(podcastId, "sync"), `Sync episodes — ${name}`, async () => {
+        setError(null);
+        await syncOne(podcastId, name);
+        await refresh();
+      })
+      .catch((e: Error) => {
+        setSyncLog((prev) => [{ name, message: e.message, ok: false }, ...prev].slice(0, 25));
+        setError(e.message);
+      });
 
   // Same two pipeline steps as the page-level buttons, scoped to one show.
-  const rescanPodcast = async (podcastId: string, name: string) => {
-    setBusyId(podcastId);
-    setError(null);
-    try {
+  const rescanPodcast = (podcastId: string, name: string) =>
+    queue
+      .run(showKey(podcastId, "recheck"), `Recheck episodes — ${name}`, async () => {
+      setError(null);
       const r = await rescanShow({ data: { podcastId, limit: 150 } });
       setSyncLog((prev) =>
         [
@@ -1094,18 +1136,16 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
         ].slice(0, 25),
       );
       await refresh();
-    } catch (e) {
-      setSyncLog((prev) => [{ name, message: (e as Error).message, ok: false }, ...prev].slice(0, 25));
-      setError((e as Error).message);
-    } finally {
-      setBusyId(null);
-    }
-  };
+      })
+      .catch((e: Error) => {
+        setSyncLog((prev) => [{ name, message: e.message, ok: false }, ...prev].slice(0, 25));
+        setError(e.message);
+      });
 
-  const buildPodcast = async (podcastId: string, name: string) => {
-    setBusyId(podcastId);
-    setError(null);
-    try {
+  const buildPodcast = (podcastId: string, name: string) =>
+    queue
+      .run(showKey(podcastId, "build"), `Build movies — ${name}`, async () => {
+      setError(null);
       const r = await buildShow({ data: { podcastId, limit: 100 } });
       setSyncLog((prev) =>
         [
@@ -1118,26 +1158,24 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
         ].slice(0, 25),
       );
       await refresh();
-    } catch (e) {
-      setSyncLog((prev) => [{ name, message: (e as Error).message, ok: false }, ...prev].slice(0, 25));
-      setError((e as Error).message);
-    } finally {
-      setBusyId(null);
-    }
-  };
+      })
+      .catch((e: Error) => {
+        setSyncLog((prev) => [{ name, message: e.message, ok: false }, ...prev].slice(0, 25));
+        setError(e.message);
+      });
 
-  const toggleCuration = async (podcastId: string, status: "active" | "parked") => {
-    setBusyId(podcastId);
-    setError(null);
-    try {
-      await setCuration({ data: { podcastId, status } });
-      await refresh();
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusyId(null);
-    }
-  };
+  const toggleCuration = (podcastId: string, status: "active" | "parked", name: string) =>
+    queue
+      .run(
+        showKey(podcastId, "curation"),
+        `${status === "parked" ? "Park" : "Re-activate"} — ${name}`,
+        async () => {
+          setError(null);
+          await setCuration({ data: { podcastId, status } });
+          await refresh();
+        },
+      )
+      .catch((e: Error) => setError(e.message));
 
   const all = coverage.data?.podcasts ?? [];
   const active = all.filter((p) => p.curationStatus === "active");
@@ -1161,34 +1199,34 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
 
   // One press works through every active show that is behind its feed, keeping
   // going after a failure and naming each result.
-  const syncAllIncomplete = async () => {
-    bulkCancel.current = false;
-    setBulkRunning(true);
-    setError(null);
-    setSyncLog([]);
-    for (const p of incompleteActive) {
-      if (bulkCancel.current) break;
-      setBusyId(p.podcastId);
-      try {
-        await syncOne(p.podcastId, p.name);
-      } catch (e) {
-        setSyncLog((prev) =>
-          [{ name: p.name, message: (e as Error).message, ok: false }, ...prev].slice(0, 25),
-        );
-      }
-    }
-    setBusyId(null);
-    setBulkRunning(false);
-    await refresh();
-  };
+  const syncAllIncomplete = () =>
+    bulkSync
+      .start(async () => {
+        bulkCancel.current = false;
+        setError(null);
+        setSyncLog([]);
+        for (const p of incompleteActive) {
+          if (bulkCancel.current) break;
+          try {
+            await syncOne(p.podcastId, p.name);
+          } catch (e) {
+            setSyncLog((prev) =>
+              [{ name: p.name, message: (e as Error).message, ok: false }, ...prev].slice(0, 25),
+            );
+          }
+        }
+        await refresh();
+      })
+      .catch((e: Error) => setError(e.message));
 
   const row = (p: (typeof all)[number]) => {
+    const busy = rowPending(p.podcastId);
     const complete = p.feedTotal > 0 && p.stored >= p.feedTotal;
     const isParked = p.curationStatus === "parked";
     return (
       <li
         key={p.podcastId}
-        className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 px-3 py-2"
+        className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 px-3 py-2 ${busy ? "opacity-70" : ""}`}
       >
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium">{p.name}</p>
@@ -1221,39 +1259,55 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={() => toggleCuration(p.podcastId, isParked ? "active" : "parked")}
-            disabled={busyId === p.podcastId || bulkRunning}
+            onClick={() => void toggleCuration(p.podcastId, isParked ? "active" : "parked", p.name)}
+            disabled={rowStatus(p.podcastId, "curation") !== "idle" || bulkRunning}
             className={`rounded-full px-3 py-1.5 text-xs font-semibold disabled:opacity-50 ${
               isParked
                 ? "bg-teal text-primary-foreground"
                 : "border border-border text-muted-foreground"
             }`}
           >
-            {isParked ? "Re-activate" : "Park"}
+            {rowStatus(p.podcastId, "curation") !== "idle"
+              ? "Working…"
+              : isParked
+                ? "Re-activate"
+                : "Park"}
           </button>
           <button
             type="button"
-            onClick={() => syncPodcast(p.podcastId, p.name)}
-            disabled={busyId === p.podcastId || isParked || bulkRunning}
+            onClick={() => void syncPodcast(p.podcastId, p.name)}
+            disabled={rowStatus(p.podcastId, "sync") !== "idle" || isParked || bulkRunning}
             className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
           >
-            {busyId === p.podcastId ? "Working…" : "Sync episodes"}
+            {rowStatus(p.podcastId, "sync") === "queued"
+              ? "Queued…"
+              : rowStatus(p.podcastId, "sync") === "running"
+                ? "Working…"
+                : "Sync episodes"}
           </button>
           <button
             type="button"
-            onClick={() => rescanPodcast(p.podcastId, p.name)}
-            disabled={busyId === p.podcastId || isParked || bulkRunning}
+            onClick={() => void rescanPodcast(p.podcastId, p.name)}
+            disabled={rowStatus(p.podcastId, "recheck") !== "idle" || isParked || bulkRunning}
             className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
           >
-            Recheck episodes
+            {rowStatus(p.podcastId, "recheck") === "queued"
+              ? "Queued…"
+              : rowStatus(p.podcastId, "recheck") === "running"
+                ? "Rechecking…"
+                : "Recheck episodes"}
           </button>
           <button
             type="button"
-            onClick={() => buildPodcast(p.podcastId, p.name)}
-            disabled={busyId === p.podcastId || isParked || bulkRunning}
+            onClick={() => void buildPodcast(p.podcastId, p.name)}
+            disabled={rowStatus(p.podcastId, "build") !== "idle" || isParked || bulkRunning}
             className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
           >
-            Build movies
+            {rowStatus(p.podcastId, "build") === "queued"
+              ? "Queued…"
+              : rowStatus(p.podcastId, "build") === "running"
+                ? "Building…"
+                : "Build movies"}
           </button>
         </div>
       </li>
