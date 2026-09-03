@@ -351,7 +351,29 @@ export const ingestPodcast = createServerFn({ method: "POST" })
       }
     }
 
+    /**
+     * Pass U8 — a completed sync raises the show's sync generation, so review
+     * records made against the previous generation stop counting toward current
+     * completeness (they are kept for history, never deleted) and the coverage
+     * line's "as of sync D" advances.
+     */
+    let syncGeneration: number | null = null;
+    {
+      const { data: current } = await clients.supabaseAdmin
+        .from("podcasts")
+        .select("sync_generation")
+        .eq("id", upsertedPodcast.id)
+        .maybeSingle();
+      syncGeneration = (current?.sync_generation ?? 1) + 1;
+      await clients.supabaseAdmin
+        .from("podcasts")
+        .update({ sync_generation: syncGeneration, last_synced_at: new Date().toISOString() })
+        .eq("id", upsertedPodcast.id);
+    }
+
     return {
+      syncGeneration,
+
       podcast: upsertedPodcast,
       feedTotal: feed.episodeCount ?? 0,
       episodesFetched: episodes.length,
