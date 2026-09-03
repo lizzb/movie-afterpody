@@ -611,7 +611,8 @@ function RefreshAvailabilityForm({ onSuccess }: { onSuccess: () => void }) {
     refetchOnWindowFocus: false,
   });
 
-  const [running, setRunning] = useState(false);
+  const action = useQueuedAction("availability", "Streaming availability + genres");
+  const running = action.running;
   const [progress, setProgress] = useState<{
     checked: number;
     offers: number;
@@ -629,9 +630,11 @@ function RefreshAvailabilityForm({ onSuccess }: { onSuccess: () => void }) {
   // Chained runs: each request stays small enough to finish, but pressing once
   // works through hundreds of movies, always starting with the stalest.
   // `maxMovies = Infinity` is the "run until done" mode.
-  const run = async (maxMovies: number, staleOnly: boolean) => {
+  const run = (maxMovies: number, staleOnly: boolean) =>
+    action.start(() => runBatches(maxMovies, staleOnly)).catch(() => undefined);
+
+  const runBatches = async (maxMovies: number, staleOnly: boolean) => {
     cancelRef.current = false;
-    setRunning(true);
     setError(null);
     let checked = 0;
     let offers = 0;
@@ -680,8 +683,7 @@ function RefreshAvailabilityForm({ onSuccess }: { onSuccess: () => void }) {
       onSuccess();
     } catch (e) {
       setError((e as Error).message);
-    } finally {
-      setRunning(false);
+      throw e;
     }
   };
 
@@ -725,15 +727,15 @@ function RefreshAvailabilityForm({ onSuccess }: { onSuccess: () => void }) {
         <button
           type="button"
           onClick={() => run(400, true)}
-          disabled={running}
+          disabled={action.pending}
           className="inline-flex items-center rounded-full bg-navy px-5 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
         >
-          {running ? "Syncing…" : "Sync up to 400 stale movies"}
+          {action.queued ? "Queued…" : running ? "Syncing…" : "Sync up to 400 stale movies"}
         </button>
         <button
           type="button"
           onClick={() => run(Number.POSITIVE_INFINITY, true)}
-          disabled={running}
+          disabled={action.pending}
           className="rounded-full border border-border px-4 py-2 text-sm font-semibold disabled:opacity-50"
         >
           Run until done
@@ -741,7 +743,7 @@ function RefreshAvailabilityForm({ onSuccess }: { onSuccess: () => void }) {
         <button
           type="button"
           onClick={() => run(AVAILABILITY_BATCH, true)}
-          disabled={running}
+          disabled={action.pending}
           className="rounded-full border border-border px-4 py-2 text-sm font-semibold disabled:opacity-50"
         >
           Just {AVAILABILITY_BATCH}
@@ -864,8 +866,9 @@ function UnmatchedEpisodesCard() {
     retry: false,
     refetchOnWindowFocus: false,
   });
+  const rescanAction = useQueuedAction("rescan-all", "Recheck every episode against existing movies");
   const rescan = useMutation({
-    mutationFn: rescanFn,
+    mutationFn: (vars: Parameters<typeof rescanFn>[0]) => rescanAction.start(() => rescanFn(vars)),
     onSuccess: async () => {
       await client.invalidateQueries({ queryKey: ["unmatched-episodes"] });
       await client.invalidateQueries({ queryKey: ["match-suggestions"] });
@@ -888,11 +891,12 @@ function UnmatchedEpisodesCard() {
   const reviewStatesFn = useServerFn(listEpisodeReviewStates);
   const linkFn = useServerFn(approveEpisodeMatch);
 
-  const runRow = async (episodeId: string, work: () => Promise<unknown>) => {
+  const queue = useAdminQueue();
+  const runRow = async (episodeId: string, label: string, work: () => Promise<unknown>) => {
     setPendingId(episodeId);
     setRowError(null);
     try {
-      await work();
+      await queue.run(`unmatched:${episodeId}`, label, work);
       // The row is settled — drop it now, let the queues catch up after.
       setRemoved((prev) => ({ ...prev, [episodeId]: true }));
       void refreshQueues();
@@ -917,7 +921,11 @@ function UnmatchedEpisodesCard() {
     setPendingId(episodeId);
     setRowError(null);
     try {
-      const res = await reviewFn({ data: { episodeIds: [episodeId], reviewed } });
+      const res = await queue.run(
+        `unmatched-review:${episodeId}`,
+        reviewed ? "Mark episode reviewed" : "Reopen episode",
+        () => reviewFn({ data: { episodeIds: [episodeId], reviewed } }),
+      );
       if (res.succeeded !== res.attempted) throw new Error(res.failed[0] ?? "could not update");
       await client.invalidateQueries({ queryKey: ["episode-review-states"] });
       void client.invalidateQueries({ queryKey: ["podcast-coverage"] });
@@ -941,7 +949,11 @@ function UnmatchedEpisodesCard() {
           disabled={rescan.isPending}
           className="inline-flex items-center rounded-full border border-border px-5 py-2.5 text-sm font-semibold disabled:opacity-50"
         >
-          {rescan.isPending ? "Rescanning…" : "Recheck every episode against existing movies"}
+          {rescanAction.queued
+            ? "Queued…"
+            : rescanAction.running
+              ? "Rescanning…"
+              : "Recheck every episode against existing movies"}
         </button>
         <p className="mt-2 text-xs text-muted-foreground">
           Rescores every episode in your active shows against the movies already in the catalogue:
@@ -1000,7 +1012,7 @@ function UnmatchedEpisodesCard() {
                       <button
                         type="button"
                         onClick={() =>
-                          void runRow(ep.episodeId, () =>
+                          void runRow(ep.episodeId, "Not about a movie", () =>
                             retireFn({ data: { episodeId: ep.episodeId } }),
                           )
                         }
@@ -1012,7 +1024,7 @@ function UnmatchedEpisodesCard() {
                       <RelinkPicker
                         disabled={rowBusy}
                         onPick={async (movieId) => {
-                          await runRow(ep.episodeId, () =>
+                          await runRow(ep.episodeId, "Link episode to movie", () =>
                             linkFn({ data: { episodeId: ep.episodeId, movieId } }),
                           );
                         }}
