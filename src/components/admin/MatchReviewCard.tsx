@@ -926,22 +926,34 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
         <p className="mt-4 text-sm text-destructive">{(queryError as Error).message}</p>
       ) : visibleRows.length === 0 ? (
         <div className="mt-4 space-y-2">
-          {/* Four different reasons a page can be blank — say which one it is. */}
+          {/* Several different reasons a page can be blank — say which one it is. */}
           <p className="text-sm text-muted-foreground">
-            {hasMorePages
-              ? `Page decided — loading the next ${pageSize} ${noun}…`
-              : pageExhausted
-                ? `End of the queue — you have worked through all ${rawTotal} ${noun}${submitted ? ` matching “${submitted}”` : ""}.`
-                : submitted
-                  ? `No ${noun} match “${submitted}”. Clear the search to see the rest of the queue.`
-                  : tab === "flagged"
-                    ? "Nothing flagged as wrong. Flags raised in the app land here."
-                    : tab === "proposed"
-                      ? `Queue clear — no unconfirmed links at or below ${Math.round(maxConfidence * 100)}% confidence.`
-                      : reviewState === "unconfirmed"
-                        ? "Queue clear — every saved link in this band has been reviewed."
-                        : `No links in this band with review state “${REVIEW_STATES.find((s) => s.value === reviewState)?.label}”.`}
+            {hideReviewed && rows.length > 0
+              ? `Every ${noun} on this page belongs to an episode you have marked reviewed. Untick “Hide reviewed episodes” to see them.`
+              : hasMorePages
+                ? `Page decided — loading the next ${pageSize} ${noun}…`
+                : pageExhausted
+                  ? `End of the queue — you have worked through all ${rawTotal} ${noun}${submitted ? ` matching “${submitted}”` : ""}.`
+                  : submitted
+                    ? `No ${noun} match “${submitted}”. Clear the search to see the rest of the queue.`
+                    : tab === "flagged"
+                      ? "Nothing flagged as wrong. Flags raised in the app land here."
+                      : tab === "proposed"
+                        ? `Queue clear — no unconfirmed links at or below ${Math.round(maxConfidence * 100)}% confidence.`
+                        : reviewState === "unconfirmed"
+                          ? "Queue clear — every saved link in this band has been reviewed."
+                          : `No links in this band with review state “${REVIEW_STATES.find((s) => s.value === reviewState)?.label}”.`}
           </p>
+          {hideReviewed && rows.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => setHideReviewed(false)}
+              className="rounded-full border border-border px-3 py-2 text-xs font-semibold hover:bg-secondary"
+            >
+              Show reviewed episodes
+            </button>
+          ) : null}
+
           {offset > 0 && !hasMorePages ? (
             <button
               type="button"
