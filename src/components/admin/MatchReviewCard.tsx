@@ -1077,6 +1077,35 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
                 <Ban className="size-3.5" aria-hidden />
                 Not about a movie
               </button>
+              {/* Pass U8 — episode-level sign-off, per-episode verified server side. */}
+              <button
+                type="button"
+                disabled={bulk.isPending}
+                onClick={() =>
+                  void markReviewed(
+                    visibleRows.filter((r) => selected[r.key]).map((r) => r.episodeId),
+                    true,
+                  )
+                }
+                className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs font-semibold disabled:opacity-50"
+              >
+                <CheckCheck className="size-3.5" aria-hidden />
+                Mark reviewed
+              </button>
+              <button
+                type="button"
+                disabled={bulk.isPending}
+                onClick={() =>
+                  void markReviewed(
+                    visibleRows.filter((r) => selected[r.key]).map((r) => r.episodeId),
+                    false,
+                  )
+                }
+                className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs font-semibold disabled:opacity-50"
+              >
+                <RotateCcw className="size-3.5" aria-hidden />
+                Reopen
+              </button>
 
               {bulk.isPending ? (
                 <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -1095,10 +1124,14 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
                 tab={tab}
                 selected={Boolean(selected[row.key])}
                 pending={Boolean(pending[row.key])}
+                reviewed={Boolean(reviewMap[row.episodeId]?.reviewed)}
+                reviewPending={Boolean(reviewPending[row.episodeId])}
+                onReview={markReviewed}
                 onToggle={toggleRow}
                 onAct={act}
                 onRelink={relinkRow}
               />
+
             ))}
           </ul>
 
