@@ -46,3 +46,22 @@ export function useSetEpisodeReviewed() {
       toast.error(error instanceof Error ? error.message : "Could not update this episode"),
   });
 }
+
+/** Admin-only "not about a movie" retirement from consumer episode rows. */
+export function useMarkEpisodeNotAboutMovie() {
+  const queryClient = useQueryClient();
+  const run = useServerFn(markEpisodeNotAboutMovie);
+  return useMutation({
+    mutationFn: async (vars: { episodeId: string }) => run({ data: { episodeId: vars.episodeId } }),
+    onSuccess: (result) => {
+      toast.success(
+        result.linksRemoved > 0
+          ? `Episode retired — ${result.linksRemoved} link${result.linksRemoved === 1 ? "" : "s"} removed`
+          : "Episode marked as not about a movie",
+      );
+      void queryClient.invalidateQueries();
+    },
+    onError: (error: unknown) =>
+      toast.error(error instanceof Error ? error.message : "Could not retire this episode"),
+  });
+}
