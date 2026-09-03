@@ -1486,7 +1486,7 @@ export const listPodcastCoverage = createServerFn({ method: "GET" })
 
     const { data: podcasts, error } = await supabaseAdmin
       .from("podcasts")
-      .select("id, name, episode_count, curation_status")
+      .select("id, name, episode_count, curation_status, sync_generation, last_synced_at")
       .order("name");
     if (error) throw error;
 
@@ -1496,6 +1496,20 @@ export const listPodcastCoverage = createServerFn({ method: "GET" })
       (from, to) =>
         supabaseAdmin.from("podcast_episodes").select("id, podcast_id, disposition").range(from, to),
     );
+    // Pass U8 — per-episode review records. Only records made against the show's
+    // current sync generation, and never reopened, count as current.
+    const reviewRows = await pageAll<{
+      episode_id: string;
+      sync_generation: number;
+      reopened_at: string | null;
+    }>((from, to) =>
+      supabaseAdmin
+        .from("episode_reviews")
+        .select("episode_id, sync_generation, reopened_at")
+        .range(from, to),
+    );
+    const reviewByEpisode = new Map(reviewRows.map((r) => [r.episode_id, r]));
+
     const linkRows = await pageAll<{ episode_id: string; review_state: string }>((from, to) =>
       supabaseAdmin.from("episode_movies").select("episode_id, review_state").range(from, to),
     );
