@@ -363,8 +363,9 @@ function BulkEnrichCard({ onSuccess }: { onSuccess: () => void }) {
 function BackfillRatingsCard({ onSuccess }: { onSuccess: () => void }) {
   const fn = useServerFn(backfillContentRatings);
   const [runUntilDone, setRunUntilDone] = useState(false);
+  const action = useQueuedAction("content-ratings", "Backfill content ratings");
   const mutation = useMutation({
-    mutationFn: fn,
+    mutationFn: (vars: Parameters<typeof fn>[0]) => action.start(() => fn(vars)),
     onSuccess: (result) => {
       onSuccess();
       if (runUntilDone && result.remaining > 0) mutation.mutate({ data: { limit: 60 } });
@@ -385,7 +386,7 @@ function BackfillRatingsCard({ onSuccess }: { onSuccess: () => void }) {
           disabled={mutation.isPending}
           className="inline-flex items-center rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
         >
-          {mutation.isPending ? "Fetching ratings…" : "Backfill next 60"}
+          {action.queued ? "Queued…" : action.running ? "Fetching ratings…" : "Backfill next 60"}
         </button>
         <label className="flex min-h-11 items-center gap-2 text-sm">
           <input
@@ -423,7 +424,11 @@ function BackfillRatingsCard({ onSuccess }: { onSuccess: () => void }) {
 
 function BackfillArtworkCard({ onSuccess }: { onSuccess: () => void }) {
   const fn = useServerFn(backfillPodcastArtwork);
-  const mutation = useMutation({ mutationFn: fn, onSuccess });
+  const action = useQueuedAction("artwork", "Backfill podcast cover art");
+  const mutation = useMutation({
+    mutationFn: (vars: Parameters<typeof fn>[0]) => action.start(() => fn(vars)),
+    onSuccess,
+  });
 
   return (
     <div>
@@ -437,7 +442,7 @@ function BackfillArtworkCard({ onSuccess }: { onSuccess: () => void }) {
         disabled={mutation.isPending}
         className="mt-4 inline-flex items-center rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
       >
-        {mutation.isPending ? "Fetching…" : "Backfill next 25 shows"}
+        {action.queued ? "Queued…" : action.running ? "Fetching…" : "Backfill next 25 shows"}
       </button>
       {mutation.isSuccess ? (
         <div className="mt-3 space-y-1 text-sm">
@@ -459,8 +464,9 @@ function BackfillArtworkCard({ onSuccess }: { onSuccess: () => void }) {
 
 function IngestPodcastForm({ onSuccess }: { onSuccess: () => void }) {
   const fn = useServerFn(ingestPodcast);
+  const action = useQueuedAction("ingest-podcast", "Ingest podcast");
   const mutation = useMutation({
-    mutationFn: fn,
+    mutationFn: (vars: Parameters<typeof fn>[0]) => action.start(() => fn(vars)),
     onSuccess,
   });
   const [query, setQuery] = useState("");
@@ -496,7 +502,7 @@ function IngestPodcastForm({ onSuccess }: { onSuccess: () => void }) {
           disabled={mutation.isPending || (!query && !feedUrl)}
           className="inline-flex items-center rounded-full bg-navy px-5 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
         >
-          {mutation.isPending ? "Ingesting…" : "Ingest podcast"}
+          {action.queued ? "Queued…" : action.running ? "Ingesting…" : "Ingest podcast"}
         </button>
       </form>
       {mutation.isSuccess ? (
@@ -524,8 +530,9 @@ function IngestPodcastForm({ onSuccess }: { onSuccess: () => void }) {
 
 function EnrichMovieForm({ onSuccess }: { onSuccess: () => void }) {
   const fn = useServerFn(enrichMovie);
+  const action = useQueuedAction("enrich-movie", "Add movie from TMDB");
   const mutation = useMutation({
-    mutationFn: fn,
+    mutationFn: (vars: Parameters<typeof fn>[0]) => action.start(() => fn(vars)),
     onSuccess,
   });
   const [title, setTitle] = useState("");
@@ -567,7 +574,7 @@ function EnrichMovieForm({ onSuccess }: { onSuccess: () => void }) {
           disabled={mutation.isPending || !title}
           className="inline-flex items-center rounded-full bg-navy px-5 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
         >
-          {mutation.isPending ? "Looking up…" : "Enrich"}
+          {action.queued ? "Queued…" : action.running ? "Looking up…" : "Enrich"}
         </button>
       </form>
       {mutation.isSuccess ? (
@@ -781,7 +788,11 @@ function ResolveEpisodesCard({ onSuccess }: { onSuccess: () => void }) {
     void client.invalidateQueries({ queryKey: ["unmatched-episodes"] });
     void client.invalidateQueries({ queryKey: ["match-suggestions"] });
   };
-  const resolve = useMutation({ mutationFn: resolveFn, onSuccess: refresh });
+  const action = useQueuedAction("resolve", "Build movies from episodes");
+  const resolve = useMutation({
+    mutationFn: (vars: Parameters<typeof resolveFn>[0]) => action.start(() => resolveFn(vars)),
+    onSuccess: refresh,
+  });
 
   return (
     <div>
@@ -797,7 +808,7 @@ function ResolveEpisodesCard({ onSuccess }: { onSuccess: () => void }) {
           disabled={resolve.isPending}
           className="inline-flex items-center rounded-full bg-primary px-5 py-2.5 text-sm font-semibold text-primary-foreground disabled:opacity-50"
         >
-          {resolve.isPending ? "Resolving…" : "Resolve next 100 episodes"}
+          {action.queued ? "Queued…" : action.running ? "Resolving…" : "Resolve next 100 episodes"}
         </button>
       </div>
 
