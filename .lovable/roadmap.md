@@ -250,6 +250,18 @@ Counts are honest: the `Math.max(rows.length, rawTotal - done)` fudge is gone �
 Verified 2026-09-02 (code review): `busy` derives from the explicit `intent` state (search/filter/page), never from `isFetching`; per-row `pending` keeps acted-on rows visible and dims only those rows; failures call `unmarkDone` to return the row; pending/selection cleared on scope change.
 Busy state in `MatchReviewCard` is now driven by an explicit `intent` (search submit, confidence band / review state / page size change, explicit Refresh, automatic page advance) rather than `isFetching`, so background refetches, window refocus and unrelated invalidations no longer spin the header or disable Search; the intent clears once its fetch settles. Row actions get their own pending state: an acted-on row stays listed and dimmed with a "Saving…" indicator while its request is in flight, its own controls (including relink) are the only ones disabled, a failure returns the row to the queue with the error, and bulk actions mark every affected row pending. Stale pending keys are cleared with `done`/selection when the query scope changes. Follow-ups: U13 (reliability sweep), U14 (serialised admin actions).
 
+### Pass U24 — Episode description in match review — built 2026-09-03 (implemented, not verified)
+
+Acceptance checklist against `.lovable/plan/acceptance-criteria-u8-u24-u4-p-u23-2026-09-02.md`:
+
+- **Verified (code)** — collapsed-by-default "Episode description" disclosure per row; nothing loads or changes row height until expanded (lazy `getEpisodeDescription` server fn, admin-guarded, gated on `enabled: open`).
+- **Verified (code)** — description renders in place as plain text: feed HTML is stripped and entities decoded, never injected as markup; candidate movie title highlighted with a case-insensitive exact match; honest "No description stored for this episode." line when empty; primary (or first) `episode_sources` URL rendered as a `target="_blank"` link.
+- **Verified (code)** — expansion state is local to each memoised row, sits outside the selection header, and touches neither multi-select, per-row pending state nor pagination. Text uses `whitespace-pre-line break-anywhere` per the G2 layout-lock rule.
+- **Implemented, not verified** — runtime checks on mobile (390px) for horizontal overflow and visible highlight, and desktop expansion alongside multi-select actions. The preview session was not injected this turn (`LOVABLE_BROWSER_AUTH_STATUS=signed_out`, empty session JSON), so `/admin/ingest` still loads as signed out in the headless browser.
+- **Deferred** — description truncation / "Show more" (explicitly out of V1 scope), fuzzy or alternate-title highlighting.
+
+
+
 ### Pass U8 — Episode-level "review complete" — built 2026-09-02 (partially verified)
 
 Acceptance checklist against `.lovable/plan/acceptance-criteria-u8-u24-u4-p-u23-2026-09-02.md`:
