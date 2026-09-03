@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.stale_episode_review() FROM PUBLIC, anon, authenticated;

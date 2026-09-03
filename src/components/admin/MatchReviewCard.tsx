@@ -1,21 +1,24 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Ban, Check, Flag, Loader2, Search, Unlink, X } from "lucide-react";
+import { Ban, Check, CheckCheck, Flag, Loader2, RotateCcw, Search, Unlink, X } from "lucide-react";
 import {
   approveEpisodeMatch,
   bulkMatchDecision,
   confirmEpisodeMatch,
   enrichMovie,
   listEpisodeLinks,
+  listEpisodeReviewStates,
   listFlaggedLinks,
   markEpisodeNotAboutMovie,
   rejectEpisodeMatch,
   relinkEpisodeMovie,
   resolveEpisodeFlags,
   searchMoviesByTitle,
+  setEpisodeReviewed,
   suggestEpisodeMatches,
 } from "@/lib/ingestion.functions";
+
 
 type Tab = "flagged" | "proposed" | "existing";
 
@@ -336,6 +339,74 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
     return out.filter((r) => !done[r.key] || pending[r.key]);
   }, [tab, flags.data, proposals.data, links.data, done, pending]);
 
+  /**
+   * Pass U8 — episode-level "review complete". Completeness lives on the episode,
+   * not the link: an episode with no links can be marked reviewed, and a
+   * confirmed link is not "reviewed" until someone says so. The record is server
+   * truth, so the state survives a reload.
+   */
+  const reviewStatesFn = useServerFn(listEpisodeReviewStates);
+  const setReviewedFn = useServerFn(setEpisodeReviewed);
+  const [hideReviewed, setHideReviewed] = useState(false);
+  const [reviewPending, setReviewPending] = useState<Record<string, true>>({});
+  const episodeIds = useMemo(
+    () => Array.from(new Set(rows.map((r) => r.episodeId))).sort(),
+    [rows],
+  );
+  const reviewStates = useQuery({
+    queryKey: ["episode-review-states", episodeIds.join(",")],
+    queryFn: () => reviewStatesFn({ data: { episodeIds } }),
+    enabled: episodeIds.length > 0,
+    retry: false,
+    refetchOnWindowFocus: false,
+    placeholderData: keepPreviousData,
+  });
+  const reviewMap = reviewStates.data?.reviews ?? {};
+  const visibleRows = useMemo(
+    () => (hideReviewed ? rows.filter((r) => !reviewMap[r.episodeId]?.reviewed) : rows),
+    // reviewMap identity changes with the query result, which is what we want.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rows, hideReviewed, reviewStates.data],
+  );
+
+  const markReviewed = useCallback(
+    async (ids: string[], reviewed: boolean) => {
+      const unique = Array.from(new Set(ids));
+      if (unique.length === 0) return;
+      setReviewPending((prev) => {
+        const next = { ...prev };
+        for (const id of unique) next[id] = true;
+        return next;
+      });
+      try {
+        const result = await setReviewedFn({ data: { episodeIds: unique, reviewed } });
+        setError(
+          result.succeeded === result.attempted
+            ? null
+            : `${result.attempted - result.succeeded} episode(s) could not be updated: ${result.failed[0] ?? "unknown error"}`,
+        );
+        setNote(
+          `${result.succeeded} episode(s) ${reviewed ? "marked reviewed" : "reopened"}${
+            result.succeeded === result.attempted ? "" : ` · ${result.attempted - result.succeeded} failed`
+          }.`,
+        );
+        await client.invalidateQueries({ queryKey: ["episode-review-states"] });
+        void client.invalidateQueries({ queryKey: ["podcast-coverage"] });
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Could not update review state.");
+      } finally {
+        setReviewPending((prev) => {
+          const next = { ...prev };
+          for (const id of unique) delete next[id];
+          return next;
+        });
+      }
+    },
+    [client, setReviewedFn],
+  );
+
+
+
   const rawTotal =
     tab === "flagged"
       ? (flags.data?.total ?? 0)
@@ -652,7 +723,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
   });
 
   const selectedCount = Object.keys(selected).length;
-  const allVisibleSelected = rows.length > 0 && rows.every((r) => selected[r.key]);
+  const allVisibleSelected = visibleRows.length > 0 && visibleRows.every((r) => selected[r.key]);
 
   const toggleAll = () => {
     if (allVisibleSelected) {
@@ -660,7 +731,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
       return;
     }
     const next: Record<string, true> = {};
-    for (const r of rows) next[r.key] = true;
+    for (const r of visibleRows) next[r.key] = true;
     setSelected(next);
   };
 
@@ -687,7 +758,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
             : null;
     if (confirmText && !window.confirm(confirmText)) return;
 
-    const chosen = rows.filter((r) => selected[r.key]);
+    const chosen = visibleRows.filter((r) => selected[r.key]);
     if (chosen.length === 0) return;
     const pairs = chosen.map((r) => ({ episodeId: r.episodeId, movieId: r.movieId }));
     const flagged = chosen
@@ -853,24 +924,36 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
         <div className="mt-4 h-32 animate-pulse rounded-2xl bg-muted" />
       ) : queryError ? (
         <p className="mt-4 text-sm text-destructive">{(queryError as Error).message}</p>
-      ) : rows.length === 0 ? (
+      ) : visibleRows.length === 0 ? (
         <div className="mt-4 space-y-2">
-          {/* Four different reasons a page can be blank — say which one it is. */}
+          {/* Several different reasons a page can be blank — say which one it is. */}
           <p className="text-sm text-muted-foreground">
-            {hasMorePages
-              ? `Page decided — loading the next ${pageSize} ${noun}…`
-              : pageExhausted
-                ? `End of the queue — you have worked through all ${rawTotal} ${noun}${submitted ? ` matching “${submitted}”` : ""}.`
-                : submitted
-                  ? `No ${noun} match “${submitted}”. Clear the search to see the rest of the queue.`
-                  : tab === "flagged"
-                    ? "Nothing flagged as wrong. Flags raised in the app land here."
-                    : tab === "proposed"
-                      ? `Queue clear — no unconfirmed links at or below ${Math.round(maxConfidence * 100)}% confidence.`
-                      : reviewState === "unconfirmed"
-                        ? "Queue clear — every saved link in this band has been reviewed."
-                        : `No links in this band with review state “${REVIEW_STATES.find((s) => s.value === reviewState)?.label}”.`}
+            {hideReviewed && rows.length > 0
+              ? `Every ${noun} on this page belongs to an episode you have marked reviewed. Untick “Hide reviewed episodes” to see them.`
+              : hasMorePages
+                ? `Page decided — loading the next ${pageSize} ${noun}…`
+                : pageExhausted
+                  ? `End of the queue — you have worked through all ${rawTotal} ${noun}${submitted ? ` matching “${submitted}”` : ""}.`
+                  : submitted
+                    ? `No ${noun} match “${submitted}”. Clear the search to see the rest of the queue.`
+                    : tab === "flagged"
+                      ? "Nothing flagged as wrong. Flags raised in the app land here."
+                      : tab === "proposed"
+                        ? `Queue clear — no unconfirmed links at or below ${Math.round(maxConfidence * 100)}% confidence.`
+                        : reviewState === "unconfirmed"
+                          ? "Queue clear — every saved link in this band has been reviewed."
+                          : `No links in this band with review state “${REVIEW_STATES.find((s) => s.value === reviewState)?.label}”.`}
           </p>
+          {hideReviewed && rows.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => setHideReviewed(false)}
+              className="rounded-full border border-border px-3 py-2 text-xs font-semibold hover:bg-secondary"
+            >
+              Show reviewed episodes
+            </button>
+          ) : null}
+
           {offset > 0 && !hasMorePages ? (
             <button
               type="button"
@@ -889,7 +972,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
         <>
           <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-              Showing {rows.length} of {total} {noun}
+              Showing {visibleRows.length} of {total} {noun}
               {offset > 0 ? (
                 <span className="ml-2 normal-case tracking-normal text-muted-foreground">
                   (from #{offset + 1})
@@ -908,6 +991,16 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
               ) : null}
             </p>
             <div className="flex items-center gap-2">
+              {/* Pass U8 — work only the episodes you have not signed off yet. */}
+              <label className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs font-semibold">
+                <input
+                  type="checkbox"
+                  checked={hideReviewed}
+                  onChange={(e) => setHideReviewed(e.target.checked)}
+                  className="size-3.5 accent-[currentColor]"
+                />
+                Hide reviewed episodes
+              </label>
               <button
                 type="button"
                 onClick={() => refresh(true)}
@@ -924,6 +1017,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
                 {allVisibleSelected ? "Clear selection" : "Select all shown"}
               </button>
             </div>
+
           </div>
 
           {selectedCount > 0 ? (
@@ -983,6 +1077,35 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
                 <Ban className="size-3.5" aria-hidden />
                 Not about a movie
               </button>
+              {/* Pass U8 — episode-level sign-off, per-episode verified server side. */}
+              <button
+                type="button"
+                disabled={bulk.isPending}
+                onClick={() =>
+                  void markReviewed(
+                    visibleRows.filter((r) => selected[r.key]).map((r) => r.episodeId),
+                    true,
+                  )
+                }
+                className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs font-semibold disabled:opacity-50"
+              >
+                <CheckCheck className="size-3.5" aria-hidden />
+                Mark reviewed
+              </button>
+              <button
+                type="button"
+                disabled={bulk.isPending}
+                onClick={() =>
+                  void markReviewed(
+                    visibleRows.filter((r) => selected[r.key]).map((r) => r.episodeId),
+                    false,
+                  )
+                }
+                className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs font-semibold disabled:opacity-50"
+              >
+                <RotateCcw className="size-3.5" aria-hidden />
+                Reopen
+              </button>
 
               {bulk.isPending ? (
                 <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -994,17 +1117,21 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
           ) : null}
 
           <ul className="mt-3 space-y-2">
-            {rows.map((row) => (
+            {visibleRows.map((row) => (
               <ReviewRow
                 key={row.key}
                 row={row}
                 tab={tab}
                 selected={Boolean(selected[row.key])}
                 pending={Boolean(pending[row.key])}
+                reviewed={Boolean(reviewMap[row.episodeId]?.reviewed)}
+                reviewPending={Boolean(reviewPending[row.episodeId])}
+                onReview={markReviewed}
                 onToggle={toggleRow}
                 onAct={act}
                 onRelink={relinkRow}
               />
+
             ))}
           </ul>
 
@@ -1062,6 +1189,9 @@ const ReviewRow = memo(function ReviewRow({
   tab,
   selected,
   pending,
+  reviewed,
+  reviewPending,
+  onReview,
   onToggle,
   onAct,
   onRelink,
@@ -1070,6 +1200,10 @@ const ReviewRow = memo(function ReviewRow({
   tab: Tab;
   selected: boolean;
   pending: boolean;
+  /** Pass U8 — the episode carries a current review record. */
+  reviewed: boolean;
+  reviewPending: boolean;
+  onReview: (episodeIds: string[], reviewed: boolean) => void | Promise<void>;
   onToggle: (key: string) => void;
   onAct: (
     action: "approve" | "reject" | "confirm" | "unlink" | "retire",
@@ -1229,6 +1363,30 @@ const ReviewRow = memo(function ReviewRow({
           disabled={pending}
           onPick={(movieId) => onRelink(row, movieId, tab === "proposed")}
         />
+        {/* Pass U8 — episode-level sign-off: independent of the link's review
+            state, reversible, and written straight to the server. */}
+        <button
+          type="button"
+          disabled={reviewPending}
+          onClick={() => void onReview([row.episodeId], !reviewed)}
+          title={
+            reviewed
+              ? "Reopen this episode — it returns to the unreviewed queue"
+              : "Mark this episode reviewed — its links look right and none are missing"
+          }
+          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold transition-colors disabled:opacity-50 ${
+            reviewed ? "bg-teal text-primary-foreground" : "border border-border text-muted-foreground"
+          }`}
+        >
+          {reviewPending ? (
+            <Loader2 className="size-3.5 animate-spin" aria-hidden />
+          ) : reviewed ? (
+            <RotateCcw className="size-3.5" aria-hidden />
+          ) : (
+            <CheckCheck className="size-3.5" aria-hidden />
+          )}
+          {reviewed ? "Reopen" : "Mark reviewed"}
+        </button>
       </div>
     </li>
   );

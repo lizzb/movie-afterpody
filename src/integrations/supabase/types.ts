@@ -187,6 +187,44 @@ export type Database = {
           },
         ]
       }
+      episode_reviews: {
+        Row: {
+          episode_id: string
+          reopen_reason: string | null
+          reopened_at: string | null
+          reviewed_at: string
+          reviewed_by: string | null
+          sync_generation: number
+          updated_at: string
+        }
+        Insert: {
+          episode_id: string
+          reopen_reason?: string | null
+          reopened_at?: string | null
+          reviewed_at?: string
+          reviewed_by?: string | null
+          sync_generation?: number
+          updated_at?: string
+        }
+        Update: {
+          episode_id?: string
+          reopen_reason?: string | null
+          reopened_at?: string | null
+          reviewed_at?: string
+          reviewed_by?: string | null
+          sync_generation?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "episode_reviews_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: true
+            referencedRelation: "podcast_episodes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       episode_sources: {
         Row: {
           access_tier: Database["public"]["Enums"]["source_access_tier"]
@@ -551,10 +589,12 @@ export type Database = {
           external_ids: Json
           feed_url: string | null
           id: string
+          last_synced_at: string | null
           latest_episode_at: string | null
           name: string
           provider_source: string
           slug: string
+          sync_generation: number
           website_url: string | null
         }
         Insert: {
@@ -568,10 +608,12 @@ export type Database = {
           external_ids?: Json
           feed_url?: string | null
           id?: string
+          last_synced_at?: string | null
           latest_episode_at?: string | null
           name: string
           provider_source?: string
           slug: string
+          sync_generation?: number
           website_url?: string | null
         }
         Update: {
@@ -585,10 +627,12 @@ export type Database = {
           external_ids?: Json
           feed_url?: string | null
           id?: string
+          last_synced_at?: string | null
           latest_episode_at?: string | null
           name?: string
           provider_source?: string
           slug?: string
+          sync_generation?: number
           website_url?: string | null
         }
         Relationships: []
