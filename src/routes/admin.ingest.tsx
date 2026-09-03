@@ -18,7 +18,9 @@ import {
   ingestPodcast,
   listIngestionStats,
   listPodcastCoverage,
+  listEpisodeReviewStates,
   listUnmatchedEpisodes,
+  setEpisodeReviewed,
   refreshAvailability,
   rescanEpisodeMatches,
   resolveEpisodesToMovies,
@@ -859,6 +861,9 @@ function UnmatchedEpisodesCard() {
   const [removed, setRemoved] = useState<Record<string, true>>({});
   const [rowError, setRowError] = useState<string | null>(null);
   const retireFn = useServerFn(markEpisodeNotAboutMovie);
+  // Pass U8 — an episode with no links at all can still be signed off.
+  const reviewFn = useServerFn(setEpisodeReviewed);
+  const reviewStatesFn = useServerFn(listEpisodeReviewStates);
   const linkFn = useServerFn(approveEpisodeMatch);
 
   const runRow = async (episodeId: string, work: () => Promise<unknown>) => {
@@ -876,6 +881,30 @@ function UnmatchedEpisodesCard() {
     }
   };
 
+
+  const episodeIds = (query.data?.episodes ?? []).map((ep) => ep.episodeId);
+  const reviewStates = useQuery({
+    queryKey: ["episode-review-states", "unmatched", episodeIds.join(",")],
+    queryFn: () => reviewStatesFn({ data: { episodeIds } }),
+    enabled: episodeIds.length > 0,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+  const reviewMap = reviewStates.data?.reviews ?? {};
+  const toggleReviewed = async (episodeId: string, reviewed: boolean) => {
+    setPendingId(episodeId);
+    setRowError(null);
+    try {
+      const res = await reviewFn({ data: { episodeIds: [episodeId], reviewed } });
+      if (res.succeeded !== res.attempted) throw new Error(res.failed[0] ?? "could not update");
+      await client.invalidateQueries({ queryKey: ["episode-review-states"] });
+      void client.invalidateQueries({ queryKey: ["podcast-coverage"] });
+    } catch (e) {
+      setRowError((e as Error).message);
+    } finally {
+      setPendingId(null);
+    }
+  };
 
   return (
     <div>
@@ -966,6 +995,23 @@ function UnmatchedEpisodesCard() {
                           );
                         }}
                       />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void toggleReviewed(
+                            ep.episodeId,
+                            !reviewMap[ep.episodeId]?.reviewed,
+                          )
+                        }
+                        disabled={rowBusy}
+                        className={`rounded-full px-3 py-1.5 text-xs font-semibold disabled:opacity-60 ${
+                          reviewMap[ep.episodeId]?.reviewed
+                            ? "bg-teal text-primary-foreground"
+                            : "border border-border text-muted-foreground hover:bg-secondary"
+                        }`}
+                      >
+                        {reviewMap[ep.episodeId]?.reviewed ? "Reopen" : "Mark reviewed"}
+                      </button>
                     </div>
                   </li>
                 );
@@ -1155,9 +1201,21 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
           </p>
           <p className={`text-xs ${p.fullyReviewed ? "text-teal" : "text-muted-foreground"}`}>
             {p.fullyReviewed
-              ? `All episodes reviewed (${isParked ? "parked" : "active"} show)`
-              : `${p.reviewed} reviewed · ${p.awaitingReview} awaiting review · ${isParked ? "parked" : "active"}`}
+              ? `All links reviewed (${isParked ? "parked" : "active"} show)`
+              : `${p.reviewed} links reviewed · ${p.awaitingReview} links awaiting review · ${isParked ? "parked" : "active"}`}
           </p>
+          {/* Pass U8 — episode-level sign-off, counted only against the current sync. */}
+          <p
+            className={`text-xs ${
+              p.episodesUnreviewed === 0 && p.stored > 0 ? "text-teal" : "text-muted-foreground"
+            }`}
+          >
+            Reviewed {p.episodesReviewed} of {p.stored} episodes
+            {p.lastSyncedAt
+              ? ` as of sync ${p.lastSyncedAt.slice(0, 10)}`
+              : " (never synced here)"}
+          </p>
+
 
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
