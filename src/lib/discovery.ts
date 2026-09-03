@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useCatalog } from "./data";
-import { usePrefs, toUserData, type Filters, type Prefs } from "./prefs";
+import { usePrefs, toUserData, RUNTIME_CEILING, type Filters, type Prefs } from "./prefs";
 import { ratingRank } from "./ratings";
 import { scoreMovie, type CommentaryScore } from "./scoring";
 import type {
@@ -179,7 +179,14 @@ export function applyFilters(
       const year = e.movie.release_year;
       if (year !== null && (year < filters.yearMin || year > filters.yearMax)) return false;
       const runtime = e.movie.runtime_minutes;
-      if (runtime !== null && runtime > filters.maxRuntime) return false;
+      // The slider's top stop is labelled "Any", so treat it as no runtime cap.
+      if (
+        filters.maxRuntime < RUNTIME_CEILING &&
+        runtime !== null &&
+        runtime > filters.maxRuntime
+      )
+        return false;
+
       if (filters.hideWatched && e.watched) return false;
       if (filters.commentaryOnly && e.episodes.length === 0) return false;
       if (filters.preferredOnly && !e.episodes.some((ep) => ep.preferred)) return false;
