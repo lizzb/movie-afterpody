@@ -76,7 +76,7 @@ export function AdminActionQueueProvider({ children }: { children: React.ReactNo
 
     // Keep the chain alive after a failure so later actions still run.
     chain.current = task.catch(() => undefined);
-    return task as Promise<never>;
+    return task;
   }, []);
 
   const value = useMemo<AdminQueue>(

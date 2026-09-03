@@ -6,6 +6,12 @@ import { MatchHistoryCard } from "@/components/admin/MatchHistoryCard";
 import { MatcherScoreCard } from "@/components/admin/MatcherScoreCard";
 import { MatchReviewCard, RelinkPicker } from "@/components/admin/MatchReviewCard";
 import { CollapsibleCard } from "@/components/admin/CollapsibleCard";
+import {
+  AdminActionQueueProvider,
+  AdminQueueStatus,
+  useAdminQueue,
+  useQueuedAction,
+} from "@/components/admin/AdminActionQueue";
 import { useAuth } from "@/hooks/useAuth";
 
 import {
