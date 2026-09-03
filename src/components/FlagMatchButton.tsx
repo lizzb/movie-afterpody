@@ -36,11 +36,12 @@ export function FlagMatchButton({ episodeId, movieId, variant = "icon", label }:
         disabled={toggle.isPending}
         aria-pressed={isFlagged}
         title={title}
-        className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold transition-colors disabled:opacity-50 ${
+        className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-semibold transition-colors disabled:opacity-50 ${
           isFlagged ? "bg-coral-soft text-coral" : "text-muted-foreground hover:text-coral"
         }`}
       >
-        <Flag className="size-3" aria-hidden />
+        <Flag className="size-[1.125rem]" aria-hidden />
+
         {label ?? (isFlagged ? "Flagged" : "Wrong movie?")}
       </button>
     );
