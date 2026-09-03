@@ -260,10 +260,17 @@ function PodcastDetailPage() {
                     ) : (
                       <span className="text-muted-foreground">No movie linked yet</span>
                     )}
+                    {reviewStates.isAdmin ? (
+                      <EpisodeReviewButton
+                        episodeId={episode.id}
+                        reviewed={reviewStates.reviews[episode.id]?.reviewed ?? false}
+                      />
+                    ) : null}
                   </div>
                 </li>
               ))}
             </ol>
+
           )}
         </section>
       </main>
