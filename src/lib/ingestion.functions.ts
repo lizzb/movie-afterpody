@@ -2480,18 +2480,32 @@ type EpisodeGenerationRow = {
   podcasts: { sync_generation: number | null };
 };
 
+/** Supabase `.in()` filters travel in the URL, so batch ids to keep it short. */
+const EPISODE_ID_CHUNK = 50;
+
+function chunkIds(ids: string[]): string[][] {
+  const out: string[][] = [];
+  for (let i = 0; i < ids.length; i += EPISODE_ID_CHUNK) out.push(ids.slice(i, i + EPISODE_ID_CHUNK));
+  return out;
+}
+
 async function loadEpisodeGenerations(
   admin: Awaited<typeof import("@/integrations/supabase/client.server")>["supabaseAdmin"],
   episodeIds: string[],
 ): Promise<Map<string, EpisodeGenerationRow>> {
-  const { data, error } = await admin
-    .from("podcast_episodes")
-    .select("id, podcast_id, disposition, podcasts!inner(sync_generation)")
-    .in("id", episodeIds)
-    .returns<EpisodeGenerationRow[]>();
-  if (error) throw error;
-  return new Map((data ?? []).map((row) => [row.id, row]));
+  const map = new Map<string, EpisodeGenerationRow>();
+  for (const chunk of chunkIds(episodeIds)) {
+    const { data, error } = await admin
+      .from("podcast_episodes")
+      .select("id, podcast_id, disposition, podcasts!inner(sync_generation)")
+      .in("id", chunk)
+      .returns<EpisodeGenerationRow[]>();
+    if (error) throw error;
+    for (const row of data ?? []) map.set(row.id, row);
+  }
+  return map;
 }
+
 
 /** Mark reviewed / Reopen, one episode or a bulk selection, verified per episode. */
 export const setEpisodeReviewed = createServerFn({ method: "POST" })
