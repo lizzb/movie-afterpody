@@ -36,9 +36,19 @@ Bulk review behavior 7. Multi-select supports bulk Mark reviewed / Reopen, using
 verification: reported successes are confirmed in the database, failures are surfaced
 and the affected rows return.
 
-Auto-reopen triggers 8. An episode auto-reopens (review record cleared or marked stale) when: a new proposal is
-created for it, it is flagged as a wrong match, or one of its links is removed. 9. A new feed sync that raises the show's generation marks prior review records stale
-rather than deleting them (history preserved).
+Auto-reopen triggers 8. An episode auto-reopens (review record marked stale) when: a new proposal is
+created for it, it is flagged as a wrong match, or one of its links is removed.
+
+When a new proposal, flag, or link removal invalidates the current review, the current review record becomes stale/unusable for current completeness rather than being destroyed.
+
+9. A new feed sync that raises the show's generation marks prior review records stale
+   rather than deleting them (history preserved).
+
+The underlying model should be: review record has sync_generation + a current/stale determination.
+But stale is not a user-facing status in V1.
+For purposes of: "Reviewed X of Y episodes as of sync D" only reviews whose sync_generation === current_generation count.
+For purposes of history/audit, the older record remains.
+Plausible future UX but NOT in scope and NOT necessary for U8's first implementation: add a third recheck status IF we later discover that users genuinely need to distinguish: never reviewed from previously reviewed, but new feed data means review again.
 
 Coverage / progress reporting 10. Show curation/coverage rows read `Reviewed X of Y episodes as of sync D`, where Y is
 stored episodes for the show and X counts only current-generation review records. 11. Counts reconcile with the queue: `Y - X` equals the number of episodes still reachable
@@ -65,11 +75,11 @@ numbers (U7) still behave; parked shows stay out of admin queues.
   "as of sync D" advances.
 - Arithmetic check: coverage `Y - X` vs. queue count for one show.
 
-### Not specified (flag before building)
+### Resolved decisions
 
-- Whether "reviewed" is per-episode only or also per-episode-per-movie-pair.
-- Whether a stale (post-sync) record shows as unreviewed or as a third "re-check" state.
-- Who may mark reviewed in a future multi-user setup (admin-only assumed).
+- Reviewed state is per episode, not per episode/movie pair. Link-level review_state remains responsible for individual link decisions.
+- A stale review record is preserved for history but does not count toward current review completeness or the unreviewed queue. Stale is an internal/currentness condition, not a user-facing third review state in U8.
+- Mark reviewed / Reopen is admin-only for the current single-user/admin workflow.
 
 ---
 
