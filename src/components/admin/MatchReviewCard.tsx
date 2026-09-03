@@ -1408,7 +1408,10 @@ const ReviewRow = memo(function ReviewRow({
         </span>
       </div>
 
+      <EpisodeDescription episodeId={row.episodeId} movieTitle={row.movieTitle} />
+
       <div className="flex flex-wrap items-center gap-2 px-3 pb-3">
+
         {pending ? (
           <span role="status" className="inline-flex items-center gap-1.5 text-xs font-semibold text-teal">
             <Loader2 className="size-3.5 animate-spin" aria-hidden />
