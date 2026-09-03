@@ -2423,3 +2423,149 @@ export const backfillContentRatings = createServerFn({ method: "POST" })
       failed: failed.slice(0, 20),
     };
   });
+
+/**
+ * Pass U8 — episode-level "review complete".
+ *
+ * Review completeness is per episode and independent of link `review_state`: an
+ * episode with no links at all can be marked reviewed, and an episode with a
+ * confirmed link is not reviewed until someone says so. A record is only
+ * *current* while it was made against the show's present `sync_generation` and
+ * has not been reopened; stale records stay for history but do not count.
+ */
+const EpisodeReviewInput = z.object({
+  episodeIds: z.array(z.string().uuid()).min(1).max(200),
+  reviewed: z.boolean(),
+});
+
+type EpisodeGenerationRow = {
+  id: string;
+  podcast_id: string;
+  disposition: string;
+  podcasts: { sync_generation: number | null };
+};
+
+async function loadEpisodeGenerations(
+  admin: Awaited<typeof import("@/integrations/supabase/client.server")>["supabaseAdmin"],
+  episodeIds: string[],
+): Promise<Map<string, EpisodeGenerationRow>> {
+  const { data, error } = await admin
+    .from("podcast_episodes")
+    .select("id, podcast_id, disposition, podcasts!inner(sync_generation)")
+    .in("id", episodeIds)
+    .returns<EpisodeGenerationRow[]>();
+  if (error) throw error;
+  return new Map((data ?? []).map((row) => [row.id, row]));
+}
+
+/** Mark reviewed / Reopen, one episode or a bulk selection, verified per episode. */
+export const setEpisodeReviewed = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) => EpisodeReviewInput.parse(data))
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const generations = await loadEpisodeGenerations(supabaseAdmin, data.episodeIds);
+
+    const results: { episodeId: string; ok: boolean; error?: string }[] = [];
+
+    for (const episodeId of data.episodeIds) {
+      try {
+        if (data.reviewed) {
+          const meta = generations.get(episodeId);
+          if (!meta) throw new Error("episode not found");
+          const generation = meta.podcasts?.sync_generation ?? 1;
+          // One row per episode: re-marking updates in place, never duplicates.
+          const { error } = await supabaseAdmin.from("episode_reviews").upsert(
+            {
+              episode_id: episodeId,
+              reviewed_at: new Date().toISOString(),
+              reviewed_by: context.userId,
+              sync_generation: generation,
+              reopened_at: null,
+              reopen_reason: null,
+            },
+            { onConflict: "episode_id" },
+          );
+          if (error) throw error;
+          const { data: check } = await supabaseAdmin
+            .from("episode_reviews")
+            .select("sync_generation, reopened_at")
+            .eq("episode_id", episodeId)
+            .maybeSingle();
+          if (!check || check.reopened_at || check.sync_generation !== generation) {
+            throw new Error("review did not persist");
+          }
+        } else {
+          // Reopen keeps the record (history) but stops it counting as current.
+          const { error } = await supabaseAdmin
+            .from("episode_reviews")
+            .update({ reopened_at: new Date().toISOString(), reopen_reason: "manual_reopen" })
+            .eq("episode_id", episodeId);
+          if (error) throw error;
+          const { data: check } = await supabaseAdmin
+            .from("episode_reviews")
+            .select("reopened_at")
+            .eq("episode_id", episodeId)
+            .maybeSingle();
+          if (check && !check.reopened_at) throw new Error("reopen did not persist");
+        }
+        results.push({ episodeId, ok: true });
+      } catch (e) {
+        results.push({ episodeId, ok: false, error: e instanceof Error ? e.message : "unknown error" });
+      }
+    }
+
+    const failures = results.filter((r) => !r.ok);
+    return {
+      attempted: data.episodeIds.length,
+      succeeded: results.length - failures.length,
+      results,
+      failed: failures.slice(0, 10).map((r) => r.error ?? "unknown error"),
+    };
+  });
+
+/**
+ * Current review state for the episodes on screen. Queryable by episode, and —
+ * via `episode_movies` — by show or linked movie, which is what Pass U27's
+ * goal-directed review needs without another migration.
+ */
+export const listEpisodeReviewStates = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) =>
+    z.object({ episodeIds: z.array(z.string().uuid()).max(400) }).parse(data),
+  )
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    if (data.episodeIds.length === 0) return { reviews: {} as Record<string, EpisodeReviewState> };
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const [generations, { data: rows, error }] = await Promise.all([
+      loadEpisodeGenerations(supabaseAdmin, data.episodeIds),
+      supabaseAdmin
+        .from("episode_reviews")
+        .select("episode_id, reviewed_at, sync_generation, reopened_at")
+        .in("episode_id", data.episodeIds),
+    ]);
+    if (error) throw error;
+
+    const reviews: Record<string, EpisodeReviewState> = {};
+    for (const episodeId of data.episodeIds) {
+      const meta = generations.get(episodeId);
+      const generation = meta?.podcasts?.sync_generation ?? 1;
+      const rec = (rows ?? []).find((r) => r.episode_id === episodeId);
+      const current = Boolean(rec && !rec.reopened_at && rec.sync_generation === generation);
+      reviews[episodeId] = {
+        reviewed: current,
+        reviewedAt: rec?.reviewed_at ?? null,
+        /** A record exists but no longer counts (reopened or an older sync). */
+        hasStaleRecord: Boolean(rec) && !current,
+      };
+    }
+    return { reviews };
+  });
+
+export interface EpisodeReviewState {
+  reviewed: boolean;
+  reviewedAt: string | null;
+  hasStaleRecord: boolean;
+}
