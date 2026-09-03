@@ -16,6 +16,9 @@ import { Artwork } from "@/components/Artwork";
 import { BrandBadge } from "@/components/BrandBadge";
 import { ScorePill } from "@/components/ScorePill";
 import { FlagMatchButton } from "@/components/FlagMatchButton";
+import { EpisodeReviewButton } from "@/components/EpisodeReviewButton";
+import { useEpisodeReviewStates } from "@/lib/episode-reviews";
+
 import { useDiscovery, type EpisodeEntry } from "@/lib/discovery";
 import { isUnrated, ratingLabel } from "@/lib/ratings";
 import { prefsActions } from "@/lib/prefs";
