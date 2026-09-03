@@ -297,12 +297,15 @@ function MovieDetailPage() {
                   key={ep.episode.id}
                   entry={ep}
                   movieId={movie.id}
+                  showReview={reviewStates.isAdmin}
+                  reviewed={reviewStates.reviews[ep.episode.id]?.reviewed ?? false}
                   rating={prefs.ratings[ep.episode.slug] ?? null}
                   listening={prefs.listening[ep.episode.slug] ?? "not_started"}
                   quality={prefs.quality[ep.episode.slug] ?? null}
                 />
               ))}
             </ul>
+
           )}
         </section>
       </main>
