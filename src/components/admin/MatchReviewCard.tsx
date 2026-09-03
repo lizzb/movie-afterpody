@@ -228,6 +228,9 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
   const confirmFn = useServerFn(confirmEpisodeMatch);
   const relinkFn = useServerFn(relinkEpisodeMovie);
   const bulkFn = useServerFn(bulkMatchDecision);
+  // Pass U14 — review decisions share the page-wide FIFO queue, so rapid taps
+  // execute in press order instead of racing each other.
+  const queue = useAdminQueue();
   const retireFn = useServerFn(markEpisodeNotAboutMovie);
   const resolveFlagsFn = useServerFn(resolveEpisodeFlags);
 
@@ -577,13 +580,14 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
 
 
   const single = useMutation({
-    mutationFn: async (vars: {
+    mutationFn: (vars: {
       action: "approve" | "reject" | "confirm" | "unlink" | "retire";
       key: string;
       episodeId: string;
       movieId: string;
       wasFlagged: boolean;
-    }) => {
+    }) =>
+      queue.run(`match:${vars.key}`, MATCH_ACTION_LABEL[vars.action], async () => {
       if (vars.action === "approve")
         await approveFn({ data: { episodeId: vars.episodeId, movieId: vars.movieId } });
       else if (vars.action === "reject")
@@ -602,7 +606,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
           },
         });
       }
-    },
+      }),
     onSuccess: () => {
       setError(null);
       refresh();
@@ -652,18 +656,20 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
       markDone([row.key]);
       startPending([row.key]);
       try {
-        if (forProposal) {
-          await approveFn({ data: { episodeId: row.episodeId, movieId } });
-        } else {
-          await relinkFn({
-            data: { episodeId: row.episodeId, fromMovieId: row.movieId, toMovieId: movieId },
-          });
-        }
-        if (row.flagged) {
-          await resolveFlagsFn({
-            data: { episodeId: row.episodeId, movieId: row.movieId, resolution: "fixed" },
-          });
-        }
+        await queue.run(`match:${row.key}`, "Relink episode", async () => {
+          if (forProposal) {
+            await approveFn({ data: { episodeId: row.episodeId, movieId } });
+          } else {
+            await relinkFn({
+              data: { episodeId: row.episodeId, fromMovieId: row.movieId, toMovieId: movieId },
+            });
+          }
+          if (row.flagged) {
+            await resolveFlagsFn({
+              data: { episodeId: row.episodeId, movieId: row.movieId, resolution: "fixed" },
+            });
+          }
+        });
         setError(null);
         refreshRef.current();
       } catch (e) {
@@ -673,7 +679,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
         endPending([row.key]);
       }
     },
-    [approveFn, relinkFn, resolveFlagsFn, markDone, startPending, endPending, unmarkDone],
+    [approveFn, relinkFn, resolveFlagsFn, markDone, startPending, endPending, unmarkDone, queue],
   );
 
 
@@ -694,24 +700,29 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
       pairs: { episodeId: string; movieId: string }[];
       flagged: { episodeId: string; movieId: string }[];
       keyByPair: Record<string, string>;
-    }) => {
-      const result = await bulkFn({ data: { action: vars.action, pairs: vars.pairs } });
-      const okPairs = new Set(
-        result.results.filter((r) => r.ok).map((r) => `${r.episodeId}:${r.movieId}`),
-      );
-      // Only clear flags for pairs whose decision actually landed.
-      for (const pair of vars.flagged) {
-        if (!okPairs.has(`${pair.episodeId}:${pair.movieId}`)) continue;
-        await resolveFlagsFn({
-          data: {
-            episodeId: pair.episodeId,
-            movieId: pair.movieId,
-            resolution: vars.action === "confirm" ? "dismissed" : "fixed",
-          },
-        });
-      }
-      return result;
-    },
+    }) =>
+      queue.run(
+        "match-bulk",
+        `${MATCH_ACTION_LABEL[vars.action]} · ${vars.pairs.length} selected`,
+        async () => {
+          const result = await bulkFn({ data: { action: vars.action, pairs: vars.pairs } });
+          const okPairs = new Set(
+            result.results.filter((r) => r.ok).map((r) => `${r.episodeId}:${r.movieId}`),
+          );
+          // Only clear flags for pairs whose decision actually landed.
+          for (const pair of vars.flagged) {
+            if (!okPairs.has(`${pair.episodeId}:${pair.movieId}`)) continue;
+            await resolveFlagsFn({
+              data: {
+                episodeId: pair.episodeId,
+                movieId: pair.movieId,
+                resolution: vars.action === "confirm" ? "dismissed" : "fixed",
+              },
+            });
+          }
+          return result;
+        },
+      ),
     onSuccess: (result, vars) => {
       const failedKeys = result.results
         .filter((r) => !r.ok)
