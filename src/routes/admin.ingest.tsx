@@ -1071,7 +1071,8 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
     retry: false,
     refetchOnWindowFocus: false,
   });
-  const [busyId, setBusyId] = useState<string | null>(null);
+  const queue = useAdminQueue();
+  const bulkSync = useQueuedAction("sync-all-incomplete", "Sync all incomplete shows");
   const [error, setError] = useState<string | null>(null);
   const [showParked, setShowParked] = useState(false);
   const [incompleteOnly, setIncompleteOnly] = useState(false);
@@ -1080,8 +1081,14 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
 
   // Per-show sync outcomes so a failed feed is named instead of vanishing.
   const [syncLog, setSyncLog] = useState<{ name: string; message: string; ok: boolean }[]>([]);
-  const [bulkRunning, setBulkRunning] = useState(false);
+  const bulkRunning = bulkSync.pending;
   const bulkCancel = useRef(false);
+
+  /** Pass U14 — every per-show action is a queue entry, so clicks never race. */
+  const showKey = (podcastId: string, action: string) => `podcast:${podcastId}:${action}`;
+  const rowStatus = (podcastId: string, action: string) => queue.status(showKey(podcastId, action));
+  const rowPending = (podcastId: string) =>
+    ["sync", "recheck", "build", "curation"].some((a) => rowStatus(podcastId, a) !== "idle");
 
   const refresh = async () => {
     await queryClient.invalidateQueries({ queryKey: ["podcast-coverage"] });
@@ -1097,25 +1104,23 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
     setSyncLog((prev) => [{ name, message: note, ok: result.episodesFailed === 0 }, ...prev].slice(0, 25));
   };
 
-  const syncPodcast = async (podcastId: string, name: string) => {
-    setBusyId(podcastId);
-    setError(null);
-    try {
-      await syncOne(podcastId, name);
-      await refresh();
-    } catch (e) {
-      setSyncLog((prev) => [{ name, message: (e as Error).message, ok: false }, ...prev].slice(0, 25));
-      setError((e as Error).message);
-    } finally {
-      setBusyId(null);
-    }
-  };
+  const syncPodcast = (podcastId: string, name: string) =>
+    queue
+      .run(showKey(podcastId, "sync"), `Sync episodes — ${name}`, async () => {
+        setError(null);
+        await syncOne(podcastId, name);
+        await refresh();
+      })
+      .catch((e: Error) => {
+        setSyncLog((prev) => [{ name, message: e.message, ok: false }, ...prev].slice(0, 25));
+        setError(e.message);
+      });
 
   // Same two pipeline steps as the page-level buttons, scoped to one show.
-  const rescanPodcast = async (podcastId: string, name: string) => {
-    setBusyId(podcastId);
-    setError(null);
-    try {
+  const rescanPodcast = (podcastId: string, name: string) =>
+    queue
+      .run(showKey(podcastId, "recheck"), `Recheck episodes — ${name}`, async () => {
+      setError(null);
       const r = await rescanShow({ data: { podcastId, limit: 150 } });
       setSyncLog((prev) =>
         [
@@ -1128,18 +1133,16 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
         ].slice(0, 25),
       );
       await refresh();
-    } catch (e) {
-      setSyncLog((prev) => [{ name, message: (e as Error).message, ok: false }, ...prev].slice(0, 25));
-      setError((e as Error).message);
-    } finally {
-      setBusyId(null);
-    }
-  };
+      })
+      .catch((e: Error) => {
+        setSyncLog((prev) => [{ name, message: e.message, ok: false }, ...prev].slice(0, 25));
+        setError(e.message);
+      });
 
-  const buildPodcast = async (podcastId: string, name: string) => {
-    setBusyId(podcastId);
-    setError(null);
-    try {
+  const buildPodcast = (podcastId: string, name: string) =>
+    queue
+      .run(showKey(podcastId, "build"), `Build movies — ${name}`, async () => {
+      setError(null);
       const r = await buildShow({ data: { podcastId, limit: 100 } });
       setSyncLog((prev) =>
         [
@@ -1152,26 +1155,24 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
         ].slice(0, 25),
       );
       await refresh();
-    } catch (e) {
-      setSyncLog((prev) => [{ name, message: (e as Error).message, ok: false }, ...prev].slice(0, 25));
-      setError((e as Error).message);
-    } finally {
-      setBusyId(null);
-    }
-  };
+      })
+      .catch((e: Error) => {
+        setSyncLog((prev) => [{ name, message: e.message, ok: false }, ...prev].slice(0, 25));
+        setError(e.message);
+      });
 
-  const toggleCuration = async (podcastId: string, status: "active" | "parked") => {
-    setBusyId(podcastId);
-    setError(null);
-    try {
-      await setCuration({ data: { podcastId, status } });
-      await refresh();
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setBusyId(null);
-    }
-  };
+  const toggleCuration = (podcastId: string, status: "active" | "parked", name: string) =>
+    queue
+      .run(
+        showKey(podcastId, "curation"),
+        `${status === "parked" ? "Park" : "Re-activate"} — ${name}`,
+        async () => {
+          setError(null);
+          await setCuration({ data: { podcastId, status } });
+          await refresh();
+        },
+      )
+      .catch((e: Error) => setError(e.message));
 
   const all = coverage.data?.podcasts ?? [];
   const active = all.filter((p) => p.curationStatus === "active");
@@ -1195,34 +1196,34 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
 
   // One press works through every active show that is behind its feed, keeping
   // going after a failure and naming each result.
-  const syncAllIncomplete = async () => {
-    bulkCancel.current = false;
-    setBulkRunning(true);
-    setError(null);
-    setSyncLog([]);
-    for (const p of incompleteActive) {
-      if (bulkCancel.current) break;
-      setBusyId(p.podcastId);
-      try {
-        await syncOne(p.podcastId, p.name);
-      } catch (e) {
-        setSyncLog((prev) =>
-          [{ name: p.name, message: (e as Error).message, ok: false }, ...prev].slice(0, 25),
-        );
-      }
-    }
-    setBusyId(null);
-    setBulkRunning(false);
-    await refresh();
-  };
+  const syncAllIncomplete = () =>
+    bulkSync
+      .start(async () => {
+        bulkCancel.current = false;
+        setError(null);
+        setSyncLog([]);
+        for (const p of incompleteActive) {
+          if (bulkCancel.current) break;
+          try {
+            await syncOne(p.podcastId, p.name);
+          } catch (e) {
+            setSyncLog((prev) =>
+              [{ name: p.name, message: (e as Error).message, ok: false }, ...prev].slice(0, 25),
+            );
+          }
+        }
+        await refresh();
+      })
+      .catch((e: Error) => setError(e.message));
 
   const row = (p: (typeof all)[number]) => {
+    const busy = rowPending(p.podcastId);
     const complete = p.feedTotal > 0 && p.stored >= p.feedTotal;
     const isParked = p.curationStatus === "parked";
     return (
       <li
         key={p.podcastId}
-        className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 px-3 py-2"
+        className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 px-3 py-2 ${busy ? "opacity-70" : ""}`}
       >
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium">{p.name}</p>
@@ -1255,39 +1256,55 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={() => toggleCuration(p.podcastId, isParked ? "active" : "parked")}
-            disabled={busyId === p.podcastId || bulkRunning}
+            onClick={() => void toggleCuration(p.podcastId, isParked ? "active" : "parked", p.name)}
+            disabled={rowStatus(p.podcastId, "curation") !== "idle" || bulkRunning}
             className={`rounded-full px-3 py-1.5 text-xs font-semibold disabled:opacity-50 ${
               isParked
                 ? "bg-teal text-primary-foreground"
                 : "border border-border text-muted-foreground"
             }`}
           >
-            {isParked ? "Re-activate" : "Park"}
+            {rowStatus(p.podcastId, "curation") !== "idle"
+              ? "Working…"
+              : isParked
+                ? "Re-activate"
+                : "Park"}
           </button>
           <button
             type="button"
-            onClick={() => syncPodcast(p.podcastId, p.name)}
-            disabled={busyId === p.podcastId || isParked || bulkRunning}
+            onClick={() => void syncPodcast(p.podcastId, p.name)}
+            disabled={rowStatus(p.podcastId, "sync") !== "idle" || isParked || bulkRunning}
             className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
           >
-            {busyId === p.podcastId ? "Working…" : "Sync episodes"}
+            {rowStatus(p.podcastId, "sync") === "queued"
+              ? "Queued…"
+              : rowStatus(p.podcastId, "sync") === "running"
+                ? "Working…"
+                : "Sync episodes"}
           </button>
           <button
             type="button"
-            onClick={() => rescanPodcast(p.podcastId, p.name)}
-            disabled={busyId === p.podcastId || isParked || bulkRunning}
+            onClick={() => void rescanPodcast(p.podcastId, p.name)}
+            disabled={rowStatus(p.podcastId, "recheck") !== "idle" || isParked || bulkRunning}
             className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
           >
-            Recheck episodes
+            {rowStatus(p.podcastId, "recheck") === "queued"
+              ? "Queued…"
+              : rowStatus(p.podcastId, "recheck") === "running"
+                ? "Rechecking…"
+                : "Recheck episodes"}
           </button>
           <button
             type="button"
-            onClick={() => buildPodcast(p.podcastId, p.name)}
-            disabled={busyId === p.podcastId || isParked || bulkRunning}
+            onClick={() => void buildPodcast(p.podcastId, p.name)}
+            disabled={rowStatus(p.podcastId, "build") !== "idle" || isParked || bulkRunning}
             className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold disabled:opacity-50"
           >
-            Build movies
+            {rowStatus(p.podcastId, "build") === "queued"
+              ? "Queued…"
+              : rowStatus(p.podcastId, "build") === "running"
+                ? "Building…"
+                : "Build movies"}
           </button>
         </div>
       </li>
