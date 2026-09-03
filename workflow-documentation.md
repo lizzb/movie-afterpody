@@ -1,5 +1,69 @@
 # Movie Afterparty admin workflow
 
+Before building a multi-item pass, write a testable acceptance checklist plus the minimum
+verification steps per criterion, and flag anything the spec does not actually cover instead
+of quietly deciding it.
+
+Every pass summary labels each promised item:
+
+- **Verified** — checked in code and in the running app, naming route and device.
+- **Implemented, not verified** — code exists, runtime verification not done.
+- **Deferred** — intentionally not built.
+- **Needs follow-up** — present but not at the requested UX quality.
+
+A pass is never called "built" or moved to _Already done_ in `.lovable/roadmap.md` unless every
+item is Verified or explicitly Deferred. Verification is run proactively — no prompting needed —
+and is mandatory for mobile/PWA layout, popovers, filters and stateful controls.
+
+### Trigger keywords
+
+- `ACCEPT: <PASS_ID>` (also `ACCEPTANCE: <PASS_ID>`) — write/refresh the acceptance-criteria
+  checklist plus minimum verification steps for that pass into a dated plan file. No code,
+  no scope change. Accepts multiple IDs.
+- `BUILD: <PASS_ID>` — if no acceptance checklist exists yet for that pass, derive one first
+  from the roadmap entry and plan context, then build against it, then verify in the running
+  app, then report with labels. Building always ends in a labeled checklist.
+- `PLAN: <PASS_ID>` / `PLAN (backlog only)` — scoping and estimates only. A full testable
+  acceptance checklist is written only when the pass is nontrivial/multi-item or when
+  `ACCEPT:` is used; backlog entries carry a one-line acceptance sentence, not a full set.
+
+Current acceptance-criteria sets: `.lovable/plan/acceptance-criteria-u8-u24-u4-p-u23-2026-09-02.md`
+(U8, U24, U4, P, U23).
+
+## Triage workflow (added manually 2026-09-03)
+
+TRIAGE: Create a keyword for this workflow
+
+The meaning should be:
+
+Investigate first. If the cause and smallest safe fix are clear and low-risk, implement it in this turn. If meaningful investigation, architectural changes, broad refactoring, multiple screens, migrations, or substantial implementation would be required, do not implement; explain the root cause/likely scope, estimate the work, and add or update a backlog pass.
+
+### Workflow keyword: TRIAGE
+
+When a user message begins with `TRIAGE:`:
+
+1. Investigate the reported bug/problem using the current roadmap, relevant pass/plan files, and current implementation.
+2. Identify the root cause or most likely cause.
+3. Check whether the issue is already covered by an existing pass/backlog item before creating anything new.
+4. If the cause and smallest safe fix are clear, localized, low-risk, and reasonably small:
+   - implement the fix in the current turn;
+   - verify it;
+   - update the roadmap according to the normal workflow.
+5. If the issue requires substantial investigation, architectural work, a migration, broad refactoring, multiple independent changes, or is otherwise likely to be a large/uncertain credit expenditure:
+   - do NOT implement it;
+   - explain the root cause/uncertainty;
+   - describe the smallest plausible fix and broader alternatives where useful;
+   - estimate the effort using the project's S/M/L/XL credit bands;
+   - add or update an appropriately scoped backlog pass.
+6. Do not create a new pass when an existing pass already covers the problem; update/reframe the existing pass instead.
+7. Do not turn a TRIAGE request into unrelated cleanup or opportunistic improvements.
+8. Clearly state which branch was taken:
+   QUICK FIX IMPLEMENTED
+   or
+   NEEDS DEEPER WORK — BACKLOGGED
+
+# Ingest data admin workflow (outdated? NEEDS REVIEW as of 2026-09-03)
+
 ## Data population flow
 
 1. **Ingest podcast** stores the show and up to 1000 feed episodes.
@@ -29,35 +93,5 @@
 4. Use **Not about a movie** for ads, interviews, mailbags, trailers, and non-film episodes.
 5. Run **Score the matcher** before and after matcher-rule changes.
 6. When the queue looks stale after a major rule change, use a future guarded replay tool rather than manually refreshing the same weak historical links.
+
 ## Pass acceptance workflow (added 2026-09-02)
-
-Before building a multi-item pass, write a testable acceptance checklist plus the minimum
-verification steps per criterion, and flag anything the spec does not actually cover instead
-of quietly deciding it.
-
-Every pass summary labels each promised item:
-
-- **Verified** — checked in code and in the running app, naming route and device.
-- **Implemented, not verified** — code exists, runtime verification not done.
-- **Deferred** — intentionally not built.
-- **Needs follow-up** — present but not at the requested UX quality.
-
-A pass is never called "built" or moved to *Already done* in `.lovable/roadmap.md` unless every
-item is Verified or explicitly Deferred. Verification is run proactively — no prompting needed —
-and is mandatory for mobile/PWA layout, popovers, filters and stateful controls.
-
-### Trigger keywords
-
-- `ACCEPT: <PASS_ID>` (also `ACCEPTANCE: <PASS_ID>`) — write/refresh the acceptance-criteria
-  checklist plus minimum verification steps for that pass into a dated plan file. No code,
-  no scope change. Accepts multiple IDs.
-- `BUILD: <PASS_ID>` — if no acceptance checklist exists yet for that pass, derive one first
-  from the roadmap entry and plan context, then build against it, then verify in the running
-  app, then report with labels. Building always ends in a labeled checklist.
-- `PLAN: <PASS_ID>` / `PLAN (backlog only)` — scoping and estimates only. A full testable
-  acceptance checklist is written only when the pass is nontrivial/multi-item or when
-  `ACCEPT:` is used; backlog entries carry a one-line acceptance sentence, not a full set.
-
-Current acceptance-criteria sets: `.lovable/plan/acceptance-criteria-u8-u24-u4-p-u23-2026-09-02.md`
-(U8, U24, U4, P, U23).
-
