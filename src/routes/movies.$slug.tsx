@@ -386,8 +386,13 @@ function EpisodeRow({
             </a>
           ) : null}
 
+          {showReview ? (
+            <EpisodeReviewButton episodeId={episode.id} reviewed={reviewed} />
+          ) : null}
+
           <div className="flex items-center gap-1.5">
             <FlagMatchButton episodeId={episode.id} movieId={movieId} />
+
             <button
               type="button"
               onClick={() => prefsActions.togglePreferredPodcast(podcast.slug, !preferred)}
