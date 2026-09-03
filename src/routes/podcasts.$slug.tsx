@@ -6,7 +6,7 @@ import { Artwork } from "@/components/Artwork";
 import { BrandBadge } from "@/components/BrandBadge";
 import { ViewToggle } from "@/components/ViewToggle";
 import { FlagMatchButton } from "@/components/FlagMatchButton";
-import { EpisodeReviewButton } from "@/components/EpisodeReviewButton";
+import { EpisodeAdminActions } from "@/components/EpisodeAdminActions";
 import { useEpisodeReviewStates } from "@/lib/episode-reviews";
 
 import { usePodcasts, type PodcastMovie } from "@/lib/podcasts";
@@ -268,11 +268,12 @@ function PodcastDetailPage() {
                       <span className="text-muted-foreground">No movie linked yet</span>
                     )}
                     {reviewStates.isAdmin ? (
-                      <EpisodeReviewButton
+                      <EpisodeAdminActions
                         episodeId={episode.id}
                         reviewed={reviewStates.reviews[episode.id]?.reviewed ?? false}
                       />
                     ) : null}
+
                   </div>
                 </li>
               ))}

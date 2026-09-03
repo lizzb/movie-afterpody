@@ -16,7 +16,7 @@ import { Artwork } from "@/components/Artwork";
 import { BrandBadge } from "@/components/BrandBadge";
 import { ScorePill } from "@/components/ScorePill";
 import { FlagMatchButton } from "@/components/FlagMatchButton";
-import { EpisodeReviewButton } from "@/components/EpisodeReviewButton";
+import { EpisodeAdminActions } from "@/components/EpisodeAdminActions";
 import { useEpisodeReviewStates } from "@/lib/episode-reviews";
 
 import { useDiscovery, type EpisodeEntry } from "@/lib/discovery";
@@ -387,7 +387,7 @@ function EpisodeRow({
           ) : null}
 
           {showReview ? (
-            <EpisodeReviewButton episodeId={episode.id} reviewed={reviewed} />
+            <EpisodeAdminActions episodeId={episode.id} reviewed={reviewed} />
           ) : null}
 
           <div className="flex items-center gap-1.5">
