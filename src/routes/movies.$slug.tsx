@@ -85,6 +85,8 @@ function MovieDetailPage() {
   const { entries, prefs, isLoading } = useDiscovery();
   const entry = entries.find((e) => e.movie.slug === slug);
   const [notesOpen, setNotesOpen] = useState(false);
+  const reviewStates = useEpisodeReviewStates(entry?.episodes.map((ep) => ep.episode.id) ?? []);
+
 
   if (isLoading) {
     return (
