@@ -1,4 +1,13 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useAdminQueue } from "@/components/admin/AdminActionQueue";
+
+const MATCH_ACTION_LABEL: Record<"approve" | "reject" | "confirm" | "unlink" | "retire", string> = {
+  approve: "Approve match",
+  reject: "Reject match",
+  confirm: "Confirm match",
+  unlink: "Unlink match",
+  retire: "Not about a movie",
+};
 import { useServerFn } from "@tanstack/react-start";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
