@@ -2588,14 +2588,20 @@ export const listEpisodeReviewStates = createServerFn({ method: "POST" })
     await requireAdmin(context);
     if (data.episodeIds.length === 0) return { reviews: {} as Record<string, EpisodeReviewState> };
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const [generations, { data: rows, error }] = await Promise.all([
-      loadEpisodeGenerations(supabaseAdmin, data.episodeIds),
-      supabaseAdmin
+    const generations = await loadEpisodeGenerations(supabaseAdmin, data.episodeIds);
+    const recs = new Map<
+      string,
+      { episode_id: string; reviewed_at: string | null; sync_generation: number; reopened_at: string | null }
+    >();
+    for (const chunk of chunkIds(data.episodeIds)) {
+      const { data: rows, error } = await supabaseAdmin
         .from("episode_reviews")
         .select("episode_id, reviewed_at, sync_generation, reopened_at")
-        .in("episode_id", data.episodeIds),
-    ]);
-    if (error) throw error;
+        .in("episode_id", chunk);
+      if (error) throw error;
+      for (const row of rows ?? []) recs.set(row.episode_id, row);
+    }
+
 
     const reviews: Record<string, EpisodeReviewState> = {};
     for (const episodeId of data.episodeIds) {
