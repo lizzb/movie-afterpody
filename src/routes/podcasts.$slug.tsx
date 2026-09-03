@@ -49,6 +49,10 @@ function PodcastDetailPage() {
   const { podcastEntries, prefs, isLoading } = usePodcasts();
   const entry = podcastEntries.find((e) => e.podcast.slug === slug);
   const view = prefs.viewModes["podcast-detail"] ?? "rows";
+  const reviewStates = useEpisodeReviewStates(
+    entry?.allEpisodes.map((row) => row.episode.id) ?? [],
+  );
+
 
   if (isLoading) {
     return (
