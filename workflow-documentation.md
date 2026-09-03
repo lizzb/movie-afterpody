@@ -29,3 +29,22 @@
 4. Use **Not about a movie** for ads, interviews, mailbags, trailers, and non-film episodes.
 5. Run **Score the matcher** before and after matcher-rule changes.
 6. When the queue looks stale after a major rule change, use a future guarded replay tool rather than manually refreshing the same weak historical links.
+## Pass acceptance workflow (added 2026-09-02)
+
+Before building a multi-item pass, write a testable acceptance checklist plus the minimum
+verification steps per criterion, and flag anything the spec does not actually cover instead
+of quietly deciding it.
+
+Every pass summary labels each promised item:
+
+- **Verified** — checked in code and in the running app, naming route and device.
+- **Implemented, not verified** — code exists, runtime verification not done.
+- **Deferred** — intentionally not built.
+- **Needs follow-up** — present but not at the requested UX quality.
+
+A pass is never called "built" or moved to *Already done* in `.lovable/roadmap.md` unless every
+item is Verified or explicitly Deferred. Verification is run proactively — no prompting needed —
+and is mandatory for mobile/PWA layout, popovers, filters and stateful controls.
+
+Current acceptance-criteria sets: `.lovable/plan/acceptance-criteria-u8-u24-u4-p-u23-2026-09-02.md`
+(U8, U24, U4, P, U23).
