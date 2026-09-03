@@ -87,7 +87,7 @@ Pass G2's `.layout-locked` hardening is now scoped to touch-primary viewports: o
 
 - **Pass U2 — Multi-movie episode editor — L (~6-10 credits).** Handle double features, trilogies, franchises and "covered in passing" vs "primary subject" by letting one episode link to multiple movies with a coverage role; UI to add/remove/reorder links per episode.
 - **Pass U3 — Curated blocklist/allowlist — M (~3-5 credits).** Admin-managed high-noise phrase lists (ad/promo/joke titles) and per-title allowlist overrides feeding the matcher's keyword suppression.
-- **Pass U4 — Per-podcast matcher tuning — M (~3-5 credits).** Show-level tuning because some feeds use clean title formats while others use joke/chatter titles; per-show overrides for strictness and parsing. **Design direction (added 2026-09-02):** resist solving this with one ever-growing universal matcher. Model it as a set of named, selectable per-podcast *strategies* — clean-title parser, year-aware parser, noisy-title + description strategy, actor/name corroboration, special-word suppression, stricter confidence threshold — each independently testable against the labels via "Score the matcher", with a per-show assignment (and a default). New strategies get added as the data demonstrates the need instead of being folded into shared scoring code.
+- **Pass U4 — Per-podcast matcher tuning — M (~3-5 credits).** Show-level tuning because some feeds use clean title formats while others use joke/chatter titles; per-show overrides for strictness and parsing. **Design direction (added 2026-09-02):** resist solving this with one ever-growing universal matcher. Model it as a set of named, selectable per-podcast *strategies* — clean-title parser, year-aware parser, noisy-title + description strategy, actor/name corroboration, special-word suppression, stricter confidence threshold — each independently testable against the labels via "Score the matcher", with a per-show assignment (and a default). New strategies get added as the data demonstrates the need instead of being folded into shared scoring code. **Acceptance criteria (2026-09-02):** `.lovable/plan/acceptance-criteria-u8-u24-u4-p-u23-2026-09-02.md`.
 - **Pass U5 — Training/evaluation dashboard — M (~3-5 credits).** Turn "Score the matcher" scorecard output into recommended rule changes with before/after evals (extends `matcher-eval.server.ts`).
 - **Pass U6 — Low-confidence link maintenance — S (~1-2 credits).** A safe "clear low-confidence auto links and rerun the current engine" maintenance action with a dry-run preview, guarding manual/confirmed links and parked shows (related to Pass Z).
 
@@ -95,7 +95,7 @@ Pass G2's `.layout-locked` hardening is now scoped to touch-primary viewports: o
 
 Full detail and the "what exists vs. what does not" analysis: `.lovable/plan/review-state-visibility-match-review-reliability-admin-actio-2026-08-30.md`.
 
-- **Pass U8 — Episode-level "review complete" — L (~6-10 credits) — Priority 2.** Per-episode review record (episode, reviewed_at, reviewed_by, feed sync generation), Mark reviewed / Reopen per row plus bulk, auto-reopen on new proposal/flag/link removal, coverage reads `Reviewed X of Y episodes as of sync D`. One migration. **Framing (added 2026-09-02):** U8 is infrastructure for goal-directed review (Pass U27), not the end product. Completeness reporting ("these 11 episodes are unreviewed") must coexist with relevance reporting ("these 4 are the only unreviewed episodes likely to help you choose tonight's movie"), so the per-episode record needs to be queryable by movie, by podcast preference and by Tonight candidacy — not just by show.
+- **Pass U8 — Episode-level "review complete" — L (~6-10 credits) — Priority 2.** Per-episode review record (episode, reviewed_at, reviewed_by, feed sync generation), Mark reviewed / Reopen per row plus bulk, auto-reopen on new proposal/flag/link removal, coverage reads `Reviewed X of Y episodes as of sync D`. One migration. **Framing (added 2026-09-02):** U8 is infrastructure for goal-directed review (Pass U27), not the end product. Completeness reporting ("these 11 episodes are unreviewed") must coexist with relevance reporting ("these 4 are the only unreviewed episodes likely to help you choose tonight's movie"), so the per-episode record needs to be queryable by movie, by podcast preference and by Tonight candidacy — not just by show. **Acceptance criteria (2026-09-02):** `.lovable/plan/acceptance-criteria-u8-u24-u4-p-u23-2026-09-02.md`.
 - **Pass U9 — Learning evidence over time — M (~3-5 credits) — Priority 3.** Persist each Score the matcher run and show current vs previous with deltas and a short history. One migration.
 
 
@@ -139,10 +139,10 @@ Investigate whether the two tools still earn separate sections: they call differ
 #### Pass U22 — Movies filter surface refinement (follow-on to H5) — M (~3-5 credits) — Priority 3
 H5 separated Movies filters from Tonight (shipped 2026-08-31) and it reads better, but the header still feels awkward. Explore search-result framing, where the active-filter summary lives, and how filters open on mobile vs desktop. Low priority.
 
-#### Pass U23 — Cast-mention signal in the matcher — M (~3-5 credits) — Priority 4
+#### Pass U23 — Cast-mention signal in the matcher — M (~3-5 credits) — Priority 4 **Acceptance criteria (2026-09-02):** `.lovable/plan/acceptance-criteria-u8-u24-u4-p-u23-2026-09-02.md`.
 Boost a candidate when one of the movie's top 3 billed actors is named in the episode title or description ("we watched the Nic Cage one"). Deterministic string match on cast names, a new `castMention` signal stored on the link, and a modest confidence bump (plus corroboration credit for otherwise weak/common-word titles). **Dependency:** blocked on Pass P (top-billed cast cached from TMDB credits) — there is no cast data in the schema today.
 
-#### Pass U24 — Episode description in match review — S (~1-2 credits) — Priority 5
+#### Pass U24 — Episode description in match review — S (~1-2 credits) — Priority 5 **Acceptance criteria (2026-09-02):** `.lovable/plan/acceptance-criteria-u8-u24-u4-p-u23-2026-09-02.md`.
 Show the episode description on demand in each review row: collapsed by default (it is too heavy to show inline), expanding in place to the stored description with the matched movie title highlighted, plus a link out to the episode's primary source. Stays in-app — `podcast_episodes.description` is already stored and the review queries already read it for scoring, so the external-window stopgap is not worth splitting out.
 
 #### Pass U25 — Parked shows still surface confirmed content — M (~3-5 credits) — Priority 2
@@ -209,7 +209,7 @@ Per-user choice of which ratings to show, cached in the `podcast_external_metric
 ### Pass N — Tags/vibes and people-based discovery — XL (~10+ credits) — Priority 13
 Shared tag system for movies and shows (curated starter tags, user-proposed, emoji allowed, character cap, tag filtering) plus TMDB person search leading to an actor page filtered to titles with commentary coverage.
 
-### Pass P — Richer movie detail (cast) — L (~6-10 credits) — Priority 14
+### Pass P — Richer movie detail (cast) — L (~6-10 credits) — Priority 14 **Acceptance criteria (2026-09-02):** `.lovable/plan/acceptance-criteria-u8-u24-u4-p-u23-2026-09-02.md`.
 Top-billed cast and director from TMDB credits shown on the movie page, with an external link out for anything deeper. Needs a cast cache table and a credits fetch during enrich.
 
 ### Pass V — TV shows and miniseries via TMDB — XL (~10+ credits) — Priority 15
