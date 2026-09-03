@@ -1527,7 +1527,7 @@ const ReviewRow = memo(function ReviewRow({
           ) : (
             <CheckCheck className="size-3.5" aria-hidden />
           )}
-          {reviewed ? "Reopen" : "Mark reviewed"}
+          {reviewed ? "Reopen" : "Mark episode reviewed"}
         </button>
       </div>
     </li>
