@@ -318,16 +318,21 @@ function MovieDetailPage() {
 function EpisodeRow({
   entry,
   movieId,
+  showReview,
+  reviewed,
   rating,
   listening,
   quality,
 }: {
   entry: EpisodeEntry;
   movieId: string;
+  showReview: boolean;
+  reviewed: boolean;
   rating: EpisodeRating | null;
   listening: ListeningStatus;
   quality: ProductionQuality | null;
 }) {
+
   const { episode, podcast, preferred, listenUrl, alsoCovers } = entry;
   const [open, setOpen] = useState(false);
 
