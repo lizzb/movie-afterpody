@@ -1613,16 +1613,19 @@ export const listPodcastCoverage = createServerFn({ method: "GET" })
       ).length;
       /**
        * Pass U8 — episode-level review completeness. An episode is reviewed when
-       * it carries a review record made against the current sync generation and
-       * not reopened, or when it is retired ("not about a movie", already
-       * settled and excluded from every queue). `stored - episodesReviewed`
-       * therefore equals the show's unreviewed queue size.
+       * it carries a review record that has not been reopened, or when it is
+       * retired ("not about a movie", already settled and excluded from every
+       * queue). A later feed sync is NOT a review reason on its own — only an
+       * actual coverage change (link added/removed/flagged) reopens a review —
+       * so `stored - episodesReviewed` equals the show's unreviewed queue size
+       * without a sync silently wiping the whole show's sign-off.
        */
       const episodesReviewed = own.filter((e) => {
         if (retiredEpisodeIds.has(e.id)) return true;
         const rec = reviewByEpisode.get(e.id);
-        return Boolean(rec && !rec.reopened_at && rec.sync_generation === generation);
+        return Boolean(rec && !rec.reopened_at);
       }).length;
+
       return {
         podcastId: p.id,
         name: p.name,
