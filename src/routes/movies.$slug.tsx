@@ -17,7 +17,13 @@ import { BrandBadge } from "@/components/BrandBadge";
 import { ScorePill } from "@/components/ScorePill";
 import { FlagMatchButton } from "@/components/FlagMatchButton";
 import { EpisodeAdminActions } from "@/components/EpisodeAdminActions";
+import { MarkListenedButton } from "@/components/MarkListenedButton";
+import { PlatformBadges } from "@/components/PlatformBadges";
+import { ExpandableText } from "@/components/ExpandableText";
+import { EpisodeNotesFooter } from "@/components/EpisodeNotesFooter";
+import { CardControls, CardFooter, CardHeader, CardShell } from "@/components/card/Card";
 import { useEpisodeReviewStates } from "@/lib/episode-reviews";
+
 
 import { useDiscovery, type EpisodeEntry } from "@/lib/discovery";
 import { isUnrated, ratingLabel } from "@/lib/ratings";
