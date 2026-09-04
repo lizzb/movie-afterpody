@@ -1228,6 +1228,22 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
         key={p.podcastId}
         className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/60 px-3 py-2 ${busy ? "opacity-70" : ""}`}
       >
+        {/* Pass U18 — cover art thumbnail, tapping through to the show page. */}
+        <Link
+          to="/podcasts/$slug"
+          params={{ slug: p.slug }}
+          aria-label={`Open ${p.name}`}
+          className="shrink-0"
+        >
+          <Artwork
+            src={p.artworkUrl}
+            title={p.name}
+            seed={p.slug}
+            accent={p.accent}
+            shape="cover"
+            className="w-12 text-base"
+          />
+        </Link>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium">{p.name}</p>
           <p className={`text-xs ${complete ? "text-teal" : "text-muted-foreground"}`}>
