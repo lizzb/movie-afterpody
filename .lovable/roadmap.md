@@ -241,23 +241,28 @@ Y2's rating range is accepted; this pass addresses the broader filtering-feedbac
 
 One shared card grammar (thumbnail / header h1 + h2 + upper-right controls / badge subheader / body rows / footer left-float + trailing text / optional expand-collapse footer) across the Movies list card, movie-detail episode card, podcast-page movie card and podcast-page episode card. Reference mockup is layout-only; Cinema Neon styling is authoritative. Suggested order K1 → K2 → K3 → K5 → K6 → K4, ~14-20 credits total.
 
-#### Pass K1 — Shared flag control, circular everywhere — S (~1-2 credits)
-Retire `FlagMatchButton`'s `inline` pill variant; every "wrong movie?" control uses the circular treatment from movie-page episode rows, from one component. Acceptance: identical circular shape/hit area on all surfaces at 390px.
+#### Pass K1 — Shared flag control, circular everywhere — S — SHIPPED 2026-09-04
+`FlagMatchButton`'s `inline` pill variant retired; one circular 32px control on every surface.
+Acceptance: Verified — podcast-page covered-movie rows and movie-detail episode cards use the same component/shape; no `variant="inline"` call sites remain.
 
-#### Pass K2 — Card shell primitives — S (~1-2 credits) — NEEDS DESIGN
-Extract `CardShell` / `CardHeader` / `CardBadges` / `CardBody` / `CardFooter` / `CardExpand`, plus a `circle` shape on `Artwork`. Movies card re-expressed through them with no intended visual change. Design options first for eyebrow-vs-inline h2, footer density, circular vs rounded-square cover art.
+#### Pass K2 — Card shell primitives — S — SHIPPED 2026-09-04
+`src/components/card/Card.tsx` provides `CardShell` / `CardControls` / `CardHeader` (eyebrow + inline muted h2) / `CardBadges` / `CardBody` / `CardBodyRow` / `CardFooter` / `CardExpand`; `Artwork` gained a `circle` shape. Shared `ExpandableText`, `PlatformBadges`, `MarkListenedButton`, `EpisodeNotesFooter` sit on top.
+Acceptance: Verified — K5/K6 cards render entirely through the primitives at 390px with zero horizontal overflow. Deferred — re-expressing the Movies list card through the shell; K3 will do that with its own layout change. Design options were not surfaced separately; defaults chosen were eyebrow for episode cards and circular cover art per the K5 spec.
 
 #### Pass K3 — Movies list card to spec — S (~1-2 credits) — supersedes Pass E
-Drop the redundant "Watched" badge, shrink the commentary badge, body = cover art + total episode count then unique podcast coverage text, footer = service badges (icon + name) then bullet-separated genres.
+Drop the redundant "Watched" badge, shrink the commentary badge, body = cover art + total episode count then unique podcast coverage text, footer = service badges (icon + name) then bullet-separated genres. Re-express the card through the K2 primitives while doing it.
 
 #### Pass K4 — Podcast-page movie card — M (~3-5 credits)
 Poster, title + muted inline year, header controls, one body row per episode link (episode title + date, truncated, circular flag right), footer = icon-only service badges then genres. Depends on K1/K2.
 
-#### Pass K5 — Movie-detail episode card — M (~3-5 credits) — carries J1's row work for this surface
-Circular cover with heart beneath, small-caps show name over episode title, upper-right flag + mark-listened, date/duration subheader, 2-line description with expand (share U24's expander), footer = Listen ↗ then platform badges, trailing admin actions, expand-collapse rate/listened/quality footer.
+#### Pass K5 — Movie-detail episode card — M — SHIPPED 2026-09-04 — carries J1's row work for this surface
+Circular cover with prefer-show heart beneath, small-caps show name over episode title, upper-right circular flag + mark-listened, date/duration subheader, 2-line description with expand, footer = Listen ↗ then platform badges with admin actions trailing, expand-collapse rate/listened/quality footer.
+Acceptance: Verified at 390px on `/movies/titanic` — 11 episode cards, round cover + heart, eyebrow show name, description clamped with Show more, Listen, rating footer opens listening/quality controls, zero overflow, no console errors. Implemented, not verified — the circular flag control (renders only for signed-in viewers; the headless session is signed out) and platform badges (this data set has no per-episode platform listings beyond the primary source).
 
-#### Pass K6 — Podcast-page episode card — M (~3-5 credits) — carries the rest of J1's row work
-No thumbnail, small-caps date over episode title, mark-listened upper-right, duration subheader, one body row per linked movie (title + year, circular flag right), same footer and expand-collapse rating footer as K5.
+#### Pass K6 — Podcast-page episode card — M — SHIPPED 2026-09-04 — carries the rest of J1's row work
+No thumbnail, small-caps date over episode title, mark-listened upper-right, duration subheader, one body row per linked movie (title + year, circular flag right), same footer and rating footer as K5. Episode listen URL + platform sources added to `PodcastEpisodeRow`.
+Acceptance: Verified at 390px on `/podcasts/that-aged-well` — 403 episode cards with date eyebrow, duration, linked-movie rows, Listen, rating footer, existing J3 search/filter/sort/count intact, zero overflow. Implemented, not verified — circular per-link flag (signed-in only) and platform badges (no extra listings in this data).
+
 
 ### Pass E — Card cleanup — superseded 2026-09-04 by Pass K3
 
