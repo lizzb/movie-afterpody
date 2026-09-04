@@ -56,23 +56,6 @@ export const Route = createFileRoute("/movies/$slug")({
   component: MovieDetailPage,
 });
 
-const RATINGS: { value: EpisodeRating; emoji: string; label: string }[] = [
-  { value: "disliked", emoji: "😞", label: "Didn't like it" },
-  { value: "meh", emoji: "😐", label: "It was fine" },
-  { value: "loved", emoji: "😊", label: "Loved it" },
-];
-
-const LISTENING: { value: ListeningStatus; label: string }[] = [
-  { value: "not_started", label: "Not started" },
-  { value: "started", label: "Started" },
-  { value: "finished", label: "Finished" },
-];
-
-const QUALITY: { value: ProductionQuality; label: string }[] = [
-  { value: "poor", label: "Rough audio" },
-  { value: "okay", label: "Okay audio" },
-  { value: "good", label: "Great audio" },
-];
 
 const minutes = (seconds: number | null) => (seconds ? `${Math.round(seconds / 60)} min` : null);
 
