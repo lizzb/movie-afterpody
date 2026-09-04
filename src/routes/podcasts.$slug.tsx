@@ -522,12 +522,8 @@ function CoveredMovie({ item, view }: { item: PodcastMovie; view: ViewMode }) {
             {item.episodes.map((ep) => (
               <li key={ep.id} className="flex items-center gap-1">
                 <span className="line-clamp-1 min-w-0 flex-1">{ep.title}</span>
-                <FlagMatchButton
-                  episodeId={ep.id}
-                  movieId={movie.id}
-                  variant="inline"
-                  label=""
-                />
+                <FlagMatchButton episodeId={ep.id} movieId={movie.id} />
+
               </li>
             ))}
           </ul>
