@@ -17,7 +17,10 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 export function useEpisodeReviewStates(episodeIds: string[]) {
   const isAdmin = useIsAdmin();
   const fetchStates = useServerFn(listEpisodeReviewStates);
-  const ids = [...new Set(episodeIds)].sort().slice(0, 400);
+  // Keep every episode on the page. The server batches database `.in()` reads
+  // into short requests, so truncating here only makes valid review records
+  // look unreviewed on shows with more than 400 episodes.
+  const ids = [...new Set(episodeIds)].sort();
 
   const query = useQuery({
     queryKey: ["episode-review-states", ids],

@@ -2538,9 +2538,8 @@ export const backfillContentRatings = createServerFn({ method: "POST" })
  *
  * Review completeness is per episode and independent of link `review_state`: an
  * episode with no links at all can be marked reviewed, and an episode with a
- * confirmed link is not reviewed until someone says so. A record is only
- * *current* while it was made against the show's present `sync_generation` and
- * has not been reopened; stale records stay for history but do not count.
+ * confirmed link is not reviewed until someone says so. A record remains
+ * current until it is explicitly reopened; feed syncs alone do not invalidate it.
  */
 const EpisodeReviewInput = z.object({
   episodeIds: z.array(z.string().uuid()).min(1).max(200),
@@ -2656,7 +2655,7 @@ export const setEpisodeReviewed = createServerFn({ method: "POST" })
 export const listEpisodeReviewStates = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data) =>
-    z.object({ episodeIds: z.array(z.string().uuid()).max(400) }).parse(data),
+    z.object({ episodeIds: z.array(z.string().uuid()).max(1200) }).parse(data),
   )
   .handler(async ({ data, context }) => {
     await requireAdmin(context);

@@ -315,11 +315,13 @@ Acceptance checklist against `.lovable/plan/acceptance-criteria-u8-u24-u4-p-u23-
 
 ### Pass U8 — Episode-level "review complete" — built 2026-09-02 (partially verified)
 
+**Triage fix shipped 2026-09-04 — podcast-page review state above 400 episodes.** The podcast detail hook silently sorted and truncated episode IDs to 400 before reading review state. Both affected shows exceed that size, and all 14 reported episodes fell beyond the cutoff even though their `episode_reviews` rows had persisted with `reopened_at = null`. The hook now submits the complete show episode set (up to the 1,000-episode ingestion ceiling plus headroom), while the server retains 50-ID database batches. This was an existing U8 completeness defect, not a new pass.
+
 Acceptance checklist against `.lovable/plan/acceptance-criteria-u8-u24-u4-p-u23-2026-09-02.md`:
 
 - **Verified (SQL)** — `episode_reviews` (episode_id PK, `reviewed_at`, `reviewed_by`, `sync_generation`, `reopened_at`, `reopen_reason`, `updated_at`), RLS on with an admin-only ALL policy, grants present for `authenticated` and `service_role`; marking an episode reviewed twice leaves exactly one row.
 - **Verified (SQL)** — auto-reopen triggers: new non-confirmed proposal → `new_link`, wrong-match flag → `flagged`, link removal → `link_removed`; the record is reopened (history kept), never deleted.
-- **Verified (code)** — review completeness is independent of link `review_state`: episodes with no links can be marked reviewed, and a confirmed link is not reviewed until signed off. Only current-generation, non-reopened records count; a raised `sync_generation` after a sync makes prior records stale while preserving them.
+- **Verified (code)** — review completeness is independent of link `review_state`: episodes with no links can be marked reviewed, and a confirmed link is not reviewed until signed off. A non-reopened record remains current; a feed sync alone does not invalidate it.
 - **Verified 2026-09-03 (desktop, signed-in preview)** — row-level Mark reviewed writes through (`episode_reviews` row created for "Magic (1978)", `sync_generation` 1, `reopened_at` null) and the control flips to Reopen; Reopen writes `reopened_at` + `reopen_reason = manual_reopen` and the row returns to the unreviewed queue. Coverage rows read `Reviewed 48 of 471 episodes (never synced here)` — the `as of sync D` form appears once a show has a sync timestamp.
 - **Implemented, not verified** — bulk Mark reviewed / Reopen across a multi-select, the "Hide reviewed episodes" toggle empty state, Mark reviewed / Reopen on the unmatched-episodes list, and mobile (390px) rendering of these controls.
 - **Needs follow-up** — coverage arithmetic (`Y - X` vs. queue count) for one show; `ingestPodcast` raises `sync_generation` even on a partial sync; reopening an episode with no record reports success as a no-op.
