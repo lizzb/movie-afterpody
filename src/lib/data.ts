@@ -107,7 +107,7 @@ async function fetchCatalog(): Promise<Catalog> {
       fetchAllRows<Episode>((from, to) =>
         supabase
           .from("podcast_episodes")
-          .select(sel("id, podcast_id, slug, title, description, released_at, duration_seconds"))
+          .select(sel("id, podcast_id, slug, title, description, released_at, duration_seconds, episode_number"))
           .order("released_at", { ascending: false })
           .order("id")
           .range(from, to)

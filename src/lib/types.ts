@@ -83,6 +83,7 @@ export interface Episode {
   description: string | null;
   released_at: string | null;
   duration_seconds: number | null;
+  episode_number: number | null;
 }
 
 export interface EpisodeSource {
