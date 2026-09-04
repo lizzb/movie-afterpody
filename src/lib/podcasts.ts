@@ -10,7 +10,14 @@ export interface PodcastMovie {
 /** One episode in the full chronological feed, linked or not. */
 export interface PodcastEpisodeRow {
   episode: Episode;
-  movies: { id: string; slug: string; title: string; release_year: number | null }[];
+  movies: {
+    id: string;
+    slug: string;
+    title: string;
+    release_year: number | null;
+    poster_url: string | null;
+    accent: string;
+  }[];
   /** Best external destination for this episode, if we know one. */
   listenUrl: string | null;
   /** Every platform listing for this episode — used for footer badges. */
@@ -64,6 +71,8 @@ export function usePodcasts() {
         slug: movie.slug,
         title: movie.title,
         release_year: movie.release_year,
+        poster_url: movie.poster_url,
+        accent: movie.accent,
       });
       linkedMoviesByEpisode.set(link.episode_id, list);
     }

@@ -11,6 +11,7 @@ import { EpisodeAdminActions } from "@/components/EpisodeAdminActions";
 import { MarkListenedButton } from "@/components/MarkListenedButton";
 import { PlatformBadges } from "@/components/PlatformBadges";
 import { EpisodeNotesFooter } from "@/components/EpisodeNotesFooter";
+import { ExpandableText } from "@/components/ExpandableText";
 import {
   CardBody,
   CardBodyRow,
@@ -459,18 +460,37 @@ function PodcastEpisodeCard({
   const { episode, movies: linked, listenUrl, sources } = row;
   const listening = prefs.listening[episode.slug] ?? "not_started";
 
+  const meta: string[] = [];
+  if (episode.episode_number != null) meta.push(`Episode ${episode.episode_number}`);
+  meta.push(episode.released_at ?? "Date unknown");
+  if (episode.duration_seconds) meta.push(`${Math.round(episode.duration_seconds / 60)} min`);
+
   return (
     <CardShell className="p-3">
       <CardControls>
         <MarkListenedButton episodeSlug={episode.slug} listening={listening} />
       </CardControls>
 
-      <CardHeader reserveRight eyebrow={episode.released_at ?? "Date unknown"} title={episode.title} />
-      {episode.duration_seconds ? (
-        <p className="mt-1 text-[11px] text-muted-foreground">
-          {Math.round(episode.duration_seconds / 60)} min
-        </p>
-      ) : null}
+      <CardHeader
+        reserveRight
+        eyebrow={
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+            {meta.map((part, i) => (
+              <span key={part} className="flex items-center gap-x-2">
+                {i > 0 ? (
+                  <span aria-hidden className="text-muted-foreground/60">
+                    &bull;
+                  </span>
+                ) : null}
+                <span>{part}</span>
+              </span>
+            ))}
+          </span>
+        }
+        title={episode.title}
+      />
+
+      <ExpandableText text={episode.description} className="mt-2 text-xs text-muted-foreground" />
 
       <CardBody>
         {linked.length > 0 ? (
@@ -482,12 +502,21 @@ function PodcastEpisodeCard({
               <Link
                 to="/movies/$slug"
                 params={{ slug: m.slug }}
-                className="line-clamp-1 font-semibold text-foreground hover:text-coral"
+                className="flex min-w-0 items-center gap-2 font-semibold text-foreground hover:text-coral"
               >
-                {m.title}
-                {m.release_year ? (
-                  <span className="font-normal text-muted-foreground"> ({m.release_year})</span>
-                ) : null}
+                <Artwork
+                  src={m.poster_url}
+                  title={m.title}
+                  seed={m.slug}
+                  accent={m.accent}
+                  className="w-8 shrink-0 text-[10px]"
+                />
+                <span className="line-clamp-1 min-w-0">
+                  {m.title}
+                  {m.release_year ? (
+                    <span className="font-normal text-muted-foreground"> ({m.release_year})</span>
+                  ) : null}
+                </span>
               </Link>
             </CardBodyRow>
           ))
@@ -495,6 +524,7 @@ function PodcastEpisodeCard({
           <p>No movie linked yet</p>
         )}
       </CardBody>
+
 
       <CardFooter
         trailing={
