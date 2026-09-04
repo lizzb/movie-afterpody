@@ -10,7 +10,7 @@ import { FlagMatchButton } from "@/components/FlagMatchButton";
 import { EpisodeAdminActions } from "@/components/EpisodeAdminActions";
 import { useEpisodeReviewStates } from "@/lib/episode-reviews";
 
-import { usePodcasts, type PodcastMovie } from "@/lib/podcasts";
+import { usePodcasts, type PodcastEpisodeRow, type PodcastMovie } from "@/lib/podcasts";
 import { prefsActions, type ViewMode } from "@/lib/prefs";
 
 export const Route = createFileRoute("/podcasts/$slug")({
