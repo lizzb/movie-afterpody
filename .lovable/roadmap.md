@@ -48,6 +48,11 @@ The D/O/T5/G/H/Y repair pass is verified and closed (see "Already done"). The re
 #### Lists, watched state and sync — Priority 3c
 
 - **Pass O2 — Watchlist interaction reliability — M (~3-5 credits).** Debug in-browser: laggy add-to-list, unreliable list creation from movie cards, status not refreshing. Acceptance is a recorded browser run of add, create-from-card and remove on both Movies and movie detail.
+
+  Watchlist icon state:
+
+- Not in any watchlist: gray line, no fill, no checkmark (same as current)
+- In at least one watchlist: blue line + blue fill, with a white checkmark
 - **Pass O3 — Account-synced lists, history and display prefs — L (~6-10 credits, upper end).** Migrate local-first list/watch/not-interested state to signed-in backend tables with RLS, one-time local→account migration on first sign-in, documented signed-out fallback. Also in scope (filed 2026-08-28): **`dimWatched` and other display preferences sync with the account, not the device**, using the same migration and fallback. Lower backlog.
 
 #### Consistency and copy — Priority 4
@@ -123,7 +128,7 @@ Full detail and the "what exists vs. what does not" analysis: `.lovable/plan/rev
 
 **What the data supports:** TMDB `/watch/providers` (JustWatch-sourced) returns _current_ availability only — no leave dates, no offer expiry, no "recently added". Neither does the free JustWatch surface. Real leave-date feeds exist only in paid/licensed products (JustWatch partner API, Reelgood, Watchmode "expiring" endpoints). So there are two honest options:
 
-- **X1 — Self-derived change detection (S, no new provider).** We already stamp `availability_checked_at`. Add an `availability_history` table (movie, service, offer type, first_seen, last_seen) written on every availability run. That gives real "Added in the last 30 days" and "Disappeared since <date>" signals, plus a "leaving soon" _heuristic_ only if a provider ever exposes dates. Honest labels: "New on your services", "Was on Netflix until 12 Aug".
+- **X1 — Self-derived change detection (S, no new provider).** We already stamp `availability_checked_at`. Add an `availability_history` table (movie, service, offer type, first*seen, last_seen) written on every availability run. That gives real "Added in the last 30 days" and "Disappeared since <date>" signals, plus a "leaving soon" \_heuristic* only if a provider ever exposes dates. Honest labels: "New on your services", "Was on Netflix until 12 Aug".
 - **X2 — Licensed expiry data (L + subscription cost).** Watchmode or Reelgood expiring-titles endpoint keyed per region, stored as `leaves_on` on `movie_availability`, surfaced as a "Leaving soon" filter on Tonight and Movies, a countdown badge on cards, and a sort option. Requires a paid API key and a scheduled refresh (ties to Pass L).
 
 Recommendation: build X1 first — it is free, needs no new vendor, and answers "what changed" — and only take X2 if true leave dates become a must.
@@ -279,13 +284,9 @@ Root cause: the sync-time matcher inside `ingestPodcast` re-matched **every** ep
 
 Fixes: sync-time matching now skips reviewed, retired and already-linked episodes and never picks a rejected pair; `resolveEpisodesToMovies` (Build movies) and `rescanEpisodeMatches` exclude reviewed episodes, and `writeLink` has a final rejected-pair guard; `fetchRejectedPairs` pages in a stable order; review currency is decided only by explicit invalidation (`reopened_at`), not by sync generation. Data repair migration removed 286 automated links on rejected pairs (manual/confirmed links untouched) and restored sign-offs reopened only by `new_link` — reopened reviews fell 178 → 10, rejected-yet-linked pairs 291 → 5 (all manual/confirmed).
 
-
-
 ### Triage fix — "Any" runtime slider silently capped results at 180m — shipped 2026-09-03
 
 Verified 2026-09-03 in the running app at `/movies` (390px viewport): searching "Titanic" now returns _Titanic (1997), 194m_ with no filters applied. `applyFilters` in `src/lib/discovery.ts` skipped the runtime test only when `runtime <= maxRuntime`, so the top slider stop — labelled "Any" in `FilterBar` — still excluded every movie over 180 minutes on both Tonight and Movies. The filter now short-circuits when `maxRuntime >= RUNTIME_CEILING`. No other filter behaviour changed.
-
-
 
 ### Pass U16 — Treat "live" as a special word in the matcher — shipped 2026-08-31
 
