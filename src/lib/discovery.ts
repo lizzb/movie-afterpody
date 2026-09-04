@@ -17,8 +17,11 @@ export interface EpisodeEntry {
   podcast: Podcast;
   preferred: boolean;
   listenUrl: string | null;
+  /** Every platform listing for this episode — used for footer badges. */
+  sources: { platform: string; url: string }[];
   alsoCovers: string[];
 }
+
 
 export interface MovieEntry {
   movie: Catalog["movies"][number];
