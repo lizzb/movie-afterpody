@@ -454,7 +454,7 @@ export const suggestEpisodeMatches = createServerFn({ method: "POST" })
       "./providers/episode-title.server"
     );
 
-    const { fetchAllEpisodes, fetchRejectionCountsByMovie, pageAll } = await import(
+    const { fetchAllEpisodes, fetchRejectionCountsByMovie, fetchReviewedEpisodeIds, pageAll } = await import(
       "./ingestion-helpers.server"
     );
 
@@ -467,7 +467,7 @@ export const suggestEpisodeMatches = createServerFn({ method: "POST" })
       (from, to) => supabaseAdmin.from("movies").select("id, title, release_year, collection_id").range(from, to),
     );
 
-    const [existingLinks, rejections, rejectionCountByMovie] = await Promise.all([
+    const [existingLinks, rejections, rejectionCountByMovie, reviewedEpisodes] = await Promise.all([
       pageAll<{ episode_id: string; movie_id: string; match_method: string }>((from, to) =>
         supabaseAdmin.from("episode_movies").select("episode_id, movie_id, match_method").range(from, to),
       ),
@@ -475,6 +475,7 @@ export const suggestEpisodeMatches = createServerFn({ method: "POST" })
         supabaseAdmin.from("episode_match_rejections").select("episode_id, movie_id").range(from, to),
       ),
       fetchRejectionCountsByMovie(supabaseAdmin),
+      fetchReviewedEpisodeIds(supabaseAdmin),
     ]);
 
     const rejectedPairs = new Set(rejections.map((r) => `${r.episode_id}:${r.movie_id}`));
@@ -497,6 +498,10 @@ export const suggestEpisodeMatches = createServerFn({ method: "POST" })
       .filter((ep) => hasUsableEpisodeTitle(ep.title))
       .filter((ep) => !looksNonMovieEpisode(ep.title))
       .filter((ep) => !confirmedEpisodes.has(ep.id))
+      // A signed-off episode is settled even when it has no confirmed link.
+      // Suggestions are automated review work and must respect the same U8
+      // protection as sync, Build movies, and recheck.
+      .filter((ep) => !reviewedEpisodes.has(ep.id))
       .map((ep) => {
         const candidates = matchEpisodeToMovies(ep.title, movieList, {
           rejectionCountByMovie,
