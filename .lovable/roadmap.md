@@ -285,6 +285,12 @@ Expand from movies-only to both `movie` and `tv` catalog items using the existin
 
 # Already done
 
+### Triage fix — "Not about a movie" is now reversible from the episode row — shipped 2026-09-04 (QUICK FIX)
+
+Finding: the retirement always *was* a reversible per-episode state (`podcast_episodes.disposition`), and undo existed only inside Recent match decisions, where it required undoing two separate records (the `not_about_a_movie` entry plus one `unlink` per removed link) and became unfindable once the log scrolled. The row control was write-only.
+
+Fix: new `undoEpisodeRetirement` server function plus `useUndoEpisodeRetirement`. The amber row control is now a toggle — pressing it again sets the disposition back to `needs_review`, restores exactly the links that same retirement removed, clears exactly the rejections it wrote, and stamps those logged actions `undone_at` so the history cannot replay them. Only the newest un-undone retirement and the unlink entries logged with it are touched; older independent decisions are untouched, and no automatic restoration happens outside this explicit undo. Verified in the running app on `/podcasts/that-aged-well` (1280px): retire → button flips to "Undo not about a movie" → undo → disposition `needs_review`, link restored, rejection cleared, both log rows marked undone. No decision/history model change was needed, so this is not a new pass; it completes the U8 / Match review undo story.
+
 ### Triage fix — automated matching undid manual review work — shipped 2026-09-04
 
 Root cause: the sync-time matcher inside `ingestPodcast` re-matched **every** episode in a feed on every sync with no rejection check, no reviewed-episode check and no existing-link check, so previously rejected pairs came straight back (fingerprint: `heuristic`/`proposed`, empty `signals`), and each fresh insert fired `episode_review_stale_on_new_link`, reopening episode sign-offs. Separately, a completed sync bumped `podcasts.sync_generation`, and review currency compared against that generation — so a single sync invalidated a whole show's "reviewed" marks even without any coverage change.
