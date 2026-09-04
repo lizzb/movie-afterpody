@@ -67,8 +67,12 @@ function buildEntries(catalog: Catalog, user: UserData, prefs: Prefs): MovieEntr
   const notInterested = new Set(prefs.notInterestedSlugs);
 
   const sourceByEpisode = new Map<string, string>();
+  const sourcesByEpisode = new Map<string, { platform: string; url: string }[]>();
   for (const s of catalog.episodeSources) {
     if (!sourceByEpisode.has(s.episode_id) || s.is_primary) sourceByEpisode.set(s.episode_id, s.url);
+    const list = sourcesByEpisode.get(s.episode_id) ?? [];
+    if (!list.some((x) => x.platform === s.platform)) list.push({ platform: s.platform, url: s.url });
+    sourcesByEpisode.set(s.episode_id, list);
   }
 
   const moviesByEpisode = new Map<string, string[]>();
@@ -116,6 +120,7 @@ function buildEntries(catalog: Catalog, user: UserData, prefs: Prefs): MovieEntr
               podcast,
               preferred: preferredIds.has(podcast.id),
               listenUrl: sourceByEpisode.get(episode.id) ?? podcast.website_url ?? null,
+              sources: sourcesByEpisode.get(episode.id) ?? [],
               alsoCovers: (moviesByEpisode.get(episode.id) ?? [])
                 .filter((id) => id !== movie.id)
                 .map((id) => movieById.get(id)?.title)
