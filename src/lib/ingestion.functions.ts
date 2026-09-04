@@ -256,12 +256,50 @@ export const ingestPodcast = createServerFn({ method: "POST" })
     const { data: movies } = await clients.supabaseAdmin.from("movies").select("id, title, release_year, collection_id");
     const movieList = movies ?? [];
 
+    /**
+     * Guards for the sync-time matcher. Without these, every sync re-matched
+     * every episode in the feed: pairs you had rejected came straight back, and
+     * each new link fired the review-stale trigger, un-marking episodes you had
+     * signed off. Automated matching now only touches episodes that are
+     * unlinked, not retired, and not reviewed.
+     */
+    const { fetchRejectedPairs, fetchReviewedEpisodeIds, pageAll } = await import(
+      "./ingestion-helpers.server"
+    );
+    const rejectedPairs = await fetchRejectedPairs(clients.supabaseAdmin);
+    const reviewedEpisodes = await fetchReviewedEpisodeIds(clients.supabaseAdmin);
+    const existingLinkEpisodes = new Set(
+      (
+        await pageAll<{ episode_id: string }>((from, to) =>
+          clients.supabaseAdmin
+            .from("episode_movies")
+            .select("episode_id")
+            .order("episode_id")
+            .range(from, to),
+        )
+      ).map((l) => l.episode_id),
+    );
+    const retiredEpisodes = new Set(
+      (
+        await pageAll<{ id: string }>((from, to) =>
+          clients.supabaseAdmin
+            .from("podcast_episodes")
+            .select("id")
+            .eq("disposition", "not_about_a_movie")
+            .order("id")
+            .range(from, to),
+        )
+      ).map((e) => e.id),
+    );
+
     let insertedEpisodes = 0;
     let insertedMatches = 0;
     let pendingMatches = 0;
+    let matchesSkippedProtected = 0;
     // Surfaced instead of swallowed: a feed with 900 episodes that only stores 700
     // should say why rather than looking like a coverage mystery.
     const episodeErrors: string[] = [];
+
 
 
     for (const ep of episodes) {
