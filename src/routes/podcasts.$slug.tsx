@@ -8,10 +8,22 @@ import { BrandBadge } from "@/components/BrandBadge";
 import { ViewToggle } from "@/components/ViewToggle";
 import { FlagMatchButton } from "@/components/FlagMatchButton";
 import { EpisodeAdminActions } from "@/components/EpisodeAdminActions";
+import { MarkListenedButton } from "@/components/MarkListenedButton";
+import { PlatformBadges } from "@/components/PlatformBadges";
+import { EpisodeNotesFooter } from "@/components/EpisodeNotesFooter";
+import {
+  CardBody,
+  CardBodyRow,
+  CardControls,
+  CardFooter,
+  CardHeader,
+  CardShell,
+} from "@/components/card/Card";
 import { useEpisodeReviewStates } from "@/lib/episode-reviews";
 
 import { usePodcasts, type PodcastEpisodeRow, type PodcastMovie } from "@/lib/podcasts";
-import { prefsActions, type ViewMode } from "@/lib/prefs";
+import { prefsActions, usePrefs, type ViewMode } from "@/lib/prefs";
+
 
 export const Route = createFileRoute("/podcasts/$slug")({
   head: ({ params }) => {
