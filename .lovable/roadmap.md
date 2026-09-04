@@ -69,7 +69,7 @@ The D/O/T5/G/H/Y repair pass is verified and closed (see "Already done"). The re
 
 - **Pass T6 — Show curation sort direction toggle — S (~1-2 credits).** Ascending/descending on every sort property in "Episode coverage and show curation".
 - **Pass T7 — Sort shows by highest external rating — S (~1-2 credits) — blocked on Pass M** landing a per-show ratings cache.
-- **Pass J3 — Podcast page episode sort and filter — M (~3-5 credits).** Document the current default order, then add newest/oldest, matched/unmatched, duration and title search controls.
+- **Pass J3 — Podcast page episode sort and filter — M (~3-5 credits). Shipped 2026-09-03.** Episode feed on `/podcasts/$slug` now has title search, match filter (All episodes / Matched / Unmatched), admin-only review filter (Any review state / Reviewed / Unreviewed), sort control (newest, oldest, most/fewest linked movies, longest/shortest, title A–Z/Z–A) and a live "X of Y episodes" result count. Default order remains newest first. Acceptance: Verified in preview at 659px — sort options render, Unmatched filter narrowed 403 → 43, "Most linked movies" reorders, count updates, no horizontal overflow. Implemented, not verified: Reviewed/Unreviewed chip filtering exercised only via code path, not a completed runtime click assertion.
 
 ### Pass G2 — Truly lock the layout — SHIPPED 2026-08-27
 
