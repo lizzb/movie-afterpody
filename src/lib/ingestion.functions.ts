@@ -2679,17 +2679,18 @@ export const listEpisodeReviewStates = createServerFn({ method: "POST" })
 
     const reviews: Record<string, EpisodeReviewState> = {};
     for (const episodeId of data.episodeIds) {
-      const meta = generations.get(episodeId);
-      const generation = meta?.podcasts?.sync_generation ?? 1;
       const rec = recs.get(episodeId);
-      const current = Boolean(rec && !rec.reopened_at && rec.sync_generation === generation);
+      // Currency is decided by explicit invalidation only, never by a newer
+      // feed sync (see listPodcastCoverage).
+      const current = Boolean(rec && !rec.reopened_at);
       reviews[episodeId] = {
         reviewed: current,
         reviewedAt: rec?.reviewed_at ?? null,
-        /** A record exists but no longer counts (reopened or an older sync). */
+        /** A record exists but no longer counts (explicitly reopened). */
         hasStaleRecord: Boolean(rec) && !current,
       };
     }
+
     return { reviews };
   });
 
