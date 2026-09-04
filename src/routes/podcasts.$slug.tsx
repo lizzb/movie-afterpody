@@ -233,6 +233,226 @@ function PodcastDetailPage() {
   );
 }
 
+type SortKey =
+  | "newest"
+  | "oldest"
+  | "links-desc"
+  | "links-asc"
+  | "duration-desc"
+  | "duration-asc"
+  | "title-asc"
+  | "title-desc";
+
+const SORT_LABELS: { value: SortKey; label: string }[] = [
+  { value: "newest", label: "Newest first" },
+  { value: "oldest", label: "Oldest first" },
+  { value: "links-desc", label: "Most linked movies" },
+  { value: "links-asc", label: "Fewest linked movies" },
+  { value: "duration-desc", label: "Longest first" },
+  { value: "duration-asc", label: "Shortest first" },
+  { value: "title-asc", label: "Title A–Z" },
+  { value: "title-desc", label: "Title Z–A" },
+];
+
+type MatchFilter = "all" | "matched" | "unmatched";
+type ReviewFilter = "all" | "reviewed" | "unreviewed";
+
+/** J3: the full episode feed with search, filter and sort controls. */
+function EpisodeFeed({
+  rows,
+  reviewStates,
+}: {
+  rows: PodcastEpisodeRow[];
+  reviewStates: ReturnType<typeof useEpisodeReviewStates>;
+}) {
+  const [search, setSearch] = useState("");
+  const [match, setMatch] = useState<MatchFilter>("all");
+  const [review, setReview] = useState<ReviewFilter>("all");
+  const [sort, setSort] = useState<SortKey>("newest");
+
+  const visible = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const filtered = rows.filter((row) => {
+      if (q && !row.episode.title.toLowerCase().includes(q)) return false;
+      if (match === "matched" && row.movies.length === 0) return false;
+      if (match === "unmatched" && row.movies.length > 0) return false;
+      if (review !== "all") {
+        const reviewed = reviewStates.reviews[row.episode.id]?.reviewed ?? false;
+        if (review === "reviewed" && !reviewed) return false;
+        if (review === "unreviewed" && reviewed) return false;
+      }
+      return true;
+    });
+
+    const date = (r: PodcastEpisodeRow) => r.episode.released_at ?? "";
+    const dur = (r: PodcastEpisodeRow) => r.episode.duration_seconds ?? 0;
+    const sorted = [...filtered];
+    sorted.sort((a, b) => {
+      switch (sort) {
+        case "oldest":
+          return date(a).localeCompare(date(b));
+        case "links-desc":
+          return b.movies.length - a.movies.length || date(b).localeCompare(date(a));
+        case "links-asc":
+          return a.movies.length - b.movies.length || date(b).localeCompare(date(a));
+        case "duration-desc":
+          return dur(b) - dur(a);
+        case "duration-asc":
+          return dur(a) - dur(b);
+        case "title-asc":
+          return a.episode.title.localeCompare(b.episode.title);
+        case "title-desc":
+          return b.episode.title.localeCompare(a.episode.title);
+        default:
+          return date(b).localeCompare(date(a));
+      }
+    });
+    return sorted;
+  }, [rows, search, match, review, sort, reviewStates.reviews]);
+
+  const chip = (active: boolean) =>
+    `rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+      active
+        ? "bg-primary text-primary-foreground"
+        : "border border-border bg-card text-muted-foreground hover:text-foreground"
+    }`;
+
+  return (
+    <section className="mt-7">
+      <h2 className="font-display text-lg font-bold">
+        All episodes <span className="text-muted-foreground">({rows.length})</span>
+      </h2>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Every episode we store, whether a movie is linked to it or not.
+      </p>
+
+      <div className="mt-3 space-y-2">
+        <label className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-2">
+          <Search className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search episode titles"
+            aria-label="Search episode titles"
+            className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+          />
+        </label>
+
+        <div className="flex flex-wrap items-center gap-1.5">
+          {(
+            [
+              ["all", "All episodes"],
+              ["matched", "Matched"],
+              ["unmatched", "Unmatched"],
+            ] as [MatchFilter, string][]
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setMatch(value)}
+              aria-pressed={match === value}
+              className={chip(match === value)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {reviewStates.isAdmin ? (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {(
+              [
+                ["all", "Any review state"],
+                ["reviewed", "Reviewed"],
+                ["unreviewed", "Unreviewed"],
+              ] as [ReviewFilter, string][]
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setReview(value)}
+                aria-pressed={review === value}
+                className={chip(review === value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        ) : null}
+
+        <div className="flex items-center justify-between gap-3">
+          <label className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+            Sort
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortKey)}
+              className="rounded-full border border-border bg-card px-2.5 py-1.5 text-xs font-semibold normal-case tracking-normal text-foreground"
+            >
+              {SORT_LABELS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <span className="shrink-0 text-xs text-muted-foreground" aria-live="polite">
+            {visible.length} of {rows.length} episode{rows.length === 1 ? "" : "s"}
+          </span>
+        </div>
+      </div>
+
+      {rows.length === 0 ? (
+        <p className="mt-3 rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+          No episodes stored for this show yet.
+        </p>
+      ) : visible.length === 0 ? (
+        <p className="mt-3 rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+          No episodes match these filters.
+        </p>
+      ) : (
+        <ol className="mt-3 space-y-2">
+          {visible.map(({ episode, movies: linked }) => (
+            <li key={episode.id} className="rounded-2xl border border-border bg-card p-3 shadow-card">
+              <div className="flex items-baseline justify-between gap-3">
+                <h3 className="min-w-0 text-sm font-semibold leading-snug">{episode.title}</h3>
+                {episode.released_at ? (
+                  <span className="shrink-0 text-[11px] text-muted-foreground">
+                    {episode.released_at}
+                  </span>
+                ) : null}
+              </div>
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs">
+                {linked.length > 0 ? (
+                  linked.map((m) => (
+                    <Link
+                      key={m.id}
+                      to="/movies/$slug"
+                      params={{ slug: m.slug }}
+                      className="rounded-full border border-border bg-secondary px-2.5 py-1 font-semibold text-secondary-foreground hover:text-foreground"
+                    >
+                      {m.title}
+                      {m.release_year ? ` (${m.release_year})` : ""}
+                    </Link>
+                  ))
+                ) : (
+                  <span className="text-muted-foreground">No movie linked yet</span>
+                )}
+                {reviewStates.isAdmin ? (
+                  <EpisodeAdminActions
+                    episodeId={episode.id}
+                    reviewed={reviewStates.reviews[episode.id]?.reviewed ?? false}
+                  />
+                ) : null}
+              </div>
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
+  );
+}
+
+
 function CoveredList({ items, view }: { items: PodcastMovie[]; view: ViewMode }) {
   return (
     <ul
