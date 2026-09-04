@@ -107,10 +107,35 @@ export async function fetchUnlinkedEpisodes(
 
 export async function fetchRejectedPairs(admin: Admin): Promise<Set<string>> {
   const rows = await pageAll<{ episode_id: string; movie_id: string }>((from, to) =>
-    admin.from("episode_match_rejections").select("episode_id, movie_id").range(from, to),
+    // Ordered: an unordered paged read can skip rows while other writes land,
+    // which silently let a rejected pair be matched again.
+    admin
+      .from("episode_match_rejections")
+      .select("episode_id, movie_id")
+      .order("episode_id")
+      .order("movie_id")
+      .range(from, to),
   );
   return new Set(rows.map((r) => `${r.episode_id}:${r.movie_id}`));
 }
+
+/**
+ * Episodes an admin has explicitly signed off. Automated matching must never
+ * change a reviewed episode's coverage: only an explicit invalidation (the
+ * `episode_reviews.reopened_at` triggers, or a manual reopen) makes it eligible
+ * again. Not scoped by sync generation — a feed refresh is not a review reason.
+ */
+export async function fetchReviewedEpisodeIds(admin: Admin): Promise<Set<string>> {
+  const rows = await pageAll<{ episode_id: string; reopened_at: string | null }>((from, to) =>
+    admin
+      .from("episode_reviews")
+      .select("episode_id, reopened_at")
+      .order("episode_id")
+      .range(from, to),
+  );
+  return new Set(rows.filter((r) => !r.reopened_at).map((r) => r.episode_id));
+}
+
 
 /** Learned negative evidence: how often each movie has been rejected as a match. */
 export async function fetchRejectionCountsByMovie(admin: Admin): Promise<Record<string, number>> {
