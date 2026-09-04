@@ -1489,18 +1489,21 @@ const ReviewRow = memo(function ReviewRow({
             </button>
           </>
         )}
-        <button
-          type="button"
-          onClick={() => {
-            setChosen("retire");
-            onAct("retire", row);
-          }}
-          title="Stop suggesting matches for this episode"
-          className={actionClass("retire", chosen === "retire")}
-        >
-          <Ban className="size-3.5" aria-hidden />
-          Not about a movie
-        </button>
+        {/* A reviewed episode is settled — only "Reopen" is offered on it. */}
+        {reviewed ? null : (
+          <button
+            type="button"
+            onClick={() => {
+              setChosen("retire");
+              onAct("retire", row);
+            }}
+            title="Stop suggesting matches for this episode"
+            className={actionClass("retire", chosen === "retire")}
+          >
+            <Ban className="size-3.5" aria-hidden />
+            Not about a movie
+          </button>
+        )}
         <RelinkPicker
           disabled={pending}
           onPick={(movieId) => onRelink(row, movieId, tab === "proposed")}
