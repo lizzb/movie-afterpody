@@ -256,12 +256,50 @@ export const ingestPodcast = createServerFn({ method: "POST" })
     const { data: movies } = await clients.supabaseAdmin.from("movies").select("id, title, release_year, collection_id");
     const movieList = movies ?? [];
 
+    /**
+     * Guards for the sync-time matcher. Without these, every sync re-matched
+     * every episode in the feed: pairs you had rejected came straight back, and
+     * each new link fired the review-stale trigger, un-marking episodes you had
+     * signed off. Automated matching now only touches episodes that are
+     * unlinked, not retired, and not reviewed.
+     */
+    const { fetchRejectedPairs, fetchReviewedEpisodeIds, pageAll } = await import(
+      "./ingestion-helpers.server"
+    );
+    const rejectedPairs = await fetchRejectedPairs(clients.supabaseAdmin);
+    const reviewedEpisodes = await fetchReviewedEpisodeIds(clients.supabaseAdmin);
+    const existingLinkEpisodes = new Set(
+      (
+        await pageAll<{ episode_id: string }>((from, to) =>
+          clients.supabaseAdmin
+            .from("episode_movies")
+            .select("episode_id")
+            .order("episode_id")
+            .range(from, to),
+        )
+      ).map((l) => l.episode_id),
+    );
+    const retiredEpisodes = new Set(
+      (
+        await pageAll<{ id: string }>((from, to) =>
+          clients.supabaseAdmin
+            .from("podcast_episodes")
+            .select("id")
+            .eq("disposition", "not_about_a_movie")
+            .order("id")
+            .range(from, to),
+        )
+      ).map((e) => e.id),
+    );
+
     let insertedEpisodes = 0;
     let insertedMatches = 0;
     let pendingMatches = 0;
+    let matchesSkippedProtected = 0;
     // Surfaced instead of swallowed: a feed with 900 episodes that only stores 700
     // should say why rather than looking like a coverage mystery.
     const episodeErrors: string[] = [];
+
 
 
     for (const ep of episodes) {
@@ -316,8 +354,20 @@ export const ingestPodcast = createServerFn({ method: "POST" })
 
       if (storedTitle.fallback) continue;
 
+      // Never touch coverage an admin already settled, and never re-link an
+      // episode that already has links (its links are review workload, not a
+      // sync concern).
+      if (
+        reviewedEpisodes.has(upsertedEp.id) ||
+        retiredEpisodes.has(upsertedEp.id) ||
+        existingLinkEpisodes.has(upsertedEp.id)
+      ) {
+        matchesSkippedProtected += 1;
+        continue;
+      }
+
       const candidates = clients.matchEpisodeToMovies(storedTitle.title, movieList, { description: ep.description || null });
-      const top = candidates[0];
+      const top = candidates.find((c) => !rejectedPairs.has(`${upsertedEp.id}:${c.movieId}`));
       if (top) {
         if (top.confidence >= 80) {
           await clients.supabaseAdmin
@@ -332,6 +382,7 @@ export const ingestPodcast = createServerFn({ method: "POST" })
               },
               { onConflict: "episode_id, movie_id" },
             );
+          existingLinkEpisodes.add(upsertedEp.id);
           insertedMatches += 1;
         } else if (top.confidence >= 50) {
           await clients.supabaseAdmin
@@ -346,9 +397,11 @@ export const ingestPodcast = createServerFn({ method: "POST" })
               },
               { onConflict: "episode_id, movie_id" },
             );
+          existingLinkEpisodes.add(upsertedEp.id);
           pendingMatches += 1;
         }
       }
+
     }
 
     /**
@@ -382,6 +435,8 @@ export const ingestPodcast = createServerFn({ method: "POST" })
       episodeErrors: episodeErrors.slice(0, 10),
       matchesInserted: insertedMatches,
       pendingMatches,
+      matchesSkippedProtected,
+
     };
 
   });
@@ -1166,9 +1221,8 @@ export const resolveEpisodesToMovies = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { fetchUnlinkedEpisodes, fetchRejectedPairs, upsertMovieFromTmdb } = await import(
-      "./ingestion-helpers.server"
-    );
+    const { fetchUnlinkedEpisodes, fetchRejectedPairs, fetchReviewedEpisodeIds, upsertMovieFromTmdb } =
+      await import("./ingestion-helpers.server");
     const { extractMovieTitleCandidates, looksNonMovieEpisode } = await import(
       "./providers/episode-title.server"
     );
@@ -1180,7 +1234,11 @@ export const resolveEpisodesToMovies = createServerFn({ method: "POST" })
     const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
     const allUnlinked = await fetchUnlinkedEpisodes(supabaseAdmin, { podcastId: data.podcastId });
     const rejected = await fetchRejectedPairs(supabaseAdmin);
-    const todo = allUnlinked.slice(0, data.limit);
+    // An episode signed off by an admin stays settled: an intentionally empty
+    // set of links is a review decision, not a gap to fill in again.
+    const reviewedEpisodes = await fetchReviewedEpisodeIds(supabaseAdmin);
+    const todo = allUnlinked.filter((ep) => !reviewedEpisodes.has(ep.id)).slice(0, data.limit);
+
 
     let linked = 0;
     let moviesCreated = 0;
@@ -1307,8 +1365,13 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { fetchAllEpisodes, fetchRejectedPairs, fetchRejectionCountsByMovie, pageAll } =
-      await import("./ingestion-helpers.server");
+    const {
+      fetchAllEpisodes,
+      fetchRejectedPairs,
+      fetchRejectionCountsByMovie,
+      fetchReviewedEpisodeIds,
+      pageAll,
+    } = await import("./ingestion-helpers.server");
     const { matchEpisodeToMovies, computeCommonEpisodeWords } = await import(
       "./providers/matching.server"
     );
@@ -1316,14 +1379,18 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
       "./providers/episode-title.server"
     );
 
-
+    // Reviewed episodes are out of scope for the rescan: their coverage only
+    // changes through an explicit reopen or a manual edit.
+    const reviewedEpisodes = await fetchReviewedEpisodeIds(supabaseAdmin);
     const episodes = (
       await fetchAllEpisodes(supabaseAdmin, { podcastId: data.podcastId })
     ).filter(
       (ep) =>
         ep.disposition !== "not_about_a_movie" &&
+        !reviewedEpisodes.has(ep.id) &&
         hasUsableEpisodeTitle(ep.title) &&
         !looksNonMovieEpisode(ep.title),
+
     );
     const rejected = await fetchRejectedPairs(supabaseAdmin);
     const rejectionCountByMovie = await fetchRejectionCountsByMovie(supabaseAdmin);
@@ -1365,7 +1432,11 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
       candidate: { movieId: string; confidence: number; signals: object },
       isPrimary: boolean,
     ) => {
+      // Final guard: a rejected pair must never be written back, whatever the
+      // caller thought.
+      if (rejected.has(`${episodeId}:${candidate.movieId}`)) return false;
       const { error } = await supabaseAdmin.from("episode_movies").upsert(
+
         {
           episode_id: episodeId,
           movie_id: candidate.movieId,
@@ -1542,16 +1613,19 @@ export const listPodcastCoverage = createServerFn({ method: "GET" })
       ).length;
       /**
        * Pass U8 — episode-level review completeness. An episode is reviewed when
-       * it carries a review record made against the current sync generation and
-       * not reopened, or when it is retired ("not about a movie", already
-       * settled and excluded from every queue). `stored - episodesReviewed`
-       * therefore equals the show's unreviewed queue size.
+       * it carries a review record that has not been reopened, or when it is
+       * retired ("not about a movie", already settled and excluded from every
+       * queue). A later feed sync is NOT a review reason on its own — only an
+       * actual coverage change (link added/removed/flagged) reopens a review —
+       * so `stored - episodesReviewed` equals the show's unreviewed queue size
+       * without a sync silently wiping the whole show's sign-off.
        */
       const episodesReviewed = own.filter((e) => {
         if (retiredEpisodeIds.has(e.id)) return true;
         const rec = reviewByEpisode.get(e.id);
-        return Boolean(rec && !rec.reopened_at && rec.sync_generation === generation);
+        return Boolean(rec && !rec.reopened_at);
       }).length;
+
       return {
         podcastId: p.id,
         name: p.name,
@@ -2605,17 +2679,18 @@ export const listEpisodeReviewStates = createServerFn({ method: "POST" })
 
     const reviews: Record<string, EpisodeReviewState> = {};
     for (const episodeId of data.episodeIds) {
-      const meta = generations.get(episodeId);
-      const generation = meta?.podcasts?.sync_generation ?? 1;
       const rec = recs.get(episodeId);
-      const current = Boolean(rec && !rec.reopened_at && rec.sync_generation === generation);
+      // Currency is decided by explicit invalidation only, never by a newer
+      // feed sync (see listPodcastCoverage).
+      const current = Boolean(rec && !rec.reopened_at);
       reviews[episodeId] = {
         reviewed: current,
         reviewedAt: rec?.reviewed_at ?? null,
-        /** A record exists but no longer counts (reopened or an older sync). */
+        /** A record exists but no longer counts (explicitly reopened). */
         hasStaleRecord: Boolean(rec) && !current,
       };
     }
+
     return { reviews };
   });
 
