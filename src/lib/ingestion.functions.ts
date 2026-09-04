@@ -1219,9 +1219,8 @@ export const resolveEpisodesToMovies = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { fetchUnlinkedEpisodes, fetchRejectedPairs, upsertMovieFromTmdb } = await import(
-      "./ingestion-helpers.server"
-    );
+    const { fetchUnlinkedEpisodes, fetchRejectedPairs, fetchReviewedEpisodeIds, upsertMovieFromTmdb } =
+      await import("./ingestion-helpers.server");
     const { extractMovieTitleCandidates, looksNonMovieEpisode } = await import(
       "./providers/episode-title.server"
     );
@@ -1233,7 +1232,11 @@ export const resolveEpisodesToMovies = createServerFn({ method: "POST" })
     const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
     const allUnlinked = await fetchUnlinkedEpisodes(supabaseAdmin, { podcastId: data.podcastId });
     const rejected = await fetchRejectedPairs(supabaseAdmin);
-    const todo = allUnlinked.slice(0, data.limit);
+    // An episode signed off by an admin stays settled: an intentionally empty
+    // set of links is a review decision, not a gap to fill in again.
+    const reviewedEpisodes = await fetchReviewedEpisodeIds(supabaseAdmin);
+    const todo = allUnlinked.filter((ep) => !reviewedEpisodes.has(ep.id)).slice(0, data.limit);
+
 
     let linked = 0;
     let moviesCreated = 0;
