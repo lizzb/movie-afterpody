@@ -237,9 +237,32 @@ Y2's rating range is accepted; this pass addresses the broader filtering-feedbac
 
 ## Worth doing soon
 
-### Pass E — Card cleanup — M (~3-5 credits) — Priority 5
+### Card system (Passes K1-K6) — filed 2026-09-04 — plan: `.lovable/plan/card-system-reconciliation-four-card-layouts-flag-consistenc-2026-09-04.md`
 
-Drop the redundant "Watched" badge now that the eye/check control exists, and shrink the commentary badge to icon + number with the label on tap. Recommended option: "N episodes" text with the score as a thin accent bar on the card edge.
+One shared card grammar (thumbnail / header h1 + h2 + upper-right controls / badge subheader / body rows / footer left-float + trailing text / optional expand-collapse footer) across the Movies list card, movie-detail episode card, podcast-page movie card and podcast-page episode card. Reference mockup is layout-only; Cinema Neon styling is authoritative. Suggested order K1 → K2 → K3 → K5 → K6 → K4, ~14-20 credits total.
+
+#### Pass K1 — Shared flag control, circular everywhere — S (~1-2 credits)
+Retire `FlagMatchButton`'s `inline` pill variant; every "wrong movie?" control uses the circular treatment from movie-page episode rows, from one component. Acceptance: identical circular shape/hit area on all surfaces at 390px.
+
+#### Pass K2 — Card shell primitives — S (~1-2 credits) — NEEDS DESIGN
+Extract `CardShell` / `CardHeader` / `CardBadges` / `CardBody` / `CardFooter` / `CardExpand`, plus a `circle` shape on `Artwork`. Movies card re-expressed through them with no intended visual change. Design options first for eyebrow-vs-inline h2, footer density, circular vs rounded-square cover art.
+
+#### Pass K3 — Movies list card to spec — S (~1-2 credits) — supersedes Pass E
+Drop the redundant "Watched" badge, shrink the commentary badge, body = cover art + total episode count then unique podcast coverage text, footer = service badges (icon + name) then bullet-separated genres.
+
+#### Pass K4 — Podcast-page movie card — M (~3-5 credits)
+Poster, title + muted inline year, header controls, one body row per episode link (episode title + date, truncated, circular flag right), footer = icon-only service badges then genres. Depends on K1/K2.
+
+#### Pass K5 — Movie-detail episode card — M (~3-5 credits) — carries J1's row work for this surface
+Circular cover with heart beneath, small-caps show name over episode title, upper-right flag + mark-listened, date/duration subheader, 2-line description with expand (share U24's expander), footer = Listen ↗ then platform badges, trailing admin actions, expand-collapse rate/listened/quality footer.
+
+#### Pass K6 — Podcast-page episode card — M (~3-5 credits) — carries the rest of J1's row work
+No thumbnail, small-caps date over episode title, mark-listened upper-right, duration subheader, one body row per linked movie (title + year, circular flag right), same footer and expand-collapse rating footer as K5.
+
+### Pass E — Card cleanup — superseded 2026-09-04 by Pass K3
+
+Original scope (drop the redundant "Watched" badge, shrink the commentary badge to icon + number) is now inside Pass K3. Do not build separately.
+
 
 ### Pass F — Destructive actions and undo feedback — M (~3-5 credits) — Priority 6
 
@@ -249,9 +272,10 @@ Confirmation dialog before deleting a watchlist plus an undo snackbar (~8 second
 
 Admin-only maintenance action that purges current non-manual proposed/weak saved links from active shows, keeps human labels (`match_actions`, `episode_match_rejections`, `not_about_a_movie`) intact, then reruns the current matcher over the now-unmatched active episodes. Best practice: dry-run first with counts by link type and confidence band, require a confirmation phrase, never delete manual/confirmed links, never touch parked shows unless explicitly opted in, and log a single maintenance action for audit/undo context. Useful after major matcher changes, but risky enough to keep behind a guarded tool rather than a routine workflow.
 
-### Pass J1 — Episode row presentation — M (~3-5 credits) — Priority 9
+### Pass J1 — Episode row presentation — narrowed 2026-09-04 — S (~1-2 credits) — Priority 9
 
-Episode rows get truncated descriptions with expand, consistent title/date/duration/controls on both movie and podcast pages, and a segmented control on podcast pages for movie-focused vs episode-focused views.
+Remaining scope is only the podcast-page segmented control for movie-focused vs episode-focused views. Truncated descriptions with expand and consistent title/date/duration/controls moved to Passes K5 and K6.
+
 
 **Partial 2026-09-03:** admin-only "Mark episode reviewed" / "Reopen" control (stacked-check icon) added to episode rows on movie detail and podcast detail, writing the same `episode_reviews` state as Match review. Acceptance: Verified — button renders admin-only on both surfaces, marking persists to the database and reverts via Reopen, no horizontal overflow. Remaining (not built): truncated descriptions with expand, fully consistent row metadata, movie-focused vs episode-focused segmented control.
 
