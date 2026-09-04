@@ -11,6 +11,7 @@ import { EpisodeAdminActions } from "@/components/EpisodeAdminActions";
 import { MarkListenedButton } from "@/components/MarkListenedButton";
 import { PlatformBadges } from "@/components/PlatformBadges";
 import { EpisodeNotesFooter } from "@/components/EpisodeNotesFooter";
+import { ExpandableText } from "@/components/ExpandableText";
 import {
   CardBody,
   CardBodyRow,
