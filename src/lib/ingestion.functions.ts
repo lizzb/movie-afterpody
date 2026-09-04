@@ -1363,8 +1363,13 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { fetchAllEpisodes, fetchRejectedPairs, fetchRejectionCountsByMovie, pageAll } =
-      await import("./ingestion-helpers.server");
+    const {
+      fetchAllEpisodes,
+      fetchRejectedPairs,
+      fetchRejectionCountsByMovie,
+      fetchReviewedEpisodeIds,
+      pageAll,
+    } = await import("./ingestion-helpers.server");
     const { matchEpisodeToMovies, computeCommonEpisodeWords } = await import(
       "./providers/matching.server"
     );
@@ -1372,14 +1377,18 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
       "./providers/episode-title.server"
     );
 
-
+    // Reviewed episodes are out of scope for the rescan: their coverage only
+    // changes through an explicit reopen or a manual edit.
+    const reviewedEpisodes = await fetchReviewedEpisodeIds(supabaseAdmin);
     const episodes = (
       await fetchAllEpisodes(supabaseAdmin, { podcastId: data.podcastId })
     ).filter(
       (ep) =>
         ep.disposition !== "not_about_a_movie" &&
+        !reviewedEpisodes.has(ep.id) &&
         hasUsableEpisodeTitle(ep.title) &&
         !looksNonMovieEpisode(ep.title),
+
     );
     const rejected = await fetchRejectedPairs(supabaseAdmin);
     const rejectionCountByMovie = await fetchRejectionCountsByMovie(supabaseAdmin);
