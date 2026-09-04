@@ -48,7 +48,7 @@ export function EpisodeAdminActions({ episodeId, reviewed, retired = false, vari
           ) : (
             <Ban className="size-4" aria-hidden />
           )}
-          {isRetired ? "Not about a movie" : "Not about a movie"}
+          Not about a movie
         </button>
       )}
       <EpisodeReviewButton episodeId={episodeId} reviewed={reviewed} variant={variant} />
