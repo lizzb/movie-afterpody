@@ -441,6 +441,7 @@ function EpisodeFeed({
                   <EpisodeAdminActions
                     episodeId={episode.id}
                     reviewed={reviewStates.reviews[episode.id]?.reviewed ?? false}
+                    retired={reviewStates.reviews[episode.id]?.retired ?? false}
                   />
                 ) : null}
               </div>

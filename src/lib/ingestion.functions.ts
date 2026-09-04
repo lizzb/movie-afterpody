@@ -1562,7 +1562,9 @@ export const listPodcastCoverage = createServerFn({ method: "GET" })
 
     const { data: podcasts, error } = await supabaseAdmin
       .from("podcasts")
-      .select("id, name, episode_count, curation_status, sync_generation, last_synced_at")
+      .select(
+        "id, name, slug, artwork_url, accent, episode_count, curation_status, sync_generation, last_synced_at",
+      )
       .order("name");
     if (error) throw error;
 
@@ -1634,6 +1636,10 @@ export const listPodcastCoverage = createServerFn({ method: "GET" })
       return {
         podcastId: p.id,
         name: p.name,
+        // Pass U18 — cover art on curation rows, linking to the show page.
+        slug: p.slug,
+        artworkUrl: p.artwork_url ?? null,
+        accent: p.accent ?? null,
         stored: own.length,
         feedTotal: p.episode_count ?? 0,
         curationStatus: (p.curation_status ?? "active") as "active" | "parked",
@@ -2689,6 +2695,8 @@ export const listEpisodeReviewStates = createServerFn({ method: "POST" })
       const current = Boolean(rec && !rec.reopened_at);
       reviews[episodeId] = {
         reviewed: current,
+        /** "Not about a movie" — the episode is retired from every queue. */
+        retired: generations.get(episodeId)?.disposition === "not_about_a_movie",
         reviewedAt: rec?.reviewed_at ?? null,
         /** A record exists but no longer counts (explicitly reopened). */
         hasStaleRecord: Boolean(rec) && !current,
@@ -2700,6 +2708,7 @@ export const listEpisodeReviewStates = createServerFn({ method: "POST" })
 
 export interface EpisodeReviewState {
   reviewed: boolean;
+  retired: boolean;
   reviewedAt: string | null;
   hasStaleRecord: boolean;
 }

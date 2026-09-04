@@ -135,9 +135,16 @@ Recommendation: build X1 first — it is free, needs no new vendor, and answers 
 
 ### New backlog passes (approved 2026-08-31, not scheduled)
 
-#### Pass U18 — Cover art on show curation rows — S (~1-2 credits) — Priority 1
+#### Pass U18 — Cover art on show curation rows — S (~1-2 credits) — Shipped 2026-09-04
 
-Each show card/row in "Podcast show curation & episode coverage" gets the podcast's cover art as a left thumbnail (reuse `Artwork` with `shape="cover"`, accent fallback for shows without art), so shows are recognisable at a glance instead of read line by line.
+Each show card/row in "Podcast show curation & episode coverage" gets the podcast's cover art as a left thumbnail (reuse `Artwork` with `shape="cover"`, accent fallback for shows without art), so shows are recognisable at a glance instead of read line by line. Tapping the thumbnail opens that show's page.
+
+Acceptance: Verified 2026-09-04 on `/admin/ingest` (1280px, headless, signed-in admin) — 19 active rows each render an `<img>` cover linking to `/podcasts/<slug>`; horizontal overflow 0.
+
+Also shipped 2026-09-04 (episode action-state visibility, `EpisodeAdminActions` + Match Review rows): a reviewed episode hides "Not about a movie" and offers only "Reopen"; a retired episode ("not about a movie") renders as amber fill with white text/icon.
+- Verified: reviewed rows show `Reopen` only — That Aged Well shows 345 Reopen controls and 58 "Not about a movie" controls on 58 unreviewed rows.
+- Implemented, not verified: amber-filled retired state (verifying requires retiring a real episode).
+
 
 #### Pass U19 — Filter unconfirmed links by link strength — M (~3-5 credits) — Priority 1
 

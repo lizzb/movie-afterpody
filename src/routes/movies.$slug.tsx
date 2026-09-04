@@ -304,6 +304,7 @@ function MovieDetailPage() {
                   movieId={movie.id}
                   showReview={reviewStates.isAdmin}
                   reviewed={reviewStates.reviews[ep.episode.id]?.reviewed ?? false}
+                  retired={reviewStates.reviews[ep.episode.id]?.retired ?? false}
                   rating={prefs.ratings[ep.episode.slug] ?? null}
                   listening={prefs.listening[ep.episode.slug] ?? "not_started"}
                   quality={prefs.quality[ep.episode.slug] ?? null}
@@ -323,6 +324,7 @@ function EpisodeRow({
   movieId,
   showReview,
   reviewed,
+  retired,
   rating,
   listening,
   quality,
@@ -331,6 +333,7 @@ function EpisodeRow({
   movieId: string;
   showReview: boolean;
   reviewed: boolean;
+  retired: boolean;
   rating: EpisodeRating | null;
   listening: ListeningStatus;
   quality: ProductionQuality | null;
@@ -387,7 +390,7 @@ function EpisodeRow({
           ) : null}
 
           {showReview ? (
-            <EpisodeAdminActions episodeId={episode.id} reviewed={reviewed} />
+            <EpisodeAdminActions episodeId={episode.id} reviewed={reviewed} retired={retired} />
           ) : null}
 
           <div className="flex items-center gap-1.5">
