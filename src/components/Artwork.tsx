@@ -6,8 +6,8 @@ interface Props {
   /** Any string; used for the deterministic fallback accent. */
   seed: string;
   accent?: string | null;
-  /** poster = 2:3 movie poster, cover = 1:1 podcast cover art. */
-  shape?: "poster" | "cover";
+  /** poster = 2:3 movie poster, cover = 1:1 podcast cover art, circle = round cover. */
+  shape?: "poster" | "cover" | "circle";
   className?: string;
 }
 
@@ -18,10 +18,12 @@ interface Props {
 export function Artwork({ src, title, seed, accent, shape = "poster", className = "" }: Props) {
   const tone = toAccent(accent ?? accentFor(seed));
   const ratio = shape === "poster" ? "aspect-[2/3]" : "aspect-square";
+  const radius = shape === "circle" ? "rounded-full" : "rounded-xl";
 
   return (
     <div
-      className={`relative shrink-0 overflow-hidden rounded-xl ${ratio} ${className}`}
+      className={`relative shrink-0 overflow-hidden ${radius} ${ratio} ${className}`}
+
       aria-hidden
     >
       {src ? (

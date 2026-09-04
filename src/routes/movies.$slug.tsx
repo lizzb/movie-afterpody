@@ -17,7 +17,13 @@ import { BrandBadge } from "@/components/BrandBadge";
 import { ScorePill } from "@/components/ScorePill";
 import { FlagMatchButton } from "@/components/FlagMatchButton";
 import { EpisodeAdminActions } from "@/components/EpisodeAdminActions";
+import { MarkListenedButton } from "@/components/MarkListenedButton";
+import { PlatformBadges } from "@/components/PlatformBadges";
+import { ExpandableText } from "@/components/ExpandableText";
+import { EpisodeNotesFooter } from "@/components/EpisodeNotesFooter";
+import { CardControls, CardFooter, CardHeader, CardShell } from "@/components/card/Card";
 import { useEpisodeReviewStates } from "@/lib/episode-reviews";
+
 
 import { useDiscovery, type EpisodeEntry } from "@/lib/discovery";
 import { isUnrated, ratingLabel } from "@/lib/ratings";
@@ -50,23 +56,6 @@ export const Route = createFileRoute("/movies/$slug")({
   component: MovieDetailPage,
 });
 
-const RATINGS: { value: EpisodeRating; emoji: string; label: string }[] = [
-  { value: "disliked", emoji: "😞", label: "Didn't like it" },
-  { value: "meh", emoji: "😐", label: "It was fine" },
-  { value: "loved", emoji: "😊", label: "Loved it" },
-];
-
-const LISTENING: { value: ListeningStatus; label: string }[] = [
-  { value: "not_started", label: "Not started" },
-  { value: "started", label: "Started" },
-  { value: "finished", label: "Finished" },
-];
-
-const QUALITY: { value: ProductionQuality; label: string }[] = [
-  { value: "poor", label: "Rough audio" },
-  { value: "okay", label: "Okay audio" },
-  { value: "good", label: "Great audio" },
-];
 
 const minutes = (seconds: number | null) => (seconds ? `${Math.round(seconds / 60)} min` : null);
 
@@ -319,6 +308,13 @@ function MovieDetailPage() {
   );
 }
 
+/**
+ * Pass K5 — movie-detail episode card, built on the shared card grammar:
+ * circular cover with a "prefer show" heart beneath, small-caps show name over
+ * the episode title, flag + mark-listened upper right, date/duration subheader,
+ * 2-line description with expand, footer = Listen then platform badges with
+ * admin actions trailing, and an expand-collapse rating footer.
+ */
 function EpisodeRow({
   entry,
   movieId,
@@ -338,165 +334,101 @@ function EpisodeRow({
   listening: ListeningStatus;
   quality: ProductionQuality | null;
 }) {
-
-  const { episode, podcast, preferred, listenUrl, alsoCovers } = entry;
-  const [open, setOpen] = useState(false);
+  const { episode, podcast, preferred, listenUrl, sources, alsoCovers } = entry;
 
   return (
-    <li className="rounded-2xl border border-border bg-card p-3 shadow-card">
+    <CardShell className="p-3">
+      <CardControls>
+        <FlagMatchButton episodeId={episode.id} movieId={movieId} />
+        <MarkListenedButton episodeSlug={episode.slug} listening={listening} />
+      </CardControls>
+
       <div className="flex items-start gap-3">
-        <Link to="/podcasts/$slug" params={{ slug: podcast.slug }} className="shrink-0">
-          <Artwork
-            src={podcast.artwork_url}
-            title={podcast.name}
-            seed={podcast.slug}
-            accent={podcast.accent}
-            shape="cover"
-            className="w-12 text-base"
-          />
-        </Link>
+        <div className="flex w-12 shrink-0 flex-col items-center gap-1.5">
+          <Link to="/podcasts/$slug" params={{ slug: podcast.slug }} className="w-full">
+            <Artwork
+              src={podcast.artwork_url}
+              title={podcast.name}
+              seed={podcast.slug}
+              accent={podcast.accent}
+              shape="circle"
+              className="w-12 text-base"
+            />
+          </Link>
+          <button
+            type="button"
+            onClick={() => prefsActions.togglePreferredPodcast(podcast.slug, !preferred)}
+            aria-pressed={preferred}
+            aria-label={preferred ? `Unfollow ${podcast.name}` : `Prefer ${podcast.name}`}
+            title={preferred ? `Unfollow ${podcast.name}` : `Prefer ${podcast.name}`}
+            className={`grid size-7 place-items-center rounded-full border transition-colors ${
+              preferred
+                ? "border-transparent bg-berry text-primary-foreground"
+                : "border-border text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Heart className="size-3.5" aria-hidden />
+          </button>
+        </div>
+
         <div className="min-w-0 flex-1">
-          <p className="flex flex-wrap items-center gap-2 text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
-            <Link
-              to="/podcasts/$slug"
-              params={{ slug: podcast.slug }}
-              className="hover:text-foreground"
-            >
-              {podcast.name}
-            </Link>
-            {preferred ? (
-              <span className="rounded-full bg-coral-soft px-2 py-0.5 text-[10px] normal-case tracking-normal text-coral">
-                Preferred
-              </span>
-            ) : null}
-          </p>
-          <h3 className="mt-1 text-sm font-semibold leading-snug">{episode.title}</h3>
+          <CardHeader
+            reserveRight
+            eyebrow={
+              <>
+                <Link
+                  to="/podcasts/$slug"
+                  params={{ slug: podcast.slug }}
+                  className="hover:text-foreground"
+                >
+                  {podcast.name}
+                </Link>
+                {preferred ? (
+                  <span className="rounded-full bg-coral-soft px-2 py-0.5 text-[10px] normal-case tracking-normal text-coral">
+                    Preferred
+                  </span>
+                ) : null}
+              </>
+            }
+            title={episode.title}
+          />
           <p className="mt-1 text-[11px] text-muted-foreground">
             {[episode.released_at, minutes(episode.duration_seconds)].filter(Boolean).join(" · ")}
             {alsoCovers.length > 0 ? ` · also covers ${alsoCovers.join(", ")}` : ""}
           </p>
-        </div>
-        <div className="flex shrink-0 flex-col items-end gap-1.5">
-          {listenUrl ? (
-            <a
-              href={listenUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary px-2.5 py-1 text-[11px] font-semibold text-secondary-foreground"
-            >
-              Listen
-              <ExternalLink className="size-3" aria-hidden />
-            </a>
-          ) : null}
-
-          {showReview ? (
-            <EpisodeAdminActions episodeId={episode.id} reviewed={reviewed} retired={retired} />
-          ) : null}
-
-          <div className="flex items-center gap-1.5">
-            <FlagMatchButton episodeId={episode.id} movieId={movieId} />
-
-            <button
-              type="button"
-              onClick={() => prefsActions.togglePreferredPodcast(podcast.slug, !preferred)}
-              aria-pressed={preferred}
-              aria-label={preferred ? `Unfollow ${podcast.name}` : `Prefer ${podcast.name}`}
-              className={`rounded-full border p-1.5 transition-colors ${
-                preferred
-                  ? "border-transparent bg-berry text-primary-foreground"
-                  : "border-border text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Heart className="size-3.5" aria-hidden />
-            </button>
-          </div>
+          <ExpandableText text={episode.description} className="mt-1.5 text-xs text-muted-foreground" />
         </div>
       </div>
 
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground hover:text-foreground"
+      <CardFooter
+        trailing={
+          showReview ? (
+            <EpisodeAdminActions episodeId={episode.id} reviewed={reviewed} retired={retired} />
+          ) : null
+        }
       >
-        <ChevronDown
-          className={`size-3.5 transition-transform ${open ? "rotate-180" : ""}`}
-          aria-hidden
-        />
-        {rating || listening !== "not_started" || quality ? "Your notes" : "Rate this episode"}
-      </button>
-
-      {open ? (
-        <div className="mt-2 flex flex-wrap items-center gap-2">
-          <div className="flex gap-1" role="group" aria-label="Rate this episode">
-            {RATINGS.map((r) => (
-              <button
-                key={r.value}
-                type="button"
-                title={r.label}
-                aria-label={r.label}
-                aria-pressed={rating === r.value}
-                onClick={() =>
-                  prefsActions.rateEpisode(episode.slug, rating === r.value ? null : r.value)
-                }
-                className={`rounded-full border px-2.5 py-1 text-base transition-all ${
-                  rating === r.value
-                    ? "scale-105 border-transparent bg-secondary"
-                    : "border-border opacity-60 hover:opacity-100"
-                }`}
-              >
-                {r.emoji}
-              </button>
-            ))}
-          </div>
-
-          <select
-            value={listening}
-            onChange={(e) =>
-              prefsActions.setListening(episode.slug, e.target.value as ListeningStatus)
-            }
-            aria-label="Listening status"
-            className="rounded-full border border-border bg-background px-3 py-1.5 text-xs font-semibold"
+        {listenUrl ? (
+          <a
+            href={listenUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary px-2.5 py-1 text-[11px] font-semibold text-secondary-foreground"
           >
-            {LISTENING.map((l) => (
-              <option key={l.value} value={l.value}>
-                {l.label}
-              </option>
-            ))}
-          </select>
+            Listen
+            <ExternalLink className="size-3" aria-hidden />
+          </a>
+        ) : null}
+        <PlatformBadges sources={sources} exclude={listenUrl} />
+      </CardFooter>
 
-          <select
-            value={quality ?? ""}
-            onChange={(e) =>
-              prefsActions.setQuality(
-                episode.slug,
-                e.target.value === "" ? null : (e.target.value as ProductionQuality),
-              )
-            }
-            aria-label="Production quality"
-            className="rounded-full border border-border bg-background px-3 py-1.5 text-xs font-semibold"
-          >
-            <option value="">Audio quality</option>
-            {QUALITY.map((q) => (
-              <option key={q.value} value={q.value}>
-                {q.label}
-              </option>
-            ))}
-          </select>
-
-          {listenUrl ? (
-            <a
-              href={listenUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="ml-auto inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground"
-            >
-              Listen
-              <ExternalLink className="size-3" aria-hidden />
-            </a>
-          ) : null}
-        </div>
-      ) : null}
-    </li>
+      <EpisodeNotesFooter
+        episodeSlug={episode.slug}
+        rating={rating}
+        listening={listening}
+        quality={quality}
+        listenUrl={listenUrl}
+      />
+    </CardShell>
   );
 }
+

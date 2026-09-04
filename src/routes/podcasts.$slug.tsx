@@ -8,10 +8,22 @@ import { BrandBadge } from "@/components/BrandBadge";
 import { ViewToggle } from "@/components/ViewToggle";
 import { FlagMatchButton } from "@/components/FlagMatchButton";
 import { EpisodeAdminActions } from "@/components/EpisodeAdminActions";
+import { MarkListenedButton } from "@/components/MarkListenedButton";
+import { PlatformBadges } from "@/components/PlatformBadges";
+import { EpisodeNotesFooter } from "@/components/EpisodeNotesFooter";
+import {
+  CardBody,
+  CardBodyRow,
+  CardControls,
+  CardFooter,
+  CardHeader,
+  CardShell,
+} from "@/components/card/Card";
 import { useEpisodeReviewStates } from "@/lib/episode-reviews";
 
 import { usePodcasts, type PodcastEpisodeRow, type PodcastMovie } from "@/lib/podcasts";
-import { prefsActions, type ViewMode } from "@/lib/prefs";
+import { prefsActions, usePrefs, type ViewMode } from "@/lib/prefs";
+
 
 export const Route = createFileRoute("/podcasts/$slug")({
   head: ({ params }) => {
@@ -410,48 +422,112 @@ function EpisodeFeed({
           No episodes match these filters.
         </p>
       ) : (
-        <ol className="mt-3 space-y-2">
-          {visible.map(({ episode, movies: linked }) => (
-            <li key={episode.id} className="rounded-2xl border border-border bg-card p-3 shadow-card">
-              <div className="flex items-baseline justify-between gap-3">
-                <h3 className="min-w-0 text-sm font-semibold leading-snug">{episode.title}</h3>
-                {episode.released_at ? (
-                  <span className="shrink-0 text-[11px] text-muted-foreground">
-                    {episode.released_at}
-                  </span>
-                ) : null}
-              </div>
-              <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs">
-                {linked.length > 0 ? (
-                  linked.map((m) => (
-                    <Link
-                      key={m.id}
-                      to="/movies/$slug"
-                      params={{ slug: m.slug }}
-                      className="rounded-full border border-border bg-secondary px-2.5 py-1 font-semibold text-secondary-foreground hover:text-foreground"
-                    >
-                      {m.title}
-                      {m.release_year ? ` (${m.release_year})` : ""}
-                    </Link>
-                  ))
-                ) : (
-                  <span className="text-muted-foreground">No movie linked yet</span>
-                )}
-                {reviewStates.isAdmin ? (
-                  <EpisodeAdminActions
-                    episodeId={episode.id}
-                    reviewed={reviewStates.reviews[episode.id]?.reviewed ?? false}
-                    retired={reviewStates.reviews[episode.id]?.retired ?? false}
-                  />
-                ) : null}
-              </div>
-            </li>
+        <ol className="mt-3 space-y-2.5">
+          {visible.map((row) => (
+            <PodcastEpisodeCard
+              key={row.episode.id}
+              row={row}
+              showReview={reviewStates.isAdmin}
+              reviewed={reviewStates.reviews[row.episode.id]?.reviewed ?? false}
+              retired={reviewStates.reviews[row.episode.id]?.retired ?? false}
+            />
           ))}
         </ol>
       )}
     </section>
   );
 }
+
+/**
+ * Pass K6 — podcast-page episode card: small-caps date over the episode title,
+ * mark-listened upper right, duration subheader, one body row per linked movie
+ * with the shared circular flag control, Listen + platform badges in the footer
+ * with admin actions trailing, and the same rating footer as the movie page.
+ */
+function PodcastEpisodeCard({
+  row,
+  showReview,
+  reviewed,
+  retired,
+}: {
+  row: PodcastEpisodeRow;
+  showReview: boolean;
+  reviewed: boolean;
+  retired: boolean;
+}) {
+  const prefs = usePrefs();
+  const { episode, movies: linked, listenUrl, sources } = row;
+  const listening = prefs.listening[episode.slug] ?? "not_started";
+
+  return (
+    <CardShell className="p-3">
+      <CardControls>
+        <MarkListenedButton episodeSlug={episode.slug} listening={listening} />
+      </CardControls>
+
+      <CardHeader reserveRight eyebrow={episode.released_at ?? "Date unknown"} title={episode.title} />
+      {episode.duration_seconds ? (
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          {Math.round(episode.duration_seconds / 60)} min
+        </p>
+      ) : null}
+
+      <CardBody>
+        {linked.length > 0 ? (
+          linked.map((m) => (
+            <CardBodyRow
+              key={m.id}
+              control={<FlagMatchButton episodeId={episode.id} movieId={m.id} />}
+            >
+              <Link
+                to="/movies/$slug"
+                params={{ slug: m.slug }}
+                className="line-clamp-1 font-semibold text-foreground hover:text-coral"
+              >
+                {m.title}
+                {m.release_year ? (
+                  <span className="font-normal text-muted-foreground"> ({m.release_year})</span>
+                ) : null}
+              </Link>
+            </CardBodyRow>
+          ))
+        ) : (
+          <p>No movie linked yet</p>
+        )}
+      </CardBody>
+
+      <CardFooter
+        trailing={
+          showReview ? (
+            <EpisodeAdminActions episodeId={episode.id} reviewed={reviewed} retired={retired} />
+          ) : null
+        }
+      >
+        {listenUrl ? (
+          <a
+            href={listenUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary px-2.5 py-1 text-[11px] font-semibold text-secondary-foreground"
+          >
+            Listen
+            <ExternalLink className="size-3" aria-hidden />
+          </a>
+        ) : null}
+        <PlatformBadges sources={sources} exclude={listenUrl} />
+      </CardFooter>
+
+      <EpisodeNotesFooter
+        episodeSlug={episode.slug}
+        rating={prefs.ratings[episode.slug] ?? null}
+        listening={listening}
+        quality={prefs.quality[episode.slug] ?? null}
+        listenUrl={listenUrl}
+      />
+    </CardShell>
+  );
+}
+
 
 
 function CoveredList({ items, view }: { items: PodcastMovie[]; view: ViewMode }) {
@@ -522,12 +598,8 @@ function CoveredMovie({ item, view }: { item: PodcastMovie; view: ViewMode }) {
             {item.episodes.map((ep) => (
               <li key={ep.id} className="flex items-center gap-1">
                 <span className="line-clamp-1 min-w-0 flex-1">{ep.title}</span>
-                <FlagMatchButton
-                  episodeId={ep.id}
-                  movieId={movie.id}
-                  variant="inline"
-                  label=""
-                />
+                <FlagMatchButton episodeId={ep.id} movieId={movie.id} />
+
               </li>
             ))}
           </ul>
