@@ -1430,7 +1430,11 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
       candidate: { movieId: string; confidence: number; signals: object },
       isPrimary: boolean,
     ) => {
+      // Final guard: a rejected pair must never be written back, whatever the
+      // caller thought.
+      if (rejected.has(`${episodeId}:${candidate.movieId}`)) return false;
       const { error } = await supabaseAdmin.from("episode_movies").upsert(
+
         {
           episode_id: episodeId,
           movie_id: candidate.movieId,
