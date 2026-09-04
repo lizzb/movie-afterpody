@@ -273,6 +273,14 @@ Expand from movies-only to both `movie` and `tv` catalog items using the existin
 
 # Already done
 
+### Triage fix — automated matching undid manual review work — shipped 2026-09-04
+
+Root cause: the sync-time matcher inside `ingestPodcast` re-matched **every** episode in a feed on every sync with no rejection check, no reviewed-episode check and no existing-link check, so previously rejected pairs came straight back (fingerprint: `heuristic`/`proposed`, empty `signals`), and each fresh insert fired `episode_review_stale_on_new_link`, reopening episode sign-offs. Separately, a completed sync bumped `podcasts.sync_generation`, and review currency compared against that generation — so a single sync invalidated a whole show's "reviewed" marks even without any coverage change.
+
+Fixes: sync-time matching now skips reviewed, retired and already-linked episodes and never picks a rejected pair; `resolveEpisodesToMovies` (Build movies) and `rescanEpisodeMatches` exclude reviewed episodes, and `writeLink` has a final rejected-pair guard; `fetchRejectedPairs` pages in a stable order; review currency is decided only by explicit invalidation (`reopened_at`), not by sync generation. Data repair migration removed 286 automated links on rejected pairs (manual/confirmed links untouched) and restored sign-offs reopened only by `new_link` — reopened reviews fell 178 → 10, rejected-yet-linked pairs 291 → 5 (all manual/confirmed).
+
+
+
 ### Triage fix — "Any" runtime slider silently capped results at 180m — shipped 2026-09-03
 
 Verified 2026-09-03 in the running app at `/movies` (390px viewport): searching "Titanic" now returns _Titanic (1997), 194m_ with no filters applied. `applyFilters` in `src/lib/discovery.ts` skipped the runtime test only when `runtime <= maxRuntime`, so the top slider stop — labelled "Any" in `FilterBar` — still excluded every movie over 180 minutes on both Tonight and Movies. The filter now short-circuits when `maxRuntime >= RUNTIME_CEILING`. No other filter behaviour changed.
