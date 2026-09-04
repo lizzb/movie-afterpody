@@ -1,6 +1,6 @@
-import { Ban, Loader2 } from "lucide-react";
+import { Ban, Loader2, Undo2 } from "lucide-react";
 import { EpisodeReviewButton } from "@/components/EpisodeReviewButton";
-import { useMarkEpisodeNotAboutMovie } from "@/lib/episode-reviews";
+import { useMarkEpisodeNotAboutMovie, useUndoEpisodeRetirement } from "@/lib/episode-reviews";
 
 interface Props {
   episodeId: string;
@@ -13,12 +13,16 @@ interface Props {
 /**
  * Right-aligned admin-only controls for a consumer episode row:
  * "Not about a movie" (retire) then "Mark episode reviewed".
+ * The retire control is a toggle — pressing it again undoes the decision and
+ * restores the links that retirement removed.
  * A reviewed episode is settled, so only "Reopen" is offered.
  * Render only when the viewer is an admin.
  */
 export function EpisodeAdminActions({ episodeId, reviewed, retired = false, variant = "inline" }: Props) {
   const retire = useMarkEpisodeNotAboutMovie();
-  const isRetired = retired || retire.isSuccess;
+  const undo = useUndoEpisodeRetirement();
+  const isRetired = (retired || retire.isSuccess) && !undo.isSuccess;
+  const pending = retire.isPending || undo.isPending;
 
   return (
     <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-1.5">
@@ -28,27 +32,31 @@ export function EpisodeAdminActions({ episodeId, reviewed, retired = false, vari
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            retire.mutate({ episodeId });
+            if (pending) return;
+            if (isRetired) undo.mutate({ episodeId });
+            else retire.mutate({ episodeId });
           }}
-          disabled={retire.isPending || isRetired}
+          disabled={pending}
           aria-pressed={isRetired}
           title={
             isRetired
-              ? "Marked as not about a movie — retired from every review queue"
+              ? "Marked as not about a movie — press again to undo and restore its movie links"
               : "Not about a movie — retires this episode from every review queue"
           }
           className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-colors disabled:opacity-100 ${
-            isRetired || retire.isPending
+            isRetired || pending
               ? "border-transparent bg-gold text-primary-foreground"
               : "border-border text-gold hover:bg-gold hover:text-primary-foreground"
           } ${variant === "block" ? "px-3.5 py-2 text-xs" : ""}`}
         >
-          {retire.isPending ? (
+          {pending ? (
             <Loader2 className="size-4 animate-spin" aria-hidden />
+          ) : isRetired ? (
+            <Undo2 className="size-4" aria-hidden />
           ) : (
             <Ban className="size-4" aria-hidden />
           )}
-          Not about a movie
+          {isRetired ? "Undo not about a movie" : "Not about a movie"}
         </button>
       )}
       <EpisodeReviewButton episodeId={episodeId} reviewed={reviewed} variant={variant} />

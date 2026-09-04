@@ -5,6 +5,7 @@ import {
   listEpisodeReviewStates,
   markEpisodeNotAboutMovie,
   setEpisodeReviewed,
+  undoEpisodeRetirement,
 } from "@/lib/ingestion.functions";
 
 import { useIsAdmin } from "@/hooks/useIsAdmin";
@@ -71,5 +72,27 @@ export function useMarkEpisodeNotAboutMovie() {
     },
     onError: (error: unknown) =>
       toast.error(error instanceof Error ? error.message : "Could not retire this episode"),
+  });
+}
+
+/**
+ * Reverses the retirement from the same episode row: the episode returns to the
+ * review queues and the links that retirement removed come back.
+ */
+export function useUndoEpisodeRetirement() {
+  const queryClient = useQueryClient();
+  const run = useServerFn(undoEpisodeRetirement);
+  return useMutation({
+    mutationFn: async (vars: { episodeId: string }) => run({ data: { episodeId: vars.episodeId } }),
+    onSuccess: (result) => {
+      toast.success(
+        result.linksRestored > 0
+          ? `Undone — episode back in review, ${result.linksRestored} link${result.linksRestored === 1 ? "" : "s"} restored`
+          : "Undone — episode is back in review",
+      );
+      void queryClient.invalidateQueries();
+    },
+    onError: (error: unknown) =>
+      toast.error(error instanceof Error ? error.message : "Could not undo this decision"),
   });
 }
