@@ -2053,6 +2053,87 @@ export const markEpisodeNotAboutMovie = createServerFn({ method: "POST" })
     return { ok: true, linksRemoved: removed };
   });
 
+/**
+ * Reverses the most recent "not about a movie" retirement for one episode.
+ *
+ * The links `retireEpisode` removed were not independent decisions — they were
+ * side effects of that single retirement — so undoing the retirement restores
+ * exactly the links (and clears exactly the rejections) that the same
+ * retirement created, and marks those logged actions undone so Recent match
+ * decisions cannot replay them. Nothing older than that retirement is touched.
+ */
+export const undoEpisodeRetirement = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) => z.object({ episodeId: z.string().uuid() }).parse(data))
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const episodeId = data.episodeId;
+
+    const { data: retire, error: retireError } = await supabaseAdmin
+      .from("match_actions")
+      .select("id, created_at")
+      .eq("episode_id", episodeId)
+      .eq("action", "not_about_a_movie")
+      .is("undone_at", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (retireError) throw retireError;
+
+    const { error: dispositionError } = await supabaseAdmin
+      .from("podcast_episodes")
+      .update({ disposition: "needs_review" })
+      .eq("id", episodeId)
+      .eq("disposition", "not_about_a_movie");
+    if (dispositionError) throw dispositionError;
+
+    let restored = 0;
+    if (retire) {
+      // Links removed by that retirement are logged immediately before it.
+      const since = new Date(new Date(retire.created_at).getTime() - 120_000).toISOString();
+      const { data: unlinks } = await supabaseAdmin
+        .from("match_actions")
+        .select("id, movie_id, previous_method, previous_confidence")
+        .eq("episode_id", episodeId)
+        .eq("action", "unlink")
+        .is("undone_at", null)
+        .gte("created_at", since)
+        .lte("created_at", retire.created_at);
+
+      for (const unlink of unlinks ?? []) {
+        if (!unlink.movie_id) continue;
+        await supabaseAdmin.from("episode_movies").upsert(
+          {
+            episode_id: episodeId,
+            movie_id: unlink.movie_id,
+            match_method: unlink.previous_method ?? "heuristic",
+            match_confidence: unlink.previous_confidence ?? 0.5,
+            is_primary_subject: true,
+          },
+          { onConflict: "episode_id, movie_id" },
+        );
+        await supabaseAdmin
+          .from("episode_match_rejections")
+          .delete()
+          .eq("episode_id", episodeId)
+          .eq("movie_id", unlink.movie_id);
+        await supabaseAdmin
+          .from("match_actions")
+          .update({ undone_at: new Date().toISOString() })
+          .eq("id", unlink.id);
+        restored += 1;
+      }
+
+      await supabaseAdmin
+        .from("match_actions")
+        .update({ undone_at: new Date().toISOString() })
+        .eq("id", retire.id);
+    }
+
+    return { ok: true, linksRestored: restored };
+  });
+
 const BulkDecisionInput = z.object({
   action: z.enum(["approve", "reject", "confirm", "unlink", "retire"]),
   pairs: z
