@@ -1,5 +1,6 @@
+import { useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ExternalLink, Heart, Star } from "lucide-react";
+import { ExternalLink, Heart, Search, Star } from "lucide-react";
 import { BackLink } from "@/components/BackLink";
 import { AppShell } from "@/components/AppShell";
 import { Artwork } from "@/components/Artwork";
