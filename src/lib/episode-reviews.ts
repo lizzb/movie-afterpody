@@ -5,6 +5,7 @@ import {
   listEpisodeReviewStates,
   markEpisodeNotAboutMovie,
   setEpisodeReviewed,
+  undoEpisodeRetirement,
 } from "@/lib/ingestion.functions";
 
 import { useIsAdmin } from "@/hooks/useIsAdmin";
