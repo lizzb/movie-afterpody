@@ -354,8 +354,20 @@ export const ingestPodcast = createServerFn({ method: "POST" })
 
       if (storedTitle.fallback) continue;
 
+      // Never touch coverage an admin already settled, and never re-link an
+      // episode that already has links (its links are review workload, not a
+      // sync concern).
+      if (
+        reviewedEpisodes.has(upsertedEp.id) ||
+        retiredEpisodes.has(upsertedEp.id) ||
+        existingLinkEpisodes.has(upsertedEp.id)
+      ) {
+        matchesSkippedProtected += 1;
+        continue;
+      }
+
       const candidates = clients.matchEpisodeToMovies(storedTitle.title, movieList, { description: ep.description || null });
-      const top = candidates[0];
+      const top = candidates.find((c) => !rejectedPairs.has(`${upsertedEp.id}:${c.movieId}`));
       if (top) {
         if (top.confidence >= 80) {
           await clients.supabaseAdmin
@@ -370,6 +382,7 @@ export const ingestPodcast = createServerFn({ method: "POST" })
               },
               { onConflict: "episode_id, movie_id" },
             );
+          existingLinkEpisodes.add(upsertedEp.id);
           insertedMatches += 1;
         } else if (top.confidence >= 50) {
           await clients.supabaseAdmin
@@ -384,9 +397,11 @@ export const ingestPodcast = createServerFn({ method: "POST" })
               },
               { onConflict: "episode_id, movie_id" },
             );
+          existingLinkEpisodes.add(upsertedEp.id);
           pendingMatches += 1;
         }
       }
+
     }
 
     /**
