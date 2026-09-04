@@ -435,6 +435,8 @@ export const ingestPodcast = createServerFn({ method: "POST" })
       episodeErrors: episodeErrors.slice(0, 10),
       matchesInserted: insertedMatches,
       pendingMatches,
+      matchesSkippedProtected,
+
     };
 
   });
