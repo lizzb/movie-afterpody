@@ -237,8 +237,12 @@ Y2's rating range is accepted; this pass addresses the broader filtering-feedbac
 
 ## Worth doing soon
 
-#### Pass L1 — Catalogue read is too heavy for a cold page load — M (~3-5 credits) — filed 2026-09-05
-Every page waits on one whole-catalogue read (movies, availability, genres, all ~6k episodes with full descriptions, sources, ~9k links). Parallel page waves cut the cold load from ~25s to ~14s on 2026-09-05 (triage fix in `src/lib/data.ts`), but it still shows a long skeleton. Options: split the read so list pages don't need episode descriptions, load episode descriptions per show on demand, add a server-side aggregate for coverage counts, and/or persist the last catalogue snapshot locally and revalidate in the background.
+#### Pass L1 — Catalogue read is too heavy for a cold page load — M (~3-5 credits) — SHIPPED 2026-09-05
+Urgent triage removed the two browser-freezing costs: catalogue rows now load in parallel page waves, and movie discovery uses indexed one-pass joins/scoring instead of rescanning every link, genre and availability row once per movie. Movies renders 40 cards initially, Shows renders 30, and podcast detail renders 24 movies plus 30 episodes, with explicit load-more controls. Derived movie entries are reused during navigation while the catalogue/preferences are unchanged.
+
+- **Verified:** `/movies` rendered its initial batch without horizontal overflow or browser errors at the required 1280×1800 test viewport; cold browser timing was 0.51s in the verification run.
+- **Verified:** `/podcasts` rendered and navigation into `/podcasts/the-villain-was-right` completed without console errors or horizontal overflow; the episode feed mounted 30 rows and exposed `Show 30 more` rather than mounting the full backlog.
+- **Needs follow-up:** the remaining cold-network wait varies with the hosted backend. A future server-side summary/detail split can reduce transferred catalogue data further, but it is no longer required to prevent the current unresponsive-page failure.
 
 
 

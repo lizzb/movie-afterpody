@@ -37,7 +37,7 @@ export interface CommentaryScore {
   preferredCount: number;
 }
 
-interface ScoreInputEpisode {
+export interface ScoreInputEpisode {
   episodeId: string;
   podcast: Podcast;
   preference: PodcastPreference;
@@ -46,6 +46,42 @@ interface ScoreInputEpisode {
   quality?: ProductionQuality | undefined;
   externalRating: number | null;
   ratingCount: number | null;
+}
+
+/**
+ * Score every movie in one indexed pass. The old list path called scoreMovie
+ * once per title, repeatedly scanning every episode link and rebuilding the
+ * same maps; that became quadratic as the catalogue grew.
+ */
+export function scoreAllMovies(catalog: Catalog, user: UserData): Map<string, CommentaryScore> {
+  const podcastById = new Map(catalog.podcasts.map((p) => [p.id, p]));
+  const metricByPodcast = new Map(
+    catalog.metrics.filter((m) => m.platform === "apple").map((m) => [m.podcast_id, m]),
+  );
+  const episodeById = new Map(catalog.episodes.map((e) => [e.id, e]));
+  const inputsByMovie = new Map<string, ScoreInputEpisode[]>();
+
+  for (const link of catalog.episodeMovies) {
+    const episode = episodeById.get(link.episode_id);
+    if (!episode) continue;
+    const podcast = podcastById.get(episode.podcast_id);
+    if (!podcast) continue;
+    const metric = metricByPodcast.get(podcast.id);
+    const inputs = inputsByMovie.get(link.movie_id) ?? [];
+    inputs.push({
+      episodeId: episode.id,
+      podcast,
+      preference: user.preferences[podcast.id] ?? "neutral",
+      rating: user.ratings[episode.id],
+      listening: user.listening[episode.id],
+      quality: user.quality[episode.id],
+      externalRating: metric?.rating ?? null,
+      ratingCount: metric?.rating_count ?? null,
+    });
+    inputsByMovie.set(link.movie_id, inputs);
+  }
+
+  return new Map(catalog.movies.map((movie) => [movie.id, scoreFromEpisodes(inputsByMovie.get(movie.id) ?? [])]));
 }
 
 const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, n));

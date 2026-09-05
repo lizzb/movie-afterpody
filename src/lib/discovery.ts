@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useCatalog } from "./data";
 import { usePrefs, toUserData, RUNTIME_CEILING, type Filters, type Prefs } from "./prefs";
 import { ratingRank } from "./ratings";
-import { scoreMovie, type CommentaryScore } from "./scoring";
+import { scoreAllMovies, type CommentaryScore } from "./scoring";
 import type {
   Catalog,
   Episode,
@@ -37,6 +37,21 @@ export interface MovieEntry {
   notInterested: boolean;
 }
 
+const entriesCache = new WeakMap<Catalog, WeakMap<Prefs, MovieEntry[]>>();
+
+function getCachedEntries(catalog: Catalog, user: UserData, prefs: Prefs): MovieEntry[] {
+  let byPrefs = entriesCache.get(catalog);
+  if (!byPrefs) {
+    byPrefs = new WeakMap<Prefs, MovieEntry[]>();
+    entriesCache.set(catalog, byPrefs);
+  }
+  const cached = byPrefs.get(prefs);
+  if (cached) return cached;
+  const entries = buildEntries(catalog, user, prefs);
+  byPrefs.set(prefs, entries);
+  return entries;
+}
+
 /** Everything the screens need, derived once from the catalog + local prefs. */
 export function useDiscovery() {
   const { data: catalog, isLoading, error } = useCatalog();
@@ -45,7 +60,7 @@ export function useDiscovery() {
 
   const entries = useMemo<MovieEntry[]>(() => {
     if (!catalog) return [];
-    return buildEntries(catalog, user, prefs);
+    return getCachedEntries(catalog, user, prefs);
   }, [catalog, user, prefs]);
 
   return { catalog, entries, prefs, user, isLoading, error };
@@ -66,6 +81,22 @@ function buildEntries(catalog: Catalog, user: UserData, prefs: Prefs): MovieEntr
   const mySlugs = new Set(prefs.serviceSlugs);
   const notInterested = new Set(prefs.notInterestedSlugs);
 
+  const genresByMovie = new Map<string, Genre[]>();
+  for (const row of catalog.movieGenres) {
+    const genre = genreById.get(row.genre_id);
+    if (!genre) continue;
+    const list = genresByMovie.get(row.movie_id) ?? [];
+    list.push(genre);
+    genresByMovie.set(row.movie_id, list);
+  }
+
+  const availabilityByMovie = new Map<string, typeof catalog.availability>();
+  for (const offer of catalog.availability) {
+    const list = availabilityByMovie.get(offer.movie_id) ?? [];
+    list.push(offer);
+    availabilityByMovie.set(offer.movie_id, list);
+  }
+
   const sourceByEpisode = new Map<string, string>();
   const sourcesByEpisode = new Map<string, { platform: string; url: string }[]>();
   for (const s of catalog.episodeSources) {
@@ -76,22 +107,25 @@ function buildEntries(catalog: Catalog, user: UserData, prefs: Prefs): MovieEntr
   }
 
   const moviesByEpisode = new Map<string, string[]>();
+  const linksByMovie = new Map<string, typeof catalog.episodeMovies>();
   for (const link of catalog.episodeMovies) {
     const list = moviesByEpisode.get(link.episode_id) ?? [];
     list.push(link.movie_id);
     moviesByEpisode.set(link.episode_id, list);
+    const movieLinks = linksByMovie.get(link.movie_id) ?? [];
+    movieLinks.push(link);
+    linksByMovie.set(link.movie_id, movieLinks);
   }
 
+  const scoresByMovie = scoreAllMovies(catalog, user);
+
   return catalog.movies.map((movie) => {
-    const genres = catalog.movieGenres
-      .filter((mg) => mg.movie_id === movie.id)
-      .map((mg) => genreById.get(mg.genre_id))
-      .filter((g): g is Genre => Boolean(g));
+    const genres = genresByMovie.get(movie.id) ?? [];
+    const movieOffers = availabilityByMovie.get(movie.id) ?? [];
 
     // Only offers you can actually watch on a subscription (or free with ads)
     // count as "available" — rent/buy storefront offers are not streaming.
-    const services = catalog.availability
-      .filter((a) => a.movie_id === movie.id)
+    const services = movieOffers
       .filter((a) => a.offer_type === "subscription" || a.offer_type === "free_ads")
       .map((a) => serviceById.get(a.service_id))
       .filter((s): s is StreamingService => Boolean(s))
@@ -99,8 +133,7 @@ function buildEntries(catalog: Catalog, user: UserData, prefs: Prefs): MovieEntr
       .sort((a, b) => a.sort_order - b.sort_order);
 
     const streamingIds = new Set(services.map((s) => s.id));
-    const rentBuyServices = catalog.availability
-      .filter((a) => a.movie_id === movie.id)
+    const rentBuyServices = movieOffers
       .filter((a) => a.offer_type === "rent" || a.offer_type === "buy")
       .map((a) => serviceById.get(a.service_id))
       .filter((s): s is StreamingService => Boolean(s))
@@ -108,8 +141,7 @@ function buildEntries(catalog: Catalog, user: UserData, prefs: Prefs): MovieEntr
       .filter((s, i, arr) => arr.findIndex((x) => x.id === s.id) === i)
       .sort((a, b) => a.sort_order - b.sort_order);
 
-    const episodes: EpisodeEntry[] = catalog.episodeMovies
-      .filter((l) => l.movie_id === movie.id)
+    const episodes: EpisodeEntry[] = (linksByMovie.get(movie.id) ?? [])
       .map((l) => episodeById.get(l.episode_id))
       .filter((e): e is Episode => Boolean(e))
       .map((episode) => {
@@ -137,7 +169,14 @@ function buildEntries(catalog: Catalog, user: UserData, prefs: Prefs): MovieEntr
 
     return {
       movie,
-      score: scoreMovie(movie.id, catalog, user),
+      score: scoresByMovie.get(movie.id) ?? {
+        score: 0,
+        explanation: "No commentary episodes catalogued for this one yet.",
+        reasons: [],
+        episodeCount: 0,
+        podcastCount: 0,
+        preferredCount: 0,
+      },
       genres,
       services,
       rentBuyServices,
