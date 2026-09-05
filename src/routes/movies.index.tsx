@@ -132,19 +132,26 @@ function MoviesPage() {
             </p>
           )
         ) : (
-          <ul
-            className={
-              view === "tiles"
-                ? "mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"
-                : "mt-5 space-y-2.5"
-            }
-          >
-            {results.map((entry) => (
-              <MovieCard key={entry.movie.id} entry={entry} view={view} />
-            ))}
-          </ul>
+          <ChunkedMovies key={`${view}:${term}:${results.length}`} results={results} view={view} />
         )}
       </main>
     </AppShell>
+  );
+}
+
+function ChunkedMovies({ results, view }: { results: ReturnType<typeof useDiscovery>["entries"]; view: "rows" | "tiles" }) {
+  const [limit, setLimit] = useState(40);
+  const visible = results.slice(0, limit);
+  return (
+    <>
+      <ul className={view === "tiles" ? "mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4" : "mt-5 space-y-2.5"}>
+        {visible.map((entry) => <MovieCard key={entry.movie.id} entry={entry} view={view} />)}
+      </ul>
+      {visible.length < results.length ? (
+        <button type="button" onClick={() => setLimit((n) => n + 40)} className="mt-4 w-full rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold text-foreground">
+          Show 40 more <span className="text-muted-foreground">({results.length - visible.length} remaining)</span>
+        </button>
+      ) : null}
+    </>
   );
 }
