@@ -37,6 +37,21 @@ export interface MovieEntry {
   notInterested: boolean;
 }
 
+const entriesCache = new WeakMap<Catalog, WeakMap<Prefs, MovieEntry[]>>();
+
+function getCachedEntries(catalog: Catalog, user: UserData, prefs: Prefs): MovieEntry[] {
+  let byPrefs = entriesCache.get(catalog);
+  if (!byPrefs) {
+    byPrefs = new WeakMap<Prefs, MovieEntry[]>();
+    entriesCache.set(catalog, byPrefs);
+  }
+  const cached = byPrefs.get(prefs);
+  if (cached) return cached;
+  const entries = buildEntries(catalog, user, prefs);
+  byPrefs.set(prefs, entries);
+  return entries;
+}
+
 /** Everything the screens need, derived once from the catalog + local prefs. */
 export function useDiscovery() {
   const { data: catalog, isLoading, error } = useCatalog();
@@ -45,7 +60,7 @@ export function useDiscovery() {
 
   const entries = useMemo<MovieEntry[]>(() => {
     if (!catalog) return [];
-    return buildEntries(catalog, user, prefs);
+    return getCachedEntries(catalog, user, prefs);
   }, [catalog, user, prefs]);
 
   return { catalog, entries, prefs, user, isLoading, error };
