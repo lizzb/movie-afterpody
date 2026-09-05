@@ -237,6 +237,11 @@ Y2's rating range is accepted; this pass addresses the broader filtering-feedbac
 
 ## Worth doing soon
 
+#### Pass L1 — Catalogue read is too heavy for a cold page load — M (~3-5 credits) — filed 2026-09-05
+Every page waits on one whole-catalogue read (movies, availability, genres, all ~6k episodes with full descriptions, sources, ~9k links). Parallel page waves cut the cold load from ~25s to ~14s on 2026-09-05 (triage fix in `src/lib/data.ts`), but it still shows a long skeleton. Options: split the read so list pages don't need episode descriptions, load episode descriptions per show on demand, add a server-side aggregate for coverage counts, and/or persist the last catalogue snapshot locally and revalidate in the background.
+
+
+
 ### Card system (Passes K1-K6) — filed 2026-09-04 — plan: `.lovable/plan/card-system-reconciliation-four-card-layouts-flag-consistenc-2026-09-04.md`
 
 One shared card grammar (thumbnail / header h1 + h2 + upper-right controls / badge subheader / body rows / footer left-float + trailing text / optional expand-collapse footer) across the Movies list card, movie-detail episode card, podcast-page movie card and podcast-page episode card. Reference mockup is layout-only; Cinema Neon styling is authoritative. Suggested order K1 → K2 → K3 → K5 → K6 → K4, ~14-20 credits total.

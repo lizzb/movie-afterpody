@@ -28,19 +28,35 @@ const sel = (s: string): string => s;
 
 /** PostgREST caps a single response at 1000 rows, so page through everything. */
 const PAGE = 1000;
+/**
+ * Pages were fetched strictly one after another, so the catalogue read grew
+ * linearly with the data (~25s cold load once episode_movies passed 9k rows).
+ * Fetch pages in parallel waves instead, stopping at the first short page.
+ */
+const WAVE = 6;
 
 async function fetchAllRows<T>(
   page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
 ): Promise<T[]> {
   const out: T[] = [];
-  for (let from = 0; ; from += PAGE) {
-    const { data, error } = await page(from, from + PAGE - 1);
-    if (error) throw new Error(error.message);
-    const rows = data ?? [];
-    out.push(...rows);
-    if (rows.length < PAGE) return out;
+  for (let start = 0; ; start += PAGE * WAVE) {
+    const wave = await Promise.all(
+      Array.from({ length: WAVE }, (_, i) => {
+        const from = start + i * PAGE;
+        return page(from, from + PAGE - 1);
+      }),
+    );
+    let done = false;
+    for (const { data, error } of wave) {
+      if (error) throw new Error(error.message);
+      const rows = data ?? [];
+      out.push(...rows);
+      if (rows.length < PAGE) done = true;
+    }
+    if (done) return out;
   }
 }
+
 
 async function fetchCatalog(): Promise<Catalog> {
   const [genres, services, movies, movieGenres, availability, podcasts, metrics, episodes, sources, links] =
