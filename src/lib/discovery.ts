@@ -154,7 +154,14 @@ function buildEntries(catalog: Catalog, user: UserData, prefs: Prefs): MovieEntr
 
     return {
       movie,
-      score: scoresByMovie.get(movie.id) ?? scoreAllMovies({ ...catalog, movies: [movie] }, user).get(movie.id)!,
+      score: scoresByMovie.get(movie.id) ?? {
+        score: 0,
+        explanation: "No commentary episodes catalogued for this one yet.",
+        reasons: [],
+        episodeCount: 0,
+        podcastCount: 0,
+        preferredCount: 0,
+      },
       genres,
       services,
       rentBuyServices,
