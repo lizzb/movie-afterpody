@@ -576,8 +576,9 @@ function CoveredList({ items, view }: { items: PodcastMovie[]; view: ViewMode })
   );
 }
 
+/** Pass K4 — podcast-page movie card built on the shared K2 primitives. */
 function CoveredMovie({ item, view }: { item: PodcastMovie; view: ViewMode }) {
-  const { movie, services, watched, onMyServices } = item.entry;
+  const { movie, services, watched, onMyServices, genres } = item.entry;
 
   if (view === "tiles") {
     return (
@@ -608,32 +609,43 @@ function CoveredMovie({ item, view }: { item: PodcastMovie; view: ViewMode }) {
   }
 
   return (
-    <li className="rounded-2xl border border-border bg-card shadow-card">
-      <Link to="/movies/$slug" params={{ slug: movie.slug }} className="flex items-start gap-3 p-3">
-        <Artwork
-          src={movie.poster_url}
-          title={movie.title}
-          seed={movie.slug}
-          accent={movie.accent}
-          className="w-14 text-base"
-        />
+    <CardShell className="p-3">
+      <div className="flex items-start gap-3">
+        <Link to="/movies/$slug" params={{ slug: movie.slug }} className="shrink-0">
+          <Artwork
+            src={movie.poster_url}
+            title={movie.title}
+            seed={movie.slug}
+            accent={movie.accent}
+            className="w-14 text-base"
+          />
+        </Link>
         <div className="min-w-0 flex-1">
-          <h3 className="font-display text-base font-bold leading-snug">
-            {movie.title}
-            {movie.release_year ? (
-              <span className="font-normal text-muted-foreground"> {movie.release_year}</span>
-            ) : null}
-          </h3>
-          <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
-            {item.episodes.map((ep) => (
-              <li key={ep.id} className="flex items-center gap-1">
-                <span className="line-clamp-1 min-w-0 flex-1">{ep.title}</span>
-                <FlagMatchButton episodeId={ep.id} movieId={movie.id} />
+          <Link to="/movies/$slug" params={{ slug: movie.slug }} className="block">
+            <CardHeader title={movie.title} h2={movie.release_year ?? undefined} />
+          </Link>
 
-              </li>
+          <CardBody>
+            {item.episodes.map((ep) => (
+              <CardBodyRow
+                key={ep.id}
+                control={
+                  <span className="flex items-center gap-1.5">
+                    <ConfirmMatchButton episodeId={ep.id} movieId={movie.id} />
+                    <FlagMatchButton episodeId={ep.id} movieId={movie.id} />
+                  </span>
+                }
+              >
+                <span className="line-clamp-2">
+                  {ep.released_at ? `${ep.released_at}: ` : ""}
+                  {ep.title}
+                  {ep.duration_seconds ? ` (${formatDuration(ep.duration_seconds)})` : ""}
+                </span>
+              </CardBodyRow>
             ))}
-          </ul>
-          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          </CardBody>
+
+          <CardFooter>
             {services.length > 0 ? (
               services.map((s) => (
                 <BrandBadge
@@ -647,12 +659,21 @@ function CoveredMovie({ item, view }: { item: PodcastMovie; view: ViewMode }) {
             ) : (
               <span className="text-[11px] text-muted-foreground">No streaming availability</span>
             )}
-            {watched ? (
-              <span className="text-[11px] font-semibold text-teal">Watched</span>
-            ) : null}
-          </div>
+            <span className="text-[11px] text-muted-foreground">
+              {genres.map((g) => g.name).join(" · ") || "Uncategorised"}
+            </span>
+            {watched ? <span className="text-[11px] font-semibold text-teal">Watched</span> : null}
+          </CardFooter>
         </div>
-      </Link>
-    </li>
+      </div>
+    </CardShell>
   );
+}
+
+/** "1h 42m" / "42m" for episode durations. */
+export function formatDuration(seconds: number) {
+  const mins = Math.round(seconds / 60);
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
