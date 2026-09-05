@@ -7,6 +7,7 @@ import { Artwork } from "@/components/Artwork";
 import { BrandBadge } from "@/components/BrandBadge";
 import { ViewToggle } from "@/components/ViewToggle";
 import { FlagMatchButton } from "@/components/FlagMatchButton";
+import { ConfirmMatchButton } from "@/components/ConfirmMatchButton";
 import { EpisodeAdminActions } from "@/components/EpisodeAdminActions";
 import { MarkListenedButton } from "@/components/MarkListenedButton";
 import { PlatformBadges } from "@/components/PlatformBadges";
