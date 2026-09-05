@@ -100,6 +100,7 @@ export interface EpisodeMovie {
   movie_id: string;
   is_primary_subject: boolean;
   match_confidence: number;
+  review_state: "proposed" | "auto_linked" | "confirmed";
 }
 
 export interface Watchlist {

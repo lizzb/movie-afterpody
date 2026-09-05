@@ -1,0 +1,45 @@
+import { Check } from "lucide-react";
+import { flagKey } from "@/lib/flags";
+import { useConfirmedLinks, useConfirmMatch } from "@/lib/link-review";
+
+/**
+ * Pass K4 — admin-only "this link is correct" control, paired with the flag
+ * button: nothing selected = unreviewed, flag = flagged, check = confirmed.
+ */
+export function ConfirmMatchButton({
+  episodeId,
+  movieId,
+}: {
+  episodeId: string;
+  movieId: string;
+}) {
+  const { confirmed, isAdmin } = useConfirmedLinks();
+  const confirm = useConfirmMatch();
+  if (!isAdmin) return null;
+
+  const isConfirmed = confirmed.has(flagKey(episodeId, movieId));
+  const title = isConfirmed ? "Confirmed correct link" : "Confirm this link is correct";
+
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (isConfirmed) return;
+        confirm.mutate({ episodeId, movieId });
+      }}
+      disabled={confirm.isPending}
+      aria-pressed={isConfirmed}
+      aria-label={title}
+      title={title}
+      className={`grid size-8 shrink-0 place-items-center rounded-full border transition-colors disabled:opacity-50 ${
+        isConfirmed
+          ? "border-transparent bg-teal text-primary-foreground"
+          : "border-border text-teal hover:bg-teal hover:text-primary-foreground"
+      }`}
+    >
+      <Check className="size-4" aria-hidden />
+    </button>
+  );
+}
