@@ -109,11 +109,17 @@ function RatingPill({ value }: { value: string | null | undefined }) {
   );
 }
 
-function PodcastStrip({ episodes }: { episodes: EpisodeEntry[] }) {
+function PodcastStrip({ episodes, verbose = false }: { episodes: EpisodeEntry[]; verbose?: boolean }) {
   const shows = coveringPodcasts(episodes);
   if (shows.length === 0) {
     return <p className="text-[11px] text-muted-foreground">No commentary episodes yet</p>;
   }
+
+  const summary = verbose
+    ? `${episodes.length} episode${episodes.length === 1 ? "" : "s"} across ${shows.length} show${
+        shows.length === 1 ? "" : "s"
+      }`
+    : `${shows.length > 5 ? `+${shows.length - 5} · ` : ""}${episodes.length} ep`;
 
   return (
     <div className="flex items-center gap-1.5">
@@ -137,29 +143,23 @@ function PodcastStrip({ episodes }: { episodes: EpisodeEntry[] }) {
           </span>
         ))}
       </div>
-      <span className="text-[11px] font-semibold text-muted-foreground">
-        {shows.length > 5 ? `+${shows.length - 5} · ` : ""}
-        {episodes.length} ep
-      </span>
+      <span className="text-[11px] font-semibold text-muted-foreground">{summary}</span>
     </div>
   );
 }
 
+/** Pass K3 — Movies list card, expressed through the shared K2 primitives. */
 function MovieRow({ entry }: { entry: MovieEntry }) {
   const { movie, score, genres, services, episodes, watched, notInterested } = entry;
   const dim = usePrefs().dimWatched && watched;
 
   return (
-    <li
-      className={`relative overflow-visible rounded-2xl border border-border bg-card shadow-card transition-shadow hover:shadow-lg ${
-        dim ? "opacity-45 saturate-50" : ""
-      }`}
-    >
-      <div className="absolute right-2.5 top-2.5 z-10 flex items-center gap-1.5">
+    <CardShell dim={dim} className="overflow-visible">
+      <CardControls>
         <NotInterestedButton slug={movie.slug} title={movie.title} off={notInterested} />
         <WatchedButton slug={movie.slug} title={movie.title} watched={watched} />
         <AddToListButton movieSlug={movie.slug} movieTitle={movie.title} />
-      </div>
+      </CardControls>
       <Link to="/movies/$slug" params={{ slug: movie.slug }} className="flex items-start gap-3 p-3">
         <Artwork
           src={movie.poster_url}
@@ -169,15 +169,10 @@ function MovieRow({ entry }: { entry: MovieEntry }) {
           className="w-16 text-base"
         />
         <div className="min-w-0 flex-1">
-          <h3 className="pr-28 font-display text-base font-bold leading-snug">
-            {movie.title}
-            {movie.release_year ? (
-              <span className="font-normal text-muted-foreground"> {movie.release_year}</span>
-            ) : null}
-          </h3>
+          <CardHeader reserveRight title={movie.title} h2={movie.release_year ?? undefined} />
 
-          <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] font-semibold">
-            <ScorePill value={score.score} />
+          <CardBadges>
+            <ScorePill value={score.score} compact />
             <RatingPill value={movie.certification} />
             {movie.runtime_minutes ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-1 text-secondary-foreground">
@@ -185,31 +180,24 @@ function MovieRow({ entry }: { entry: MovieEntry }) {
                 {movie.runtime_minutes}m
               </span>
             ) : null}
-            {watched ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-teal-soft px-2 py-1 text-teal">
-                <Check className="size-3" aria-hidden />
-                Watched
-              </span>
-            ) : null}
-          </div>
+          </CardBadges>
 
-          <div className="mt-2">
-            <PodcastStrip episodes={episodes} />
-          </div>
+          <CardBody>
+            <PodcastStrip episodes={episodes} verbose />
+            <p className="line-clamp-2">{score.explanation}</p>
+          </CardBody>
 
-          <p className="mt-1.5 line-clamp-2 text-xs text-muted-foreground">{score.explanation}</p>
-
-          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <CardFooter>
             {services.slice(0, 3).map((s) => (
               <BrandBadge key={s.id} slug={s.slug} label={s.short_name} active />
             ))}
             <span className="text-[11px] text-muted-foreground">
               {genres.map((g) => g.name).join(" · ") || "Uncategorised"}
             </span>
-          </div>
+          </CardFooter>
         </div>
       </Link>
-    </li>
+    </CardShell>
   );
 }
 
