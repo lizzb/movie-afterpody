@@ -5,6 +5,14 @@ import { AddToListButton } from "@/components/AddToListButton";
 import { Artwork } from "@/components/Artwork";
 import { BrandBadge } from "@/components/BrandBadge";
 import { ScorePill } from "@/components/ScorePill";
+import {
+  CardBadges,
+  CardBody,
+  CardControls,
+  CardFooter,
+  CardHeader,
+  CardShell,
+} from "@/components/card/Card";
 import type { EpisodeEntry, MovieEntry } from "@/lib/discovery";
 import { prefsActions, usePrefs, type ViewMode } from "@/lib/prefs";
 import { isUnrated, ratingLabel } from "@/lib/ratings";
