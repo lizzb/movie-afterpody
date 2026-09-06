@@ -146,14 +146,25 @@ async function fetchCatalog(): Promise<Catalog> {
               .range(from, to)
               .returns<Episode[]>(),
           ),
-      fetchAllRows<EpisodeMovie>((from, to) =>
-        supabase
-          .from("episode_movies")
-          .select(sel("episode_id, movie_id, is_primary_subject, match_confidence, review_state"))
-          .order("episode_id")
-          .range(from, to)
-          .returns<EpisodeMovie[]>(),
-      ),
+      /**
+       * L2a follow-up — parked links are excluded at query time through an
+       * inner join on the episode's show, so they are never transferred.
+       */
+      activePodcastIds.length === 0
+        ? Promise.resolve([] as EpisodeMovie[])
+        : fetchAllRows<EpisodeMovie>((from, to) =>
+            supabase
+              .from("episode_movies")
+              .select(
+                sel(
+                  "episode_id, movie_id, is_primary_subject, match_confidence, review_state, podcast_episodes!inner(podcast_id)",
+                ),
+              )
+              .in("podcast_episodes.podcast_id", activePodcastIds)
+              .order("episode_id")
+              .range(from, to)
+              .returns<EpisodeMovie[]>(),
+          ),
       fetchAllRows<{ id: string }>((from, to) =>
         supabase
           .from("movies")
@@ -165,9 +176,6 @@ async function fetchCatalog(): Promise<Catalog> {
       ),
     ]);
 
-  // Links can only be filtered by show through the episode index we just read.
-  const activeEpisodeIds = new Set(episodes.map((e) => e.id));
-
   return {
     genres,
     services,
@@ -177,7 +185,13 @@ async function fetchCatalog(): Promise<Catalog> {
     podcasts,
     metrics,
     episodes,
-    episodeMovies: links.filter((l) => activeEpisodeIds.has(l.episode_id)),
+    episodeMovies: links.map((l) => ({
+      episode_id: l.episode_id,
+      movie_id: l.movie_id,
+      is_primary_subject: l.is_primary_subject,
+      match_confidence: l.match_confidence,
+      review_state: l.review_state,
+    })),
     holidayMovieIds: holiday.map((h) => h.id),
   };
 }
