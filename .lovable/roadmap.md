@@ -718,6 +718,236 @@ rather than:
 
 This is a future product/automation direction, not an immediate implementation.
 
+#### Pass U48 — PLAN / WORKFLOW AUDIT — <estimateTBD>
+
+PLAN / WORKFLOW AUDIT ONLY — NO CODE CHANGES
+
+I need a definitive, current operating procedure for maintaining and reviewing podcast episode → movie matching and optimal workflow for establishing episode "reviewed" status in this app.
+
+Please derive this from the CURRENT implementation and current roadmap/plan files, not from historical descriptions. Where the documentation and implementation disagree, explicitly identify the discrepancy and treat current implementation as something to diagnose/correct rather than assuming the documentation is accurate.
+
+My current understanding is:
+
+1. Make sure the Flagged episode-movie match queue is empty.
+2. Unpark / activate the podcast.
+3. Open the podcast show details page and review its episode list.
+4. For each episode, flag every episode-movie link that is incorrect.
+5. Go to Ingest → Flagged → select all → unlink all.
+6. Return to the podcast show details page.
+7. For each episode that looks complete, mark/confirm it as reviewed.
+8. Then use the ingestion tools as needed to complete the catalogue. (unclear which ones, in which order)
+
+I am NOT confident that steps 1–8 are currently correct.
+
+Please determine and document the correct workflow, specifically answering:
+
+Is there any difference in functionality in calling the podcast card action buttons under "Podcast show curation & episode coverage" versus the buttons in the standalone sections? (i.e. Build movies from episode>Resolve next 100 episodes; Enrich movies from TMDB>Enrich next 25 movies; Unmatched episodes>Recheck every episode against existing movies, etc).
+
+Similarly, are there any nuances/implementation/functionality differences in calling the episode-movie match link row action buttons vs. selecting multiple episode-movie match link rows and using the bulk action buttons?
+
+### Review / correction
+
+Please determine the intended difference between:
+
+- flagging an incorrect link
+- unlinking
+- confirming a link as correct
+- marking an episode reviewed
+- marking an episode "not about a movie"
+- reopening an episode
+
+For each:
+
+- When should it be used?
+- What happens to each state after the action?
+
+### Sync episodes
+
+What exactly does "Sync episodes" do?
+
+- Does it only ingest/update episode records, or can it also create/update movie links?
+- When should I run it?
+- Does it change the show's sync generation and invalidate episode-level review?
+
+### Build movies
+
+What exactly does "Build movies from episodes" do?
+
+- Which episodes are eligible?
+- Can it recreate a link that was previously proposed?
+- Can it recreate a link that was previously unlinked/rejected?
+- Can it add a different candidate to an episode whose previous candidate was rejected?
+- Can it affect an episode that has been marked reviewed?
+
+### Recheck episodes
+
+What exactly does "Recheck every episode against existing movies" do?
+
+- When should I run it?
+- Can it modify existing links?
+- Can it add additional links?
+- Can it affect reviewed episodes?
+- Can it affect confirmed/manual links?
+- How does it interact with rejected pairs?
+
+### Score the matcher
+
+What exactly does "Score the matcher" measure?
+
+- When should I run it relative to review work?
+- Does it change application data or only report measurements?
+
+### Recommended maintenance workflow
+
+Please give me the recommended sequence for this current app when I:
+
+A. add a new podcast,
+B. refresh an existing podcast feed,
+C. review/fix an existing show's links,
+D. add new movies to the catalogue,
+E. change matcher logic.
+
+For each workflow, state which actions are necessary, optional, or should NOT be run.
+
+### Critical symptom I need explained
+
+I recently:
+
+- reviewed a show's episode links,
+- removed incorrect links,
+- marked episodes that appeared complete as reviewed,
+- then ran "Build movies",
+
+and more than 200 previously cleared-looking links appeared again.
+
+Determine the most likely explanation from the current implementation.
+
+Do NOT change code.
+
+Do NOT implement workflow improvements in this pass.
+
+This is an architecture/operations audit only.
+
+Update the roadmap or documentation only if needed to record the current, corrected workflow.
+
+#### Pass U49 — TRIAGE: Sync reporting/count inconsistencies — <estimateTBD>
+
+TRIAGE: Sync reporting/count inconsistencies / ingestion accounting / truthfulness
+
+I’m seeing several inconsistencies and missing explanations in the podcast ingestion / episode coverage / Build Movies reporting.
+
+Please investigate the current implementation and determine which are expected behavior, which are bugs, and which are merely misleading UI.
+
+Do not assume the existing labels are correct. Trace the actual data flow and explain what each number represents.
+
+Important: Pass U17 already exists for the feed-count-vs-stored-episode discrepancy. Reconcile against U17 and do not create duplicate backlog work where the existing pass already covers the issue.
+
+### 1. Sync Episodes: fetched / stored / feed / failed counts
+
+I have seen results such as:
+
+- The Villain Was Right: `stored 415 of 415 fetched · feed reports 415 · 1 failed`
+- That Aged Well: `stored 405 of 405 fetched · feed reports 403`
+
+Please determine:
+
+- What exactly is the relationship between:
+  - the podcast feed's reported episode count;
+  - the number of episode records actually fetched from the feed;
+  - the number successfully stored/upserted;
+  - the number reported as failed.
+
+- Is it valid for `fetched > feed reported`? If so, explain why that can happen and whether the UI should communicate that more clearly.
+- Is it valid for `stored > feed reported` after prior syncs? For example:
+  - `418 stored / 415 in feed · complete`
+  - `403 stored / 403 in feed · complete`
+
+- Explain exactly how the current implementation determines whether a show is `complete`.
+- Determine whether `stored > feed reported` should legitimately count as complete, or whether this is a data/accounting/UX bug that needs correction.
+- Determine whether the row-level Sync Episodes result and the podcast coverage row are using the same underlying definitions/counts. If not, explain the discrepancy and recommend a single canonical interpretation.
+
+### 2. "1 failed" may be misleading
+
+In the Villain Was Right example:
+
+`stored 415 of 415 fetched · feed reports 415 · 1 failed`
+
+the UI currently describes the result as an episode failing to store.
+
+Please inspect the implementation and determine whether every item counted in `episodesFailed` actually failed to store, or whether any non-failure condition is currently being added to the same error count.
+
+If the current implementation can report an episode as "failed" even though it was successfully stored, treat that as a bug.
+
+Recommended outcome:
+
+- distinguish actual storage failures from non-fatal warnings / title-quality issues;
+- make the displayed wording truthful about what actually happened;
+- preserve useful diagnostic detail without making the normal result UI excessively verbose.
+
+Do not assume the desired wording before tracing the current behavior.
+
+### 3. Build Movies: skipped episodes and missing reason detail
+
+The main "Build movies from episodes" section currently provides detailed skip reasons such as:
+
+- `No movie title could be extracted from the episode title`
+- `The only TMDB match is a pair you already rejected`
+
+with examples.
+
+However, when Build Movies is invoked from the per-podcast-row button in "Podcast show curation & episode coverage", the result only reports something like:
+
+`build: 0 linked · 1 movies created · 2 skipped`
+
+Please determine whether the underlying build operation already returns the detailed skip-reason information and the row-level UI is simply failing to surface it.
+
+If so, this is primarily a reporting/visibility issue rather than a backend feature gap.
+
+Please recommend the smallest useful fix so the per-show action exposes enough information to understand why episodes were skipped, without dumping an unnecessarily large diagnostic report into every row.
+
+### 4. Build Movies: define "no changes"
+
+Please document the circumstances in which Build Movies legitimately returns:
+
+- 0 linked
+- 0 movies created
+- N skipped
+
+For example, determine whether an episode can be skipped because:
+
+- no movie title can be extracted;
+- no confident TMDB match exists;
+- the candidate episode/movie pair was previously rejected;
+- the episode is otherwise excluded from the build pool;
+- another condition exists.
+
+Also clarify whether Build Movies can ever create a duplicate existing episode/movie link, and how previously rejected episode/movie pairs are handled.
+
+### 5. Recommended resolution
+
+For each issue above, classify it as:
+
+- EXPECTED / CORRECT
+- BUG — QUICK FIX
+- BUG — NEEDS DEEPER WORK
+- MISLEADING / UX REPORTING ISSUE
+- DOCUMENTATION / WORKFLOW ISSUE
+
+For anything that is a quick, localized fix, implement and verify it in this turn.
+
+For anything requiring broader investigation, architectural changes, migration, or substantial credit spend, do NOT implement it.
+
+Instead explain:
+
+- root cause;
+- affected code/data paths;
+- smallest plausible fix;
+- estimated S/M/L/XL effort;
+- whether an existing roadmap pass already covers it;
+- whether a new backlog item is actually necessary.
+
+Do not make unrelated ingestion or matching changes.
+
 ### Already documented elsewhere — DO NOT create duplicate pass
 
 #### Future performance optimization notes — covered by existing L3/L4/L5
