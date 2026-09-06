@@ -142,9 +142,9 @@ Each show card/row in "Podcast show curation & episode coverage" gets the podcas
 Acceptance: Verified 2026-09-04 on `/admin/ingest` (1280px, headless, signed-in admin) — 19 active rows each render an `<img>` cover linking to `/podcasts/<slug>`; horizontal overflow 0.
 
 Also shipped 2026-09-04 (episode action-state visibility, `EpisodeAdminActions` + Match Review rows): a reviewed episode hides "Not about a movie" and offers only "Reopen"; a retired episode ("not about a movie") renders as amber fill with white text/icon.
+
 - Verified: reviewed rows show `Reopen` only — That Aged Well shows 345 Reopen controls and 58 "Not about a movie" controls on 58 unreviewed rows.
 - Implemented, not verified: amber-filled retired state (verifying requires retiring a real episode).
-
 
 #### Pass U19 — Filter unconfirmed links by link strength — M (~3-5 credits) — Priority 1
 
@@ -238,6 +238,7 @@ Y2's rating range is accepted; this pass addresses the broader filtering-feedbac
 ## Worth doing soon
 
 #### Pass L1 — Catalogue read is too heavy for a cold page load — M (~3-5 credits) — SHIPPED 2026-09-05
+
 Urgent triage removed the two browser-freezing costs: catalogue rows now load in parallel page waves, and movie discovery uses indexed one-pass joins/scoring instead of rescanning every link, genre and availability row once per movie. Movies renders 40 cards initially, Shows renders 30, and podcast detail renders 24 movies plus 30 episodes, with explicit load-more controls. Derived movie entries are reused during navigation while the catalogue/preferences are unchanged.
 
 - **Verified:** `/movies` rendered its initial batch without horizontal overflow or browser errors at the required 1280×1800 test viewport; cold browser timing was 0.51s in the verification run.
@@ -246,9 +247,9 @@ Urgent triage removed the two browser-freezing costs: catalogue rows now load in
 
 #### Performance architecture (audit 2026-09-05) — plan: `.lovable/plan/performance-architecture-audit-2026-09-05.md`
 
-Audit finding: no consumer page is *incorrect* — filters, sorts, counts and Commentary Score all evaluate the full dataset, and load-more is a deterministic slice with no refetch. The problem is that full-scope correctness is bought with a full-scope client read: one `["catalog"]` query pulls ~8-11 MB across ~40 paged requests (11,128 active episodes with 5.8 MB of descriptions, 14,318 sources, 9,399 links, 2,606 movies) and the browser then acts as the query engine. Admin/ingest surfaces are already server-paged and are the pattern to copy. Option B (server-side filter/sort/paginate) is the foundational fix; A is emergency-only and stays as-is.
+Audit finding: no consumer page is _incorrect_ — filters, sorts, counts and Commentary Score all evaluate the full dataset, and load-more is a deterministic slice with no refetch. The problem is that full-scope correctness is bought with a full-scope client read: one `["catalog"]` query pulls ~8-11 MB across ~40 paged requests (11,128 active episodes with 5.8 MB of descriptions, 14,318 sources, 9,399 links, 2,606 movies) and the browser then acts as the query engine. Admin/ingest surfaces are already server-paged and are the pattern to copy. Option B (server-side filter/sort/paginate) is the foundational fix; A is emergency-only and stays as-is.
 
-- **Pass L2a — Stop transferring what is never shown — SHIPPED (PARTIAL) 2026-09-05, reconciled 2026-09-06.** What the code actually does: episode `description`, movie `synopsis` and the global `episode_sources` read left the catalogue read and now load for visible rows / the open movie via `src/lib/details.ts`; parked *shows and their episodes* are excluded at query time (`.neq('curation_status','parked')` + `.in('podcast_id', activeIds)`); the two keyless `invalidateQueries()` calls in `episode-reviews.ts` are now a targeted key list. Acceptance: **Verified** — catalogue payload 8.0 MB decoded (was ~14 MB), `episode_sources` catalogue requests gone, descriptions/synopses/Listen links still render, first content 5-6 s dev-cold on `/movies`, `/podcasts`, show detail. **Implemented, not verified:** nothing outstanding. **Deferred (moved to L2a-follow-up, below):** scope item 2 is only half done — `episode_movies` is still read in full and parked links (~1,561 rows) are dropped client-side; scope item 3 is incomplete — `link-review.ts` still invalidates `["catalog"]` on Confirm, so that one admin action still reloads the catalogue. **Intentional, not gaps:** scope item 4's "primary source only" wording was wrong for this UI — episode cards render `PlatformBadges` for every platform, so `useEpisodeDetails` correctly fetches all source rows for visible episodes; the wording is corrected here rather than the code. **Intentional scope addition:** moving the holiday exclusion test to a server-side word-boundary match (`holidayMovieIds`) was not one of the four original L2a items and is recorded as an addition, not an acceptance criterion. **Target correction:** the documented ~2-3 MB expectation was unreachable within L2a's scope and is retired; the accurate measured expectation for L2a is **~8 MB** (episodes 3.2 / links 1.7 / availability 1.5 / movies 1.0 / genres 0.7). That residue is structurally necessary while the browser is the query engine: filters, sorts, counts and Commentary Score evaluate the full candidate set client-side, so every active movie, link, genre and availability row must be present. Only L2b removes it; the ~2-3 MB figure belongs to L2b, not L2a.
+- **Pass L2a — Stop transferring what is never shown — SHIPPED (PARTIAL) 2026-09-05, reconciled 2026-09-06.** What the code actually does: episode `description`, movie `synopsis` and the global `episode_sources` read left the catalogue read and now load for visible rows / the open movie via `src/lib/details.ts`; parked _shows and their episodes_ are excluded at query time (`.neq('curation_status','parked')` + `.in('podcast_id', activeIds)`); the two keyless `invalidateQueries()` calls in `episode-reviews.ts` are now a targeted key list. Acceptance: **Verified** — catalogue payload 8.0 MB decoded (was ~14 MB), `episode_sources` catalogue requests gone, descriptions/synopses/Listen links still render, first content 5-6 s dev-cold on `/movies`, `/podcasts`, show detail. **Implemented, not verified:** nothing outstanding. **Deferred (moved to L2a-follow-up, below):** scope item 2 is only half done — `episode_movies` is still read in full and parked links (~1,561 rows) are dropped client-side; scope item 3 is incomplete — `link-review.ts` still invalidates `["catalog"]` on Confirm, so that one admin action still reloads the catalogue. **Intentional, not gaps:** scope item 4's "primary source only" wording was wrong for this UI — episode cards render `PlatformBadges` for every platform, so `useEpisodeDetails` correctly fetches all source rows for visible episodes; the wording is corrected here rather than the code. **Intentional scope addition:** moving the holiday exclusion test to a server-side word-boundary match (`holidayMovieIds`) was not one of the four original L2a items and is recorded as an addition, not an acceptance criterion. **Target correction:** the documented ~2-3 MB expectation was unreachable within L2a's scope and is retired; the accurate measured expectation for L2a is **~8 MB** (episodes 3.2 / links 1.7 / availability 1.5 / movies 1.0 / genres 0.7). That residue is structurally necessary while the browser is the query engine: filters, sorts, counts and Commentary Score evaluate the full candidate set client-side, so every active movie, link, genre and availability row must be present. Only L2b removes it; the ~2-3 MB figure belongs to L2b, not L2a.
 - **Pass L2a follow-up — remaining source-side filtering and targeted invalidation — S (~1-2 credits) — backlog, depends on L2a.** Only the genuinely unfinished L2a work: (1) filter `episode_movies` at query time to active episodes (batched `.in('episode_id', activeEpisodeIds)` after the episode read, or an equivalent server-side join) so parked links are never transferred, dropping the client-side `activeEpisodeIds` filter in `src/lib/data.ts`; (2) replace the `["catalog"]` invalidation in `src/lib/link-review.ts` (and the same pattern in `CatalogAddCard.tsx`) with targeted keys so Confirm no longer reloads the whole catalogue — a confirmed link only changes link review state. No UI change, no scoring change; verify counts and Commentary Score are unchanged against a SQL count. Skip if L2b starts first, which supersedes both.
 - **Pass L2b — Server-side list architecture — L (~6-10 credits) — HELD 2026-09-05 at user request** (revisit after living with L2a; open decision recorded: whether personal taste data syncs to the account so server-side ranking stays catalogue-wide, or stays device-local with page-local personal ranking). Server functions/RPC returning `{ rows, total }` for Movies, Tonight and podcast detail, with filtering, sorting, ranking and counting executed over the full dataset server-side and deterministic offset/keyset paging; Commentary Score inputs move to a server-computed form so ranking stays full-scope. Bounded transfer + bounded render + full-scope correctness. Gate for resuming card work.
 - **Pass L3 — Virtualize long lists — M (~3-5 credits) — backlog.** Only matters after repeated "Show more"; cheap once L2b's windowed data contract exists.
@@ -257,40 +258,43 @@ Audit finding: no consumer page is *incorrect* — filters, sorts, counts and Co
 
 Stability gate before card passes resume: first content within ~2s warm / ~4s cold on Movies, Shows and show detail against the live dataset; no unresponsive-page condition; a 900+ episode show scrolls and expands without stalling; every mutation triggers a bounded refetch; counts verified against SQL for two filter combinations; flat JS heap across three navigations.
 
-
 ### Card system (Passes K1-K6) — filed 2026-09-04 — plan: `.lovable/plan/card-system-reconciliation-four-card-layouts-flag-consistenc-2026-09-04.md`
 
 One shared card grammar (thumbnail / header h1 + h2 + upper-right controls / badge subheader / body rows / footer left-float + trailing text / optional expand-collapse footer) across the Movies list card, movie-detail episode card, podcast-page movie card and podcast-page episode card. Reference mockup is layout-only; Cinema Neon styling is authoritative. Suggested order K1 → K2 → K3 → K5 → K6 → K4, ~14-20 credits total.
 
 #### Pass K1 — Shared flag control, circular everywhere — S — SHIPPED 2026-09-04
+
 `FlagMatchButton`'s `inline` pill variant retired; one circular 32px control on every surface.
 Acceptance: Verified — podcast-page covered-movie rows and movie-detail episode cards use the same component/shape; no `variant="inline"` call sites remain.
 
 #### Pass K2 — Card shell primitives — S — SHIPPED 2026-09-04
+
 `src/components/card/Card.tsx` provides `CardShell` / `CardControls` / `CardHeader` (eyebrow + inline muted h2) / `CardBadges` / `CardBody` / `CardBodyRow` / `CardFooter` / `CardExpand`; `Artwork` gained a `circle` shape. Shared `ExpandableText`, `PlatformBadges`, `MarkListenedButton`, `EpisodeNotesFooter` sit on top.
 Acceptance: Verified — K5/K6 cards render entirely through the primitives at 390px with zero horizontal overflow. Deferred — re-expressing the Movies list card through the shell; K3 will do that with its own layout change. Design options were not surfaced separately; defaults chosen were eyebrow for episode cards and circular cover art per the K5 spec.
 
 #### Pass K3 — Movies list card to spec — S — SHIPPED 2026-09-05 — supersedes Pass E
+
 Drop the redundant "Watched" badge, shrink the commentary badge, body = cover art + total episode count then unique podcast coverage text, footer = service badges (icon + name) then bullet-separated genres. Re-expressed through the K2 primitives.
 Acceptance: Verified at 390px on `/movies` — cards render through `CardShell`/`CardHeader`/`CardBadges`/`CardBody`/`CardFooter`, no "Watched" badge, compact commentary pill, "N episodes across M shows" coverage line, service badges then genres, zero horizontal overflow.
 
 #### Pass K4 — Podcast-page movie card — M — SHIPPED 2026-09-05
+
 Poster, title + muted inline year, one body row per episode link (`YYYY-MM-DD: title (XhYm)`, 2-line clamp) with an admin-only circular confirm control left of the circular flag, footer = icon-only service badges then genres. New `src/lib/link-review.ts` reads confirmed links from the catalogue (`episode_movies.review_state`) and calls `confirmEpisodeMatch`.
 Acceptance: Verified — typecheck clean; card built entirely on K2 primitives. Implemented, not verified — runtime render of the show page: headless Chromium crashed (EPIPE/OOM) on these data-heavy show pages, and the admin-only confirm control plus the flag control need a signed-in admin session to appear.
 
 #### Pass K5 — Movie-detail episode card — M — SHIPPED 2026-09-04 — carries J1's row work for this surface
+
 Circular cover with prefer-show heart beneath, small-caps show name over episode title, upper-right circular flag + mark-listened, date/duration subheader, 2-line description with expand, footer = Listen ↗ then platform badges with admin actions trailing, expand-collapse rate/listened/quality footer.
 Acceptance: Verified at 390px on `/movies/titanic` — 11 episode cards, round cover + heart, eyebrow show name, description clamped with Show more, Listen, rating footer opens listening/quality controls, zero overflow, no console errors. Implemented, not verified — the circular flag control (renders only for signed-in viewers; the headless session is signed out) and platform badges (this data set has no per-episode platform listings beyond the primary source).
 
 #### Pass K6 — Podcast-page episode card — M — SHIPPED 2026-09-04 — carries the rest of J1's row work
+
 No thumbnail, small-caps date over episode title, mark-listened upper-right, duration subheader, one body row per linked movie (title + year, circular flag right), same footer and rating footer as K5. Episode listen URL + platform sources added to `PodcastEpisodeRow`.
 Acceptance: Verified at 390px on `/podcasts/that-aged-well` — 403 episode cards with date eyebrow, duration, linked-movie rows, Listen, rating footer, existing J3 search/filter/sort/count intact, zero overflow. Implemented, not verified — circular per-link flag (signed-in only) and platform badges (no extra listings in this data).
-
 
 ### Pass E — Card cleanup — superseded 2026-09-04 by Pass K3
 
 Original scope (drop the redundant "Watched" badge, shrink the commentary badge to icon + number) is now inside Pass K3. Do not build separately.
-
 
 ### Pass F — Destructive actions and undo feedback — M (~3-5 credits) — Priority 6
 
@@ -304,7 +308,6 @@ Admin-only maintenance action that purges current non-manual proposed/weak saved
 
 Remaining scope is only the podcast-page segmented control for movie-focused vs episode-focused views. Truncated descriptions with expand and consistent title/date/duration/controls moved to Passes K5 and K6.
 
-
 **Partial 2026-09-03:** admin-only "Mark episode reviewed" / "Reopen" control (stacked-check icon) added to episode rows on movie detail and podcast detail, writing the same `episode_reviews` state as Match review. Acceptance: Verified — button renders admin-only on both surfaces, marking persists to the database and reverts via Reopen, no horizontal overflow. Remaining (not built): truncated descriptions with expand, fully consistent row metadata, movie-focused vs episode-focused segmented control.
 
 ### Pass J2 — Dedicated episode pages — M (~3-5 credits) — Priority 9b
@@ -312,6 +315,435 @@ Remaining scope is only the podcast-page segmented control for movie-focused vs 
 Dedicated per-episode pages are deferred until external ratings/comments or similar episode-level social/context data exists.
 
 ## Backlog (wider-audience or large-volume — hold until the engine is trustworthy)
+
+NEW BACKLOG ADDITIONS - REVIEWED 2026.09.06 832AM
+
+## Newly filed / queued backlog — 2026-09-06
+
+### TO SEND NOW / next after current stability gate
+
+#### Pass U38 — Episode relationship action cleanup — M (~3-5 credits) — BUILD-ready / TO SEND
+
+Movie details > episode card:
+
+- Remove "Mark episode reviewed" from Movie Details > episode cards. Semantically wrong — from this location you can only view a singular movie-episode linkage, so you can't confirm that all possible movie-episode links for that episode are correct.
+- UI/UX principle: Keep episode-level review actions in admin/episode-centric contexts.
+- Avoid putting an episode-level certification control into a relationship-only context.
+
+Confirm episode-movie link:
+
+- Podcast show details > movie card: the "Flag incorrect" action for the movie-episode link can be toggled on/off as expected, but the "Confirm link" action cannot be toggled as expected.
+- Fix this so Confirm has the same basic reversible relationship-state interaction grammar as Flag incorrect.
+
+Movie details > episode card:
+
+- The admin-only circular "confirm" (confirm movie-episode link) icon button in the upper-right corner of the card is missing.
+- Expected paired controls:
+  `[confirm] [flag incorrect]`
+- Expected placement: confirm floating to the left of the flag incorrect icon button.
+- Ensure there is not excessive whitespace/padding around these controls preventing the relationship titles below from fully utilizing the horizontal space, forcing the episode title to wrap rather than expand.
+
+Relationship moderation principle: (not yet being abided to in this item - goal end state is confirm/flag buttons should be inline with movie-episode linkage - in U42F)
+
+- Keep relationship-level controls with the relationship they moderate.
+- Episode-level review controls belong in episode-centric/admin contexts, not a relationship-only card.
+
+#### Pass U39 — Unmatched Episodes episode context — S (~1-2 credits) — BUILD-ready / TO SEND
+
+In the Unmatched Episodes admin workflow (ingest/admin tools), add:
+
+- Episode duration.
+- Expand/collapse access to the episode description.
+- Keep the default row compact.
+- The full description should be progressively disclosed rather than permanently increasing the height of every row.
+- Reduce the amount shown by default from 2 lines to less.
+
+Reuse the existing episode-description behavior/implementation from Pass U24 where applicable rather than creating a second description-loading or sanitization path. This component/element should be reused across the app in all places it appears when possible, rather than creating standalone versions.
+
+General principle for admin episode-movie linkmaking surfaces:
+
+- Provide enough episode information to let an admin confidently disambiguate and evaluate a potential movie match, while keeping the default UI compact.
+- Prefer progressive disclosure over trying to show every available field at once.
+
+This should be a focused extension of the existing workflow, not a broader card redesign.
+
+Verify the resulting Unmatched Episodes workflow end-to-end and do not make unrelated changes.
+
+### LATER
+
+#### Pass U40 — Podcast Show details admin workflow and contextual episode/movie views — L (~6-10 credits) — NEEDS DESIGN / PLAN first
+
+The Podcast Show details page is increasingly functioning as an admin workspace, but the current layout makes repeated episode-level work unnecessarily cumbersome.
+
+Core workflow:
+
+1. Find a specific episode.
+2. Inspect enough episode information to understand what it is about.
+3. Review its movie relationships.
+4. If a known movie is missing, link that specific existing movie directly to the episode.
+5. Flag/confirm incorrect or correct episode-movie relationships as appropriate.
+6. Mark the episode reviewed or not about a movie.
+7. Repeat this across many episodes without constantly losing my place.
+
+Current gaps/pain points:
+
+- Episode-level actions do not currently provide a direct "link this episode to another movie" workflow. I can flag an existing relationship, mark the episode not about a movie, or mark it reviewed, but there is no obvious way from the episode itself to search for and link a specific existing movie.
+- The page contains a large number of episodes.
+- Episode-level actions are located down in the episode list.
+- Current workflow is repeatedly: scroll → find episode → perform action → scroll again → find next episode → perform action.
+- As the number of episodes grows, this becomes a poor admin workflow and creates unnecessary navigation/scrolling overhead.
+- The episode list is far below the movie-focused portion of the page, so using the page as an admin workflow requires excessive scrolling.
+- Once I scroll deeply into the episode list, I lose the Podcast Show context and have to scroll all the way back up for the back navigation.
+- I do NOT want scattered "jump to top" links or a floating button competing with the page/UI.
+
+Specifically evaluate:
+
+A. Episode → specific movie linking
+
+- A compact episode-row action that opens a lightweight search/select workflow for an existing movie.
+- Reuse existing movie-linking semantics and components where possible.
+- Do not create a duplicate linking mechanism if the current architecture already has an appropriate one.
+
+B. Navigation/context while deep in the page
+
+- A compact sticky contextual header containing Back + Podcast Show name is probably the strongest solution once the main show header scrolls away.
+- Avoid a large permanently sticky header, scattered jump links, or floating controls.
+- Preserve the normal visual hierarchy when the user is at the top of the page.
+
+C. Efficient repeated episode processing
+
+- Consider bulk selection/actions, compact list organization, filtering/sorting, or other patterns that reduce scroll → action → scroll → action repetition.
+- Do not assume bulk selection is automatically the answer; recommend the smallest approach that materially improves the workflow.
+
+D. Information density
+
+- Preserve enough episode metadata to support match/review decisions without making every row excessively tall.
+- Favor progressive disclosure where appropriate.
+
+Also reconcile the Podcast Show movie/episode toggle against J1/J3/K5/K6 and the current show-page architecture:
+
+- Control to toggle whether to display the content in terms of:
+  - movie-focused ("Watchable tonight" and "Also covered")
+  - episode-focused ("All episodes", sorted recent → oldest, with search bar and other segmented filter controls)
+
+- Default selected = episode-focused view.
+- In order to potentially help performance, the split should be implemented as actual conditional data loading — don't let the app fetch both huge datasets and merely hide one.
+- Each mode should have context-appropriate sort/filter controls without creating a UX mess (NEEDS DESIGN).
+- Design question: Does giving each view its own appropriate search/filter controls create useful contextual controls, or does it create too many independent filtering surfaces?
+
+Also reconcile:
+
+- "Active" → Last Episode in the Podcast Show details header:
+  - replace "Active" with "Last episode: 12 days ago" or "Last episode: Aug 24"
+  - Month DD if < 6 months ago
+  - Month Year if >= 6 months ago
+  - Context: the word "active" is confusing/ambiguous and appears to relate to the admin-only active/parked concept, which should not be consumer-facing.
+
+Reconcile this work against the current roadmap and existing passes before proposing anything so we do not duplicate work already covered by J1/J3/U8/E or another existing item.
+
+Deliver a UX/design exploration, not code:
+
+1. Identify the primary workflow problems with the current page.
+2. Propose 2–4 viable interaction patterns/UX approaches where there are meaningful alternatives, including bulk-select where appropriate.
+3. Explain the tradeoffs of each.
+4. Recommend the best approach for this application and why.
+5. Identify the smallest sensible V1 versus enhancements that should remain future work.
+6. Identify what should explicitly NOT be built yet.
+7. Call out existing components/patterns that should be reused.
+8. Estimate implementation size (S/M/L/XL) and identify any roadmap item that should be updated, merged, or split.
+
+Optimize for fast repeated admin processing while preserving the existing user-facing Podcast Show experience. Do not implement anything in this pass.
+
+#### Pass U41 — Preferred podcast UX cleanup — S (~1-2 credits) — NEEDS DESIGN / RECONCILE with G3 and F
+
+Preferred show control on Podcast show details header:
+
+- Place heart icon button + "Preferred" text label underneath it underneath the podcast cover art thumbnail.
+- MAY NEED DESIGN — not sure "Preferred" or "Preferred show" will fit in the space.
+- The text "Preferred" can still be exposed through:
+  - accessible label;
+  - tooltip;
+  - perhaps a subtle selected-state treatment.
+
+"Preferred" podcast heart standardization on episode rows:
+
+- heart = the state/control; remove the duplicate badge.
+- Adjust the heart glyph shape — make the heart look more like a heart glyph, with a deeper indentation at the top.
+- Before removing the duplicate badge, identify what the styling is called/referred to so it is available in vocabulary and can be named later as a design token/component reference. Capture enough implementation vocabulary to refer to this treatment precisely.
+- Preferred heart shouldn't immediately trigger reorder/resort. This causes the page to jump and is jarring.
+
+Reconcile against existing Pass G3 and Pass F rather than creating parallel behavior.
+
+#### Pass U42 — Shared small UX/component consistency pass — M (~3-5 credits) — NEEDS DESIGN
+
+This should be treated as shared UX/design work rather than a collection of unrelated one-off fixes.
+
+A. Search clear behavior
+
+- Shared search clear behavior = Search clear X control.
+- Implement shared search-input component behavior across the app.
+- Podcast show details: episode search bar needs an X/clear affordance that appears in the search bar if not empty.
+- A standard UX inline clear-search control X should be present throughout the app wherever there is a search bar.
+
+B. Shared semantic metadata variants
+
+- The pill styling for the rating (e.g. PG13) seems to be different on the movie details page than on the Tonight > movie card page (less padding, maybe slightly smaller?).
+- Duration styling also differs in these locations: in a badge with icon vs plaintext with icon.
+
+Please recommend whether MPA rating / duration should have:
+
+- one shared visual treatment everywhere;
+- a common semantic style with compact/full variants;
+- or genuinely different treatments by context.
+
+IMPORTANT PRODUCT/DESIGN PRINCIPLE:
+I am trying to distinguish between:
+
+1. information that should be semantically consistent across surfaces;
+2. controls/components that should be visually consistent when they represent the same action;
+3. cases where adapting density/layout to context is actually better UX.
+
+Do not force identical presentation merely for consistency. Recommend consistency of meaning and interaction first, with contextual density/layout where appropriate.
+
+The objective is a coherent visual language, not artificial uniformity.
+
+C. Listen button treatment
+
+- Movie details > episode card: Listen button styling should reuse the exact existing blue Listen treatment currently used in the expanded-footer "Listen ↗" control.
+- Do not recreate the styling.
+- Identify the existing implementation/style values (e.g. class names or button/type identifier) and identify what this treatment is called/referred to so it can be referenced precisely as a design token/component reference in future work.
+
+D. External link buttons
+
+- Podcast website / Movie Details IMDb external link buttons:
+  - gray secondary buttons with external-link icons;
+  - lower-right portion of:
+    1. Movie details page header
+    2. Podcast show details page header
+
+  - keep current small-ish size
+  - moving the existing podcast website element;
+  - adding the new IMDb element.
+
+E. Relationship action visual consistency
+
+- Confirm + Flag should be lightweight action buttons.
+- Confirm currently feels heavier than the adjacent flag incorrect button.
+- Confirm should feel visually closer to the lighter/semi-translucent treatment used by the current blue Flag control rather than an opaque heavy fill.
+- Styling should be consistent throughout the app.
+- Before implementation, describe the existing treatment in actual UI vocabulary: opacity, border, fill, text/icon treatment, etc., so it can be referenced precisely.
+
+F. Confirm vs Flag positioning
+
+- For Movie Details episode cards, create a compact action group for confirm-link / flag-incorrect icon buttons to the right of the episode/movie linkage.
+- Prefer relationship actions directly adjacent to the relationship they act on.
+- Target distinction:
+  - top-right = consumer/state controls
+  - relationship row/action area = relationship moderation
+  - episode-level admin actions = separate admin area
+
+G. Podcast show details confirm/flag composition
+
+- On Podcast show details > movie card, the confirm/flag circular buttons are approximately the larger touch size requested.
+- Functionally the size is correct, but the composition feels wrong.
+- This is primarily a design diagnosis/recommendation item.
+- Diagnose whether the issue is:
+  - relative icon size;
+  - button size relative to text;
+  - spacing;
+  - vertical alignment;
+  - visual weight;
+  - placement relative to episode metadata.
+
+- Do not assume the fix is simply "make them smaller."
+- Low priority.
+
+Also identify any small-ish UX changes from this redesign that naturally reduce initial data/rendering cost without compromising correctness.
+
+- No code changes in this planning pass.
+- Identify only small, naturally aligned performance wins; do not turn this into another L2b.
+
+#### Pass U43 — Setup contextual Back navigation — S (~1-2 credits) — backlog
+
+Setup needs a back navigation button at the top.
+
+Problem:
+
+- If I accidentally navigate to Settings, I lose my place if I was in the middle of a nested action on one of the other tabs.
+- Browser back is not enough when a site has deep contextual workflows, particularly when the user is working inside a nested app.
+- Browser back is not available on PWA.
+
+Use:
+
+- `← Back`
+- only where there is meaningful parent context.
+- Do not add a meaningless back button where Setup was entered as a top-level destination.
+
+#### Pass U44 — Listen Later — M (~3-5 credits) — backlog, defer until watchlist/list work is deeper
+
+Feature: "Listen Later" (Movie Watchlist equivalent for podcast episodes).
+
+Observed workflow:
+
+- See interesting episode → leave app → open podcast player app → find episode → add episode to upcoming playlist.
+- Repeated manual workarounds are evidence of a potential product feature; they do not automatically justify implementation.
+
+V1:
+
+Movie details > episode card: instead of the headphone icon button control in the upper right corner, use bookmark/"list" icon, and pressing it adds the episode to a "listen later" listenlist (watchlist equivalent for podcasts).
+
+- Listen Later status
+- dedicated episode list
+- external Listen action
+
+This does NOT require native/embedded episode playback.
+
+Longer-term:
+
+- creating/curating/managing listenlists with consistent UX as watchlists
+- creation inline with dropdowns
+- management from Lists page
+
+Relationship:
+
+- Listen Later = Watchlist for movies → Listen Later list for podcast episodes.
+- Lists = Movie Watchlists + Podcast Listen Lists.
+
+Likely sequencing: revisit with O2/O3 rather than implementing independently now.
+
+#### Pass U45 — Podcast coverage as a Movies filter — M (~3-5 credits) — PLAN/backlog only
+
+Recurring movie-discovery use case:
+
+> Find movies ≤85 minutes that are currently available on Netflix, are covered by How Did This Get Made?, AND are covered by at least one other podcast.
+
+The existing Advanced Filters already provide the streaming-service/availability filtering. That is not the missing functionality here.
+
+The missing dimension is filtering/discovering movies based on podcast coverage.
+
+Desired capability:
+
+- Movies covered by a specific podcast/show.
+- Potentially movies covered by any podcast.
+- "Covered by this show AND at least one other podcast."
+- Combine podcast-coverage criteria naturally with existing filters such as duration, availability, rating, etc.
+
+Example:
+
+- Duration ≤85 min
+- Available on Netflix
+- Covered by How Did This Get Made?
+- Covered by ≥1 other podcast
+
+Please inspect the current Movies search/filter architecture and explore the simplest scalable V1 for adding Podcast Coverage as a movie filter/facet.
+
+Important constraints:
+
+- Do not create a separate search/filter system just for podcast coverage.
+- Do not duplicate existing streaming-service filter functionality.
+- Do not create conflicting filter states between Tonight, Movies, or other surfaces.
+- Preserve the current distinction between persistent app preferences and per-search/filter criteria.
+- Reuse existing movie↔podcast/episode relationship data rather than introducing duplicate coverage data.
+
+Investigation hierarchy:
+
+V1
+
+- `Covered by: [Podcast Show]`
+
+Potential V1/V2 depending on architecture:
+
+- Coverage count: 1+, 2+, 3+
+- or `Covered by multiple podcasts`
+
+Later, if genuinely useful:
+
+- `Covered by [A] AND [B]`
+- `Covered by [A] AND any other podcast`
+
+Please recommend:
+
+1. Best V1 interaction/model.
+2. How selecting a specific podcast/show should work.
+3. How "AND at least one other podcast" should be represented.
+4. Whether "any podcast coverage" is useful as a separate option.
+5. How this combines with existing filters.
+6. Important edge cases/data-model implications.
+7. Smallest sensible implementation versus future enhancements.
+8. Whether this should be a new roadmap item or extension of existing work, with S/M/L/XL estimate.
+
+No code. Backlog only.
+
+#### Pass U46 — Recently became available / newly relevant — M/L (~3-10 credits depending on selected signal) — backlog, PLAN only
+
+Feature: "Recently became available / newly relevant"
+
+Explore a user-facing way to surface movies that have recently become newly actionable for the user.
+
+Candidate signal 1 — Newly available:
+
+- A movie that is on at least one user watchlist AND previously had no qualifying availability on ANY of the user's selected streaming services, but now has qualifying availability on at least one selected service.
+
+Candidate signal 2 — Newly relevant:
+
+- A movie that is not necessarily newly available, but has an exceptionally high likelihood of being a strong recommendation for this user based on existing signals such as:
+  - watched/enjoyed movies
+  - Commentary Score
+  - preferred podcasts
+  - other existing deterministic recommendation signals
+
+Treat these as separate candidate alert types rather than assuming they should share identical logic.
+
+Planning should:
+
+- determine what existing availability/history data supports today;
+- identify whether a new availability-history mechanism is required for signal #1;
+- identify what existing recommendation data could support signal #2;
+- consider notification frequency/noise and whether either signal should require a user-controlled opt-in;
+- estimate the smallest sensible implementation for each.
+
+Do not implement.
+
+#### Pass U47 — Future catalog/curation automation — L/XL (~6-10+ credits) — very low priority / future product work
+
+Manually processing episode after episode is already becoming a compelling rabbit-hole/timesink.
+
+For a future public product, some combination of the following will be needed:
+
+user signal → report/suggest → confidence/review → moderation/audit trail → aggregate knowledge
+
+rather than:
+
+"1 admin personally verifies every podcast/movie relationship."
+
+This is a future product/automation direction, not an immediate implementation.
+
+### Already documented elsewhere — DO NOT create duplicate pass
+
+#### Future performance optimization notes — covered by existing L3/L4/L5
+
+The following concepts are already represented in the performance roadmap and do not need a duplicate pass:
+
+1. Virtualize long lists
+   - Use when a logically large result set still needs a long scrollable UI.
+   - Supporting optimization, not a substitute for correct server-side filtering/pagination.
+
+2. Progressive/lazy loading
+   - Use for expensive secondary content such as descriptions, images, or other detail revealed after initial render.
+   - Supporting optimization layered onto bounded data fetching.
+
+3. Context-specific mobile/desktop presentation
+   - Only introduce when mobile density genuinely benefits from a different presentation.
+   - Do not create separate implementations merely because the current layout is large.
+
+4. Performance guardrail
+   - Large-data pages must not revert to unbounded client-side loading/scanning/rendering as the catalogue grows.
+
+Core principle:
+
+- Optimize data transfer, browser computation, and rendering without reducing the full dataset considered when correctness depends on the full scope.
+
+This corresponds to existing Passes L3/L4/L5 and should not be separately filed.
 
 ### Pass L — Scheduled refresh — L (~6-10 credits) — Priority 11
 
@@ -339,7 +771,7 @@ Expand from movies-only to both `movie` and `tv` catalog items using the existin
 
 ### Triage fix — "Not about a movie" is now reversible from the episode row — shipped 2026-09-04 (QUICK FIX)
 
-Finding: the retirement always *was* a reversible per-episode state (`podcast_episodes.disposition`), and undo existed only inside Recent match decisions, where it required undoing two separate records (the `not_about_a_movie` entry plus one `unlink` per removed link) and became unfindable once the log scrolled. The row control was write-only.
+Finding: the retirement always _was_ a reversible per-episode state (`podcast_episodes.disposition`), and undo existed only inside Recent match decisions, where it required undoing two separate records (the `not_about_a_movie` entry plus one `unlink` per removed link) and became unfindable once the log scrolled. The row control was write-only.
 
 Fix: new `undoEpisodeRetirement` server function plus `useUndoEpisodeRetirement`. The amber row control is now a toggle — pressing it again sets the disposition back to `needs_review`, restores exactly the links that same retirement removed, clears exactly the rejections it wrote, and stamps those logged actions `undone_at` so the history cannot replay them. Only the newest un-undone retirement and the unlink entries logged with it are touched; older independent decisions are untouched, and no automatic restoration happens outside this explicit undo. Verified in the running app on `/podcasts/that-aged-well` (1280px): retire → button flips to "Undo not about a movie" → undo → disposition `needs_review`, link restored, rejection cleared, both log rows marked undone. No decision/history model change was needed, so this is not a new pass; it completes the U8 / Match review undo story.
 
