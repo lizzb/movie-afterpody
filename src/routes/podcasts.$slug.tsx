@@ -523,7 +523,12 @@ function PodcastEpisodeCard({
           linked.map((m) => (
             <CardBodyRow
               key={m.id}
-              control={<FlagMatchButton episodeId={episode.id} movieId={m.id} />}
+              control={
+                <span className="flex items-center gap-1.5">
+                  <ConfirmMatchButton episodeId={episode.id} movieId={m.id} />
+                  <FlagMatchButton episodeId={episode.id} movieId={m.id} />
+                </span>
+              }
             >
               <Link
                 to="/movies/$slug"
