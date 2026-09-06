@@ -244,6 +244,17 @@ Urgent triage removed the two browser-freezing costs: catalogue rows now load in
 - **Verified:** `/podcasts` rendered and navigation into `/podcasts/the-villain-was-right` completed without console errors or horizontal overflow; the episode feed mounted 30 rows and exposed `Show 30 more` rather than mounting the full backlog.
 - **Needs follow-up:** the remaining cold-network wait varies with the hosted backend. A future server-side summary/detail split can reduce transferred catalogue data further, but it is no longer required to prevent the current unresponsive-page failure.
 
+#### Performance architecture (audit 2026-09-05) — plan: `.lovable/plan/performance-architecture-audit-2026-09-05.md`
+
+Audit finding: no consumer page is *incorrect* — filters, sorts, counts and Commentary Score all evaluate the full dataset, and load-more is a deterministic slice with no refetch. The problem is that full-scope correctness is bought with a full-scope client read: one `["catalog"]` query pulls ~8-11 MB across ~40 paged requests (11,128 active episodes with 5.8 MB of descriptions, 14,318 sources, 9,399 links, 2,606 movies) and the browser then acts as the query engine. Admin/ingest surfaces are already server-paged and are the pattern to copy. Option B (server-side filter/sort/paginate) is the foundational fix; A is emergency-only and stays as-is.
+
+- **Pass L2a — Stop transferring what is never shown — M (~3-5 credits) — Priority 1a.** Drop episode `description` and movie `synopsis` from the catalogue-level read (fetch per show / per movie where displayed); exclude parked shows in the query instead of client-side; list-level primary source only instead of all 14,318 `episode_sources`; replace the two keyless `invalidateQueries()` calls in `src/lib/episode-reviews.ts` and the `["catalog"]` invalidation in `src/lib/link-review.ts` with targeted keys so an admin action from a consumer row stops reloading the catalogue. No change to filter/sort/count semantics. Target: ~10 MB -> ~2-3 MB.
+- **Pass L2b — Server-side list architecture — L (~6-10 credits) — Priority 1b.** Server functions/RPC returning `{ rows, total }` for Movies, Tonight and podcast detail, with filtering, sorting, ranking and counting executed over the full dataset server-side and deterministic offset/keyset paging; Commentary Score inputs move to a server-computed form so ranking stays full-scope. Bounded transfer + bounded render + full-scope correctness. Gate for resuming card work.
+- **Pass L3 — Virtualize long lists — M (~3-5 credits) — backlog.** Only matters after repeated "Show more"; cheap once L2b's windowed data contract exists.
+- **Pass L4 — Progressive/lazy expensive content — S (~1-2 credits) — backlog.** Lazy poster/artwork loading, memoised description plain-text conversion, on-demand description fetch. The big byte win is folded into L2a.
+- **Pass L5 — Mobile/desktop rendering divergence — backlog, low.** No evidence it is needed; both platforms share the same root cause. Revisit only after L2b.
+
+Stability gate before card passes resume: first content within ~2s warm / ~4s cold on Movies, Shows and show detail against the live dataset; no unresponsive-page condition; a 900+ episode show scrolls and expands without stalling; every mutation triggers a bounded refetch; counts verified against SQL for two filter combinations; flat JS heap across three navigations.
 
 
 ### Card system (Passes K1-K6) — filed 2026-09-04 — plan: `.lovable/plan/card-system-reconciliation-four-card-layouts-flag-consistenc-2026-09-04.md`
