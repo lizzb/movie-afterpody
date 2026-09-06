@@ -1180,7 +1180,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
  * A 90-second "episode" is an ad or trailer; the date often settles which
  * year's film an ambiguous title refers to.
  */
-function formatEpisodeMeta(releasedAt: string | null, durationSeconds: number | null): string {
+export function formatEpisodeMeta(releasedAt: string | null, durationSeconds: number | null): string {
   const parts: string[] = [];
   if (releasedAt) {
     const parsed = new Date(`${releasedAt}T12:00:00`);
