@@ -79,6 +79,9 @@ function MovieDetailPage() {
   const entry = entries.find((e) => e.movie.slug === slug);
   const [notesOpen, setNotesOpen] = useState(false);
   const reviewStates = useEpisodeReviewStates(entry?.episodes.map((ep) => ep.episode.id) ?? []);
+  // Pass L2a — synopsis and episode text load for this page only.
+  const synopsis = useMovieSynopsis(entry?.movie.id);
+  const { details } = useEpisodeDetails(entry?.episodes.map((ep) => ep.episode.id) ?? []);
 
 
   if (isLoading) {
