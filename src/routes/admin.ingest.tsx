@@ -5,7 +5,8 @@ import { AppShell } from "@/components/AppShell";
 import { Artwork } from "@/components/Artwork";
 import { MatchHistoryCard } from "@/components/admin/MatchHistoryCard";
 import { MatcherScoreCard } from "@/components/admin/MatcherScoreCard";
-import { MatchReviewCard, RelinkPicker } from "@/components/admin/MatchReviewCard";
+import { MatchReviewCard, RelinkPicker, formatEpisodeMeta } from "@/components/admin/MatchReviewCard";
+import { ExpandableText } from "@/components/ExpandableText";
 import { CollapsibleCard } from "@/components/admin/CollapsibleCard";
 import {
   AdminActionQueueProvider,
