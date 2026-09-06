@@ -71,7 +71,9 @@ export function EpisodeAdminActions({
           {isRetired ? "Undo not about a movie" : "Not about a movie"}
         </button>
       )}
-      <EpisodeReviewButton episodeId={episodeId} reviewed={reviewed} variant={variant} />
+      {includeReview ? (
+        <EpisodeReviewButton episodeId={episodeId} reviewed={reviewed} variant={variant} />
+      ) : null}
     </div>
   );
 }
