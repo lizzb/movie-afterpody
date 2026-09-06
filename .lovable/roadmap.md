@@ -1,5 +1,14 @@
 # Movie Afterparty — current consolidated roadmap
 
+## Working rules
+
+- Before implementing a pass, reconcile it against existing roadmap items and relevant plan files.
+- Do not create duplicate passes when an existing item already owns the work.
+- PLAN / AUDIT / RECONCILE tasks do not authorize code changes.
+- Material scope expansion requires a user decision; preserve already-completed work while pausing for that decision.
+- When documentation and code disagree, document the discrepancy and use current implementation as the basis for diagnosis.
+- Keep product principles in `.lovable/product-principles.md`; keep durable agent workflow rules in Project Knowledge; keep current implementation status and backlog ownership here.
+
 **This is the only active plan file.** Everything in `.lovable/plan/archive/` is historical and superseded — read it for background only. When a pass ships, its entry moves to "Already done" below with a `— shipped YYYY-MM-DD` stamp in the same edit.
 
 Priority reflects the app's current state: a personal tool for one user, refining the match engine on a small data set. Anything aimed at a wider audience or large-scale automatic ingestion is deliberately low priority. Estimates use credit bands, not token counts: **S ~1-2 credits**, **M ~3-5**, **L ~6-10**, **XL ~10+**. Bands are ballparks for build cost — verification loops, debugging and design rounds push a pass toward the top of its band or past it.
