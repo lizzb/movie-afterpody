@@ -18,7 +18,9 @@ export function ConfirmMatchButton({
   if (!isAdmin) return null;
 
   const isConfirmed = confirmed.has(flagKey(episodeId, movieId));
-  const title = isConfirmed ? "Confirmed correct link" : "Confirm this link is correct";
+  const title = isConfirmed
+    ? "Confirmed correct — tap to undo"
+    : "Confirm this link is correct";
 
   return (
     <button
@@ -26,8 +28,7 @@ export function ConfirmMatchButton({
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        if (isConfirmed) return;
-        confirm.mutate({ episodeId, movieId });
+        confirm.mutate({ episodeId, movieId, on: !isConfirmed });
       }}
       disabled={confirm.isPending}
       aria-pressed={isConfirmed}
