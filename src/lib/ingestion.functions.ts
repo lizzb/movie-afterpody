@@ -1548,6 +1548,9 @@ export const listUnmatchedEpisodes = createServerFn({ method: "POST" })
         episodeTitle: ep.title,
         podcastName: ep.podcastName,
         releasedAt: ep.releasedAt,
+        // Pass U39 — enough context to judge a match without leaving the row.
+        durationSeconds: ep.durationSeconds,
+        description: ep.description,
       })),
     };
   });
