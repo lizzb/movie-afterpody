@@ -1316,7 +1316,6 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
               {MATCHER_STRATEGIES.map((s) => (
                 <option key={s} value={s}>
                   {STRATEGY_LABEL[s]}
-                  {""}
                 </option>
               ))}
             </select>

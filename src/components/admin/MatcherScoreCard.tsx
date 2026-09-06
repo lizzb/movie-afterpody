@@ -72,7 +72,6 @@ export function MatcherScoreCard() {
             {MATCHER_STRATEGIES.map((s) => (
               <option key={s} value={s}>
                 {STRATEGY_LABEL[s]}
-                {""}
               </option>
             ))}
           </select>
