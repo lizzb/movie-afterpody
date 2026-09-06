@@ -17,6 +17,7 @@ import { BrandBadge } from "@/components/BrandBadge";
 import { ScorePill } from "@/components/ScorePill";
 import { FlagMatchButton } from "@/components/FlagMatchButton";
 import { ConfirmMatchButton } from "@/components/ConfirmMatchButton";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { EpisodeAdminActions } from "@/components/EpisodeAdminActions";
 import { MarkListenedButton } from "@/components/MarkListenedButton";
 import { PlatformBadges } from "@/components/PlatformBadges";
@@ -341,6 +342,7 @@ function EpisodeRow({
   quality: ProductionQuality | null;
 }) {
   const { episode, podcast, preferred, alsoCovers } = entry;
+  const isAdmin = useIsAdmin();
   const listenUrl = detail.listenUrl ?? podcast.website_url ?? null;
   const sources = detail.sources;
 
@@ -383,7 +385,7 @@ function EpisodeRow({
 
         <div className="min-w-0 flex-1">
           <CardHeader
-            reserveRight={3}
+            reserveRight={isAdmin ? 3 : 2}
             eyebrow={
               <>
                 <Link
