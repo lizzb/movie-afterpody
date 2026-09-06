@@ -128,3 +128,15 @@ Expected: catalogue payload roughly 10 MB -> 2-3 MB, no change to any filter/sor
 - **Verified:** catalogue-wide invalidation hazards located (`link-review.ts`, `episode-reviews.ts`, `CatalogAddCard.tsx`).
 - **Deferred:** no application code changed this turn; no emergency fix was required, since the app is currently usable after L1.
 - **Needs follow-up:** L2a and L2b filed on the roadmap; virtualization (L3), lazy content (L4) and mobile divergence (L5) filed as backlog.
+
+## 8. Reconciliation note (2026-09-06)
+
+L2a shipped partially. Reconciled against the code:
+
+- §6 item 2 (parked rows never transferred): **partial** — parked shows/episodes are excluded at query time, but `episode_movies` is still read in full and parked links (~1,561) are dropped client-side.
+- §6 item 3 (targeted invalidation): **partial** — `episode-reviews.ts` is targeted; `link-review.ts` Confirm still invalidates `["catalog"]`, as does `CatalogAddCard.tsx`.
+- §6 item 4 ("primary-source-only columns"): **wording superseded** — episode cards render every platform via `PlatformBadges`, so fetching all source rows for visible episodes is the correct behaviour. The global 14,318-row read is gone, which was the actual win.
+- Expected payload "10 MB -> 2-3 MB": **retired for L2a.** Measured result is ~8 MB and that residue is required while filtering/sorting/counting/scoring run client-side over the full candidate set. The 2-3 MB goal moves to L2b.
+- Scope addition: server-side holiday matching (`holidayMovieIds`) was not one of the four L2a items; recorded as an intentional addition.
+
+Remaining work is consolidated in the single roadmap item "Pass L2a follow-up — remaining source-side filtering and targeted invalidation" (S). L2b remains HELD.
