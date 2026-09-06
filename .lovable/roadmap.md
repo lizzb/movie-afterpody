@@ -107,7 +107,7 @@ The D/O/T5/G/H/Y repair pass is verified and closed (see "Already done"). The re
 
 - **Pass T6 — Show curation sort direction toggle — S (~1-2 credits).** Ascending/descending on every sort property in "Episode coverage and show curation".
 - **Pass T7 — Sort shows by highest external rating — S (~1-2 credits) — blocked on Pass M** landing a per-show ratings cache.
-- **Pass J3 — Podcast page episode sort and filter — M (~3-5 credits). Shipped 2026-09-03.** Episode feed on `/podcasts/$slug` now has title search, match filter (All episodes / Matched / Unmatched), admin-only review filter (Any review state / Reviewed / Unreviewed), sort control (newest, oldest, most/fewest linked movies, longest/shortest, title A–Z/Z–A) and a live "X of Y episodes" result count. Default order remains newest first. Acceptance: Verified in preview at 659px — sort options render, Unmatched filter narrowed 403 → 43, "Most linked movies" reorders, count updates, no horizontal overflow. Implemented, not verified: Reviewed/Unreviewed chip filtering exercised only via code path, not a completed runtime click assertion.
+- **Pass J3 — Podcast page episode sort and filter — M (~3-5 credits). Shipped 2026-09-03. - IMPLEMENTED, NOT VERIFIED (as of 2026-09-06) ** Episode feed on `/podcasts/$slug` now has title search, match filter (All episodes / Matched / Unmatched), admin-only review filter (Any review state / Reviewed / Unreviewed), sort control (newest, oldest, most/fewest linked movies, longest/shortest, title A–Z/Z–A) and a live "X of Y episodes" result count. Default order remains newest first. Acceptance: Verified in preview at 659px — sort options render, Unmatched filter narrowed 403 → 43, "Most linked movies" reorders, count updates, no horizontal overflow. Implemented, not verified: Reviewed/Unreviewed chip filtering exercised only via code path, not a completed runtime click assertion.
 
 ### Pass G2 — Truly lock the layout — SHIPPED 2026-08-27
 
@@ -138,7 +138,7 @@ Pass G2's `.layout-locked` hardening is now scoped to touch-primary viewports: o
 
 - **Pass U2 — Multi-movie episode editor — L (~6-10 credits).** Handle double features, trilogies, franchises and "covered in passing" vs "primary subject" by letting one episode link to multiple movies with a coverage role; UI to add/remove/reorder links per episode.
 - **Pass U3 — Curated blocklist/allowlist — M (~3-5 credits).** Admin-managed high-noise phrase lists (ad/promo/joke titles) and per-title allowlist overrides feeding the matcher's keyword suppression.
-- **Pass U4 — Per-podcast matcher tuning — SHIPPED 2026-09-06.** Six named matcher strategies (`src/lib/matcher-strategies.ts`): clean-title (default, reproduces pre-U4 behaviour), year-aware, noisy-title + description, actor/name corroboration, special-word suppression, stricter threshold. Each is a named configuration of the existing deterministic signals in `matching.server.ts` — no new scoring model, no new data source. Per-show assignment stored on `podcasts.matcher_strategy` (default `clean_title`; all 53 shows started there), editable from the show curation row selector, used by Recheck/Resolve for that show. "Score the matcher" accepts an optional strategy and show scope. **Acceptance classification:** Verified — DB persistence + default assignment; selector visible/persists across reload (desktop + mobile 390px); per-strategy scoring (default threshold 25, precision 0.501 / recall 0.979 — unchanged from the pre-U4 baseline; stricter-threshold run at 45 gives precision 0.696); confirmed links and rejection records untouched (no resolve run, no writes outside `podcasts.matcher_strategy`). Implemented, not verified — a non-default show re-resolve proposal diff (skipped to avoid spending TMDB/ingest budget). Deferred — actor/name corroboration is limited to the existing description/year corroboration signals because no cast cache exists; true cast-mention matching remains Pass P → U23.
+- **Pass U4 — Per-podcast matcher tuning — IMPLEMENTED, NOT VERIFIED — 2026-09-06.** Six named matcher strategies (`src/lib/matcher-strategies.ts`): clean-title (default, reproduces pre-U4 behaviour), year-aware, noisy-title + description, actor/name corroboration, special-word suppression, stricter threshold. Each is a named configuration of the existing deterministic signals in `matching.server.ts` — no new scoring model, no new data source. Per-show assignment stored on `podcasts.matcher_strategy` (default `clean_title`; all 53 shows started there), editable from the show curation row selector, used by Recheck/Resolve for that show. "Score the matcher" accepts an optional strategy and show scope. **Acceptance classification:** Verified — DB persistence + default assignment; selector visible/persists across reload (desktop + mobile 390px); per-strategy scoring (default threshold 25, precision 0.501 / recall 0.979 — unchanged from the pre-U4 baseline; stricter-threshold run at 45 gives precision 0.696); confirmed links and rejection records untouched (no resolve run, no writes outside `podcasts.matcher_strategy`). Implemented, not verified — a non-default show re-resolve proposal diff (skipped to avoid spending TMDB/ingest budget). Deferred — actor/name corroboration is limited to the existing description/year corroboration signals because no cast cache exists; true cast-mention matching remains Pass P → U23.
 - **Pass U5 — Training/evaluation dashboard — M (~3-5 credits).** Turn "Score the matcher" scorecard output into recommended rule changes with before/after evals (extends `matcher-eval.server.ts`).
 - **Pass U6 — Low-confidence link maintenance — S (~1-2 credits).** A safe "clear low-confidence auto links and rerun the current engine" maintenance action with a dry-run preview, guarding manual/confirmed links and parked shows (related to Pass Z).
 
@@ -311,17 +311,17 @@ Acceptance: Verified — K5/K6 cards render entirely through the primitives at 3
 Drop the redundant "Watched" badge, shrink the commentary badge, body = cover art + total episode count then unique podcast coverage text, footer = service badges (icon + name) then bullet-separated genres. Re-expressed through the K2 primitives.
 Acceptance: Verified at 390px on `/movies` — cards render through `CardShell`/`CardHeader`/`CardBadges`/`CardBody`/`CardFooter`, no "Watched" badge, compact commentary pill, "N episodes across M shows" coverage line, service badges then genres, zero horizontal overflow.
 
-#### Pass K4 — Podcast-page movie card — M — SHIPPED 2026-09-05
+#### Pass K4 — Podcast-page movie card — M — SHIPPED 2026-09-05 - IMPLEMENTED, NOT VERIFIED (as of 2026-09-06)
 
 Poster, title + muted inline year, one body row per episode link (`YYYY-MM-DD: title (XhYm)`, 2-line clamp) with an admin-only circular confirm control left of the circular flag, footer = icon-only service badges then genres. New `src/lib/link-review.ts` reads confirmed links from the catalogue (`episode_movies.review_state`) and calls `confirmEpisodeMatch`.
 Acceptance: Verified — typecheck clean; card built entirely on K2 primitives. Implemented, not verified — runtime render of the show page: headless Chromium crashed (EPIPE/OOM) on these data-heavy show pages, and the admin-only confirm control plus the flag control need a signed-in admin session to appear.
 
-#### Pass K5 — Movie-detail episode card — M — SHIPPED 2026-09-04 — carries J1's row work for this surface
+#### Pass K5 — Movie-detail episode card — M — SHIPPED 2026-09-04 — carries J1's row work for this surface - IMPLEMENTED, NOT VERIFIED (as of 2026-09-06)
 
 Circular cover with prefer-show heart beneath, small-caps show name over episode title, upper-right circular flag + mark-listened, date/duration subheader, 2-line description with expand, footer = Listen ↗ then platform badges with admin actions trailing, expand-collapse rate/listened/quality footer.
 Acceptance: Verified at 390px on `/movies/titanic` — 11 episode cards, round cover + heart, eyebrow show name, description clamped with Show more, Listen, rating footer opens listening/quality controls, zero overflow, no console errors. Implemented, not verified — the circular flag control (renders only for signed-in viewers; the headless session is signed out) and platform badges (this data set has no per-episode platform listings beyond the primary source).
 
-#### Pass K6 — Podcast-page episode card — M — SHIPPED 2026-09-04 — carries the rest of J1's row work
+#### Pass K6 — Podcast-page episode card — M — SHIPPED 2026-09-04 — carries the rest of J1's row work - IMPLEMENTED, NOT VERIFIED (as of 2026-09-06)
 
 No thumbnail, small-caps date over episode title, mark-listened upper-right, duration subheader, one body row per linked movie (title + year, circular flag right), same footer and rating footer as K5. Episode listen URL + platform sources added to `PodcastEpisodeRow`.
 Acceptance: Verified at 390px on `/podcasts/that-aged-well` — 403 episode cards with date eyebrow, duration, linked-movie rows, Listen, rating footer, existing J3 search/filter/sort/count intact, zero overflow. Implemented, not verified — circular per-link flag (signed-in only) and platform badges (no extra listings in this data).
@@ -356,7 +356,7 @@ NEW BACKLOG ADDITIONS - REVIEWED 2026.09.06 832AM
 
 ### TO SEND NOW / next after current stability gate
 
-#### Pass U38 — Episode relationship action cleanup — M (~3-5 credits) — SHIPPED 2026-09-06
+#### Pass U38 — Episode relationship action cleanup — M (~3-5 credits) — IMPLEMENTED, NOT VERIFIED — 2026-09-06
 
 Acceptance: Implemented, not verified (admin surfaces could not be signed into during this pass; re-verify in app).
 
@@ -387,7 +387,7 @@ Relationship moderation principle: (not yet being abided to in this item - goal 
 - Keep relationship-level controls with the relationship they moderate.
 - Episode-level review controls belong in episode-centric/admin contexts, not a relationship-only card.
 
-#### Pass U39 — Unmatched Episodes episode context — S (~1-2 credits) — SHIPPED 2026-09-06
+#### Pass U39 — Unmatched Episodes episode context — S (~1-2 credits) — IMPLEMENTED, NOT VERIFIED — 2026-09-06
 
 Acceptance: Implemented, not verified (admin-only surface; re-verify in app).
 
@@ -1268,7 +1268,7 @@ Counts are honest: the `Math.max(rows.length, rawTotal - done)` fudge is gone �
 Verified 2026-09-02 (code review): `busy` derives from the explicit `intent` state (search/filter/page), never from `isFetching`; per-row `pending` keeps acted-on rows visible and dims only those rows; failures call `unmarkDone` to return the row; pending/selection cleared on scope change.
 Busy state in `MatchReviewCard` is now driven by an explicit `intent` (search submit, confidence band / review state / page size change, explicit Refresh, automatic page advance) rather than `isFetching`, so background refetches, window refocus and unrelated invalidations no longer spin the header or disable Search; the intent clears once its fetch settles. Row actions get their own pending state: an acted-on row stays listed and dimmed with a "Saving…" indicator while its request is in flight, its own controls (including relink) are the only ones disabled, a failure returns the row to the queue with the error, and bulk actions mark every affected row pending. Stale pending keys are cleared with `done`/selection when the query scope changes. Follow-ups: U13 (reliability sweep), U14 (serialised admin actions).
 
-### Pass U24 — Episode description in match review — built 2026-09-03 (implemented, not verified)
+### Pass U24 — Episode description in match review — built 2026-09-03 (implemented, not verified) - IMPLEMENTED, NOT VERIFIED (as of 2026-09-06)
 
 Acceptance checklist against `.lovable/plan/acceptance-criteria-u8-u24-u4-p-u23-2026-09-02.md`:
 
@@ -1279,7 +1279,7 @@ Acceptance checklist against `.lovable/plan/acceptance-criteria-u8-u24-u4-p-u23-
 - **Implemented, not verified** — 390px mobile viewport screenshot of an expanded long description (desktop showed no overflow and the row uses `break-anywhere`), and the null/empty-description empty state (no episode with an empty description surfaced in the sampled rows).
 - **Deferred** — description truncation / "Show more" (explicitly out of V1 scope), fuzzy or alternate-title highlighting.
 
-### Pass U8 — Episode-level "review complete" — built 2026-09-02 (partially verified)
+### Pass U8 — Episode-level "review complete" — built 2026-09-02 (partially verified) - IMPLEMENTED, NOT VERIFIED (as of 2026-09-06)
 
 **Triage fix shipped 2026-09-04 — podcast-page review state above 400 episodes and full matcher protection.** The podcast detail hook silently sorted and truncated episode IDs to 400 before reading review state. Both affected shows exceed that size, and all 14 reported episodes fell beyond the cutoff even though their `episode_reviews` rows had persisted with `reopened_at = null`. The hook now submits the complete show episode set (up to the 1,000-episode ingestion ceiling plus headroom), while the server retains 50-ID database batches. The audit also found that the Proposed queue's `suggestEpisodeMatches` path did not exclude reviewed episodes; it now shares the same reviewed-episode guard as sync, Build movies, and recheck. These were existing U8 completeness defects, not a new pass.
 
