@@ -1,7 +1,14 @@
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
+import { useQuery } from "@tanstack/react-query";
 import { Loader2, Gauge } from "lucide-react";
-import { scoreMatcher } from "@/lib/ingestion.functions";
+import { scoreMatcher, listPodcastCoverage } from "@/lib/ingestion.functions";
+import {
+  MATCHER_STRATEGIES,
+  STRATEGY_LABEL,
+  DEFAULT_MATCHER_STRATEGY,
+  type MatcherStrategy,
+} from "@/lib/matcher-strategies";
 
 type Report = Awaited<ReturnType<typeof scoreMatcher>>;
 
@@ -10,18 +17,34 @@ const pct = (n: number | null) => (n === null ? "—" : `${Math.round(n * 100)}%
 /**
  * Pass R3 — replays the live scoring rules over every approve/reject decision
  * you've made and reports where the matcher is wrong. No TMDB calls, no AI.
+ * Pass U4 — can be scoped to one strategy and/or one show.
  */
 export function MatcherScoreCard() {
   const run = useServerFn(scoreMatcher);
+  const fetchCoverage = useServerFn(listPodcastCoverage);
   const [report, setReport] = useState<Report | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // "" = each show's own assigned strategy / every show.
+  const [strategy, setStrategy] = useState<MatcherStrategy | "">("");
+  const [podcastId, setPodcastId] = useState("");
+
+  const coverage = useQuery({
+    queryKey: ["podcast-coverage"],
+    queryFn: () => fetchCoverage(),
+    staleTime: 60_000,
+  });
+  const shows = coverage.data?.podcasts ?? [];
 
   const onRun = async () => {
     setBusy(true);
     setError(null);
     try {
-      setReport(await run({ data: undefined }));
+      setReport(
+        await run({
+          data: { strategy: strategy || null, podcastId: podcastId || null },
+        }),
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : "Scoring failed");
     } finally {
@@ -35,6 +58,42 @@ export function MatcherScoreCard() {
         Replays the current matching rules over every approve, confirm and reject you&rsquo;ve
         recorded, so a rule change can be measured instead of guessed.
       </p>
+
+      {/* Pass U4 — per-strategy and per-show scoring. */}
+      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+        <label className="flex items-center gap-1.5 text-muted-foreground">
+          Strategy
+          <select
+            value={strategy}
+            onChange={(e) => setStrategy(e.target.value as MatcherStrategy | "")}
+            className="max-w-[14rem] rounded-full border border-border bg-card px-2 py-1 font-semibold text-foreground"
+          >
+            <option value="">As assigned per show</option>
+            {MATCHER_STRATEGIES.map((s) => (
+              <option key={s} value={s}>
+                {STRATEGY_LABEL[s]}
+                {s === DEFAULT_MATCHER_STRATEGY ? " (default)" : ""}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex items-center gap-1.5 text-muted-foreground">
+          Show
+          <select
+            value={podcastId}
+            onChange={(e) => setPodcastId(e.target.value)}
+            className="max-w-[14rem] rounded-full border border-border bg-card px-2 py-1 font-semibold text-foreground"
+          >
+            <option value="">Every show</option>
+            {shows.map((s) => (
+              <option key={s.podcastId} value={s.podcastId}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+
       <button
         type="button"
         onClick={onRun}
@@ -47,9 +106,20 @@ export function MatcherScoreCard() {
 
       {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
 
+
       {report ? (
         <div className="mt-4 space-y-4 text-sm">
+          <p className="text-xs text-muted-foreground">
+            Scored with{" "}
+            <span className="font-semibold text-foreground">
+              {report.strategy ? STRATEGY_LABEL[report.strategy] : "each show's assigned strategy"}
+            </span>
+            {report.podcastId
+              ? ` · ${shows.find((s) => s.podcastId === report.podcastId)?.name ?? "one show"}`
+              : " · every show"}
+          </p>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+
             <Stat label="Labelled pairs" value={String(report.labelledPairs)} />
             <Stat label="Approved" value={String(report.positives)} />
             <Stat label="Rejected" value={String(report.negatives)} />

@@ -1,4 +1,6 @@
 import { normalizeTitle } from "./shared.server";
+import { strategyConfig, type MatcherStrategy } from "@/lib/matcher-strategies";
+
 
 export interface MatchSignals {
   /** Which rule produced the base score. */
@@ -48,7 +50,13 @@ export interface MatchOptions {
   description?: string | null | undefined;
   /** Words that appear in a large share of episode titles across the catalogue. */
   commonEpisodeWords?: Set<string> | undefined;
+  /**
+   * Pass U4 — the matcher strategy assigned to this episode's show. Omitted or
+   * unknown means the default strategy, i.e. pre-U4 behaviour.
+   */
+  strategy?: MatcherStrategy | null | undefined;
 }
+
 
 const YEAR_RE = /\b(19\d{2}|20\d{2})\b/;
 const YEAR_ALL_RE = /\b(19\d{2}|20\d{2})\b/g;
@@ -265,8 +273,10 @@ export function matchEpisodeToMovies(
   }[],
   options: MatchOptions = {},
 ): MovieMatchCandidate[] {
+  const cfg = strategyConfig(options.strategy);
   const rejectionCounts = options.rejectionCountByMovie ?? {};
   const commonEpisodeWords = options.commonEpisodeWords ?? new Set<string>();
+
   const episodeYear = extractYear(episodeTitle);
   const episodeClean = stripEpisodePrefixes(removeYear(episodeTitle));
   const episodeCanonical = canonical(episodeClean);
@@ -336,25 +346,27 @@ export function matchEpisodeToMovies(
       rule = "weak";
     }
 
-    // Year bonus/penalty
+    // Year bonus/penalty (weights come from the show's strategy; the default
+    // strategy uses the pre-U4 values).
     let yearMatch: MatchSignals["yearMatch"] = "unknown";
     if (movie.release_year && episodeYear) {
       if (movie.release_year === episodeYear) {
-        confidence = Math.min(100, confidence + 10);
+        confidence = Math.min(100, confidence + cfg.yearBonus);
         reason += " + year match";
         yearMatch = "same";
       } else if (Math.abs(movie.release_year - episodeYear) <= 1) {
-        confidence = Math.min(100, confidence + 3);
+        confidence = Math.min(100, confidence + cfg.yearNearBonus);
         reason += " + year near";
         yearMatch = "near";
       } else {
         yearMatch = "mismatch";
-        if (confidence < 80) {
-          confidence = Math.max(0, confidence - 15);
+        if (confidence < cfg.yearMismatchCeiling) {
+          confidence = Math.max(0, confidence - cfg.yearMismatchPenalty);
           reason += " - year mismatch";
         }
       }
     }
+
 
     // Learned penalties: generic one-word titles and movies rejected before.
     const genericTitle = isGenericTitle(movie.title);
@@ -387,24 +399,28 @@ export function matchEpisodeToMovies(
     if (descTitle) {
       if (rule === "weak") {
         // Title gave us nothing; the description alone is decent-but-unconfirmed evidence.
-        confidence = Math.max(confidence, genericTitle ? 40 : 48);
+        confidence = Math.max(
+          confidence,
+          genericTitle ? cfg.descriptionOnlyGenericFloor : cfg.descriptionOnlyFloor,
+        );
         reason = "named in description";
         rule = "description";
       } else {
-        confidence = Math.min(100, confidence + 10);
+        confidence = Math.min(100, confidence + cfg.descriptionBonus);
         reason += " + named in description";
       }
 
       if (movie.release_year && descYears.size > 0) {
         if (descYears.has(movie.release_year)) {
-          confidence = Math.min(100, confidence + 10);
+          confidence = Math.min(100, confidence + cfg.yearBonus);
           reason += " + year in description";
           descYear = "same";
         } else if ([...descYears].some((y) => Math.abs(y - movie.release_year!) <= 1)) {
-          confidence = Math.min(100, confidence + 3);
+          confidence = Math.min(100, confidence + cfg.yearNearBonus);
           reason += " + year near in description";
           descYear = "near";
         } else {
+
           descYear = "mismatch";
           if (rule === "description") {
             confidence = Math.max(0, confidence - 8);
@@ -460,6 +476,29 @@ export function matchEpisodeToMovies(
         reason += " - hinges on the word \"live\"";
       }
     }
+
+    // Pass U4, "Special-word suppression" strategy: a single generic word gets
+    // the same corroboration requirement the common-word rule already applies.
+    if (cfg.suppressGenericWithoutCorroboration && genericTitle && rule !== "exact") {
+      const corroborated = yearMatch === "same" || (descTitle && descYear !== "mismatch");
+      if (!corroborated) {
+        confidence = Math.min(confidence, 20);
+        reason += " - one-word title, unconfirmed";
+      }
+    }
+
+    // Pass U4, "Actor/name corroboration" strategy: reuses the existing
+    // description-corroboration rule as a hard requirement — a title hit that
+    // the show notes never name (and whose year does not agree) is capped.
+    if (cfg.requireCorroboration && rule !== "exact") {
+      const corroborated = yearMatch === "same" || descTitle;
+      if (!corroborated) {
+        confidence = Math.min(confidence, cfg.uncorroboratedCap);
+        reason += " - not corroborated by show notes";
+      }
+    }
+
+
 
 
     // "Interview with…", "Mailbag", "Trailer": weak evidence should not stand.
@@ -521,7 +560,8 @@ export function matchEpisodeToMovies(
 
   candidates.sort((a, b) => b.confidence - a.confidence);
   return candidates
-    .filter((c) => c.confidence >= 25)
+    .filter((c) => c.confidence >= cfg.suggestionFloor)
+
     .map(({ movieTokens: _t, familyKey: _f, collectionKey: _c, ...rest }) => rest);
 }
 
