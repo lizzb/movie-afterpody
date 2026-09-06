@@ -18,10 +18,7 @@ export interface PodcastEpisodeRow {
     poster_url: string | null;
     accent: string;
   }[];
-  /** Best external destination for this episode, if we know one. */
-  listenUrl: string | null;
-  /** Every platform listing for this episode — used for footer badges. */
-  sources: { platform: string; url: string }[];
+  // Listen link + platform badges load per visible row via useEpisodeDetails (Pass L2a).
 }
 
 export interface PodcastEntry {
@@ -77,29 +74,12 @@ export function usePodcasts() {
       linkedMoviesByEpisode.set(link.episode_id, list);
     }
 
-    const podcastById = new Map(catalog.podcasts.map((p) => [p.id, p]));
-    const primaryByEpisode = new Map<string, string>();
-    const sourcesByEpisode = new Map<string, { platform: string; url: string }[]>();
-    for (const src of catalog.episodeSources) {
-      if (!primaryByEpisode.has(src.episode_id) || src.is_primary)
-        primaryByEpisode.set(src.episode_id, src.url);
-      const list = sourcesByEpisode.get(src.episode_id) ?? [];
-      if (!list.some((x) => x.platform === src.platform))
-        list.push({ platform: src.platform, url: src.url });
-      sourcesByEpisode.set(src.episode_id, list);
-    }
-
     const episodesByPodcast = new Map<string, PodcastEpisodeRow[]>();
     for (const episode of catalog.episodes) {
       const list = episodesByPodcast.get(episode.podcast_id) ?? [];
       list.push({
         episode,
         movies: linkedMoviesByEpisode.get(episode.id) ?? [],
-        listenUrl:
-          primaryByEpisode.get(episode.id) ??
-          podcastById.get(episode.podcast_id)?.website_url ??
-          null,
-        sources: sourcesByEpisode.get(episode.id) ?? [],
       });
       episodesByPodcast.set(episode.podcast_id, list);
     }

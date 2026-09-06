@@ -16,9 +16,6 @@ export interface EpisodeEntry {
   episode: Episode;
   podcast: Podcast;
   preferred: boolean;
-  listenUrl: string | null;
-  /** Every platform listing for this episode — used for footer badges. */
-  sources: { platform: string; url: string }[];
   alsoCovers: string[];
 }
 
@@ -35,6 +32,8 @@ export interface MovieEntry {
   onMyServices: boolean;
   /** Marked "Not interested" locally (Pass H). */
   notInterested: boolean;
+  /** Title or synopsis names a holiday — matched server-side (Pass L2a). */
+  isHoliday: boolean;
 }
 
 const entriesCache = new WeakMap<Catalog, WeakMap<Prefs, MovieEntry[]>>();
@@ -97,14 +96,7 @@ function buildEntries(catalog: Catalog, user: UserData, prefs: Prefs): MovieEntr
     availabilityByMovie.set(offer.movie_id, list);
   }
 
-  const sourceByEpisode = new Map<string, string>();
-  const sourcesByEpisode = new Map<string, { platform: string; url: string }[]>();
-  for (const s of catalog.episodeSources) {
-    if (!sourceByEpisode.has(s.episode_id) || s.is_primary) sourceByEpisode.set(s.episode_id, s.url);
-    const list = sourcesByEpisode.get(s.episode_id) ?? [];
-    if (!list.some((x) => x.platform === s.platform)) list.push({ platform: s.platform, url: s.url });
-    sourcesByEpisode.set(s.episode_id, list);
-  }
+  const holidayIds = new Set(catalog.holidayMovieIds);
 
   const moviesByEpisode = new Map<string, string[]>();
   const linksByMovie = new Map<string, typeof catalog.episodeMovies>();
@@ -151,8 +143,6 @@ function buildEntries(catalog: Catalog, user: UserData, prefs: Prefs): MovieEntr
               episode,
               podcast,
               preferred: preferredIds.has(podcast.id),
-              listenUrl: sourceByEpisode.get(episode.id) ?? podcast.website_url ?? null,
-              sources: sourcesByEpisode.get(episode.id) ?? [],
               alsoCovers: (moviesByEpisode.get(episode.id) ?? [])
                 .filter((id) => id !== movie.id)
                 .map((id) => movieById.get(id)?.title)
@@ -183,6 +173,7 @@ function buildEntries(catalog: Catalog, user: UserData, prefs: Prefs): MovieEntr
       episodes,
       watched: watchedIds.has(movie.id),
       notInterested: notInterested.has(movie.slug),
+      isHoliday: holidayIds.has(movie.id),
       onMyServices: services.some((s) => mySlugs.has(s.slug)),
     };
   });
@@ -206,8 +197,6 @@ function compare(a: MovieEntry, b: MovieEntry, key: Filters["sortBy"]): number {
       return b.score.score - a.score.score;
   }
 }
-
-const HOLIDAY_RE = /\b(santa|christmas)\b/i;
 
 export function applyFilters(
   entries: MovieEntry[],
@@ -238,12 +227,8 @@ export function applyFilters(
       if (filters.commentaryOnly && e.episodes.length === 0) return false;
       if (filters.preferredOnly && !e.episodes.some((ep) => ep.preferred)) return false;
       if (hideNotInterested && e.notInterested) return false;
-      // Pass H8 — crude holiday exclusion: standalone "Santa" / "Christmas" in title or synopsis.
-      if (filters.excludeHoliday) {
-        const title = e.movie.title;
-        const synopsis = e.movie.synopsis ?? "";
-        if (HOLIDAY_RE.test(title) || HOLIDAY_RE.test(synopsis)) return false;
-      }
+      // Pass H8 — holiday exclusion; the match now happens in the query (Pass L2a).
+      if (filters.excludeHoliday && e.isHoliday) return false;
       const rank = ratingRank(e.movie.certification);
       if (rank === null) {
         if (!filters.allowUnrated) return false;

@@ -37,6 +37,22 @@ export function useEpisodeReviewStates(episodeIds: string[]) {
   };
 }
 
+/**
+ * Pass L2a — retirement changes links and review queues, so refresh those keys
+ * only. A keyless invalidation used to reload the whole catalogue per click.
+ */
+const RETIREMENT_KEYS = [
+  ["catalog"],
+  ["episode-review-states"],
+  ["episode-links"],
+  ["episode-flags"],
+  ["podcast-coverage"],
+  ["ingestion-stats"],
+  ["unmatched-episodes"],
+  ["match-suggestions"],
+  ["match-actions"],
+];
+
 export function useSetEpisodeReviewed() {
   const queryClient = useQueryClient();
   const run = useServerFn(setEpisodeReviewed);
@@ -68,7 +84,7 @@ export function useMarkEpisodeNotAboutMovie() {
           ? `Episode retired — ${result.linksRemoved} link${result.linksRemoved === 1 ? "" : "s"} removed`
           : "Episode marked as not about a movie",
       );
-      void queryClient.invalidateQueries();
+      for (const queryKey of RETIREMENT_KEYS) void queryClient.invalidateQueries({ queryKey });
     },
     onError: (error: unknown) =>
       toast.error(error instanceof Error ? error.message : "Could not retire this episode"),
@@ -90,7 +106,7 @@ export function useUndoEpisodeRetirement() {
           ? `Undone — episode back in review, ${result.linksRestored} link${result.linksRestored === 1 ? "" : "s"} restored`
           : "Undone — episode is back in review",
       );
-      void queryClient.invalidateQueries();
+      for (const queryKey of RETIREMENT_KEYS) void queryClient.invalidateQueries({ queryKey });
     },
     onError: (error: unknown) =>
       toast.error(error instanceof Error ? error.message : "Could not undo this decision"),

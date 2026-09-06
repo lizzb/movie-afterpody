@@ -22,6 +22,7 @@ import {
   CardShell,
 } from "@/components/card/Card";
 import { useEpisodeReviewStates } from "@/lib/episode-reviews";
+import { useEpisodeDetails, EMPTY_EPISODE_DETAIL, type EpisodeDetail } from "@/lib/details";
 
 import { usePodcasts, type PodcastEpisodeRow, type PodcastMovie } from "@/lib/podcasts";
 import { prefsActions, usePrefs, type ViewMode } from "@/lib/prefs";
@@ -240,7 +241,11 @@ function PodcastDetailPage() {
           </section>
         ) : null}
 
-        <EpisodeFeed rows={allEpisodes} reviewStates={reviewStates} />
+        <EpisodeFeed
+          rows={allEpisodes}
+          reviewStates={reviewStates}
+          fallbackListenUrl={podcast.website_url ?? null}
+        />
 
       </main>
     </AppShell>
@@ -275,9 +280,11 @@ type ReviewFilter = "all" | "reviewed" | "unreviewed";
 function EpisodeFeed({
   rows,
   reviewStates,
+  fallbackListenUrl,
 }: {
   rows: PodcastEpisodeRow[];
   reviewStates: ReturnType<typeof useEpisodeReviewStates>;
+  fallbackListenUrl: string | null;
 }) {
   const [search, setSearch] = useState("");
   const [match, setMatch] = useState<MatchFilter>("all");
@@ -324,6 +331,10 @@ function EpisodeFeed({
     });
     return sorted;
   }, [rows, search, match, review, sort, reviewStates.reviews]);
+
+  // Pass L2a — descriptions and listen links load for the rows on screen only.
+  const onScreen = visible.slice(0, limit);
+  const { details } = useEpisodeDetails(onScreen.map((r) => r.episode.id));
 
   const chip = (active: boolean) =>
     `rounded-full px-2.5 py-1 text-[11px] font-semibold transition-colors ${
@@ -426,10 +437,12 @@ function EpisodeFeed({
         </p>
       ) : (
         <ol className="mt-3 space-y-2.5">
-          {visible.slice(0, limit).map((row) => (
+          {onScreen.map((row) => (
             <PodcastEpisodeCard
               key={row.episode.id}
               row={row}
+              detail={details[row.episode.id] ?? EMPTY_EPISODE_DETAIL}
+              fallbackListenUrl={fallbackListenUrl}
               showReview={reviewStates.isAdmin}
               reviewed={reviewStates.reviews[row.episode.id]?.reviewed ?? false}
               retired={reviewStates.reviews[row.episode.id]?.retired ?? false}
@@ -454,17 +467,23 @@ function EpisodeFeed({
  */
 function PodcastEpisodeCard({
   row,
+  detail,
+  fallbackListenUrl,
   showReview,
   reviewed,
   retired,
 }: {
   row: PodcastEpisodeRow;
+  detail: EpisodeDetail;
+  fallbackListenUrl: string | null;
   showReview: boolean;
   reviewed: boolean;
   retired: boolean;
 }) {
   const prefs = usePrefs();
-  const { episode, movies: linked, listenUrl, sources } = row;
+  const { episode, movies: linked } = row;
+  const listenUrl = detail.listenUrl ?? fallbackListenUrl;
+  const sources = detail.sources;
   const listening = prefs.listening[episode.slug] ?? "not_started";
 
   const meta: string[] = [];
@@ -497,7 +516,7 @@ function PodcastEpisodeCard({
         title={episode.title}
       />
 
-      <ExpandableText text={episode.description} className="mt-2 text-xs text-muted-foreground" />
+      <ExpandableText text={detail.description} className="mt-2 text-xs text-muted-foreground" />
 
       <CardBody>
         {linked.length > 0 ? (

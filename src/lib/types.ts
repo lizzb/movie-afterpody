@@ -28,7 +28,8 @@ export interface Movie {
   title: string;
   release_year: number | null;
   runtime_minutes: number | null;
-  synopsis: string | null;
+  /** Only loaded on the movie detail page (Pass L2a keeps it out of list reads). */
+  synopsis?: string | null;
   poster_url: string | null;
   accent: string;
   /** When TMDB watch providers were last checked for this movie. */
@@ -80,7 +81,8 @@ export interface Episode {
   podcast_id: string;
   slug: string;
   title: string;
-  description: string | null;
+  /** Only loaded for episodes actually on screen (Pass L2a). */
+  description?: string | null;
   released_at: string | null;
   duration_seconds: number | null;
   episode_number: number | null;
@@ -132,8 +134,9 @@ export interface Catalog {
   podcasts: Podcast[];
   metrics: PodcastMetric[];
   episodes: Episode[];
-  episodeSources: EpisodeSource[];
   episodeMovies: EpisodeMovie[];
+  /** Movie ids whose title or synopsis names a holiday, matched server-side. */
+  holidayMovieIds: string[];
 }
 
 export interface UserData {
