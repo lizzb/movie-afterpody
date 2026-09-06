@@ -58,8 +58,31 @@ async function fetchAllRows<T>(
 }
 
 
+/**
+ * Pass L2a — the catalogue read now carries only what list surfaces render.
+ * Episode descriptions (5.8 MB), movie synopses and every platform source row
+ * are fetched per show / per movie by `useEpisodeDetails` and `useMovieSynopsis`
+ * instead, and parked shows are excluded in the query rather than in the browser.
+ */
+const HOLIDAY_MATCH = "[[:<:]](christmas|santa)[[:>:]]";
+
 async function fetchCatalog(): Promise<Catalog> {
-  const [genres, services, movies, movieGenres, availability, podcasts, metrics, episodes, sources, links] =
+  const podcasts = await fetchAllRows<Podcast>((from, to) =>
+    supabase
+      .from("podcasts")
+      .select(
+        sel(
+          "id, slug, name, description, artwork_url, accent, episode_count, latest_episode_at, activity_status, website_url, curation_status",
+        ),
+      )
+      .neq("curation_status", "parked")
+      .order("name")
+      .range(from, to)
+      .returns<Podcast[]>(),
+  );
+  const activePodcastIds = podcasts.map((p) => p.id);
+
+  const [genres, services, movies, movieGenres, availability, metrics, episodes, links, holiday] =
     await Promise.all([
       fetchAllRows<Genre>((from, to) =>
         supabase.from("genres").select(sel("id, slug, name")).order("name").range(from, to).returns<Genre[]>(),
@@ -77,7 +100,7 @@ async function fetchCatalog(): Promise<Catalog> {
           .from("movies")
           .select(
             sel(
-              "id, media_type, slug, title, release_year, runtime_minutes, synopsis, poster_url, accent, availability_checked_at, certification, certification_system",
+              "id, media_type, slug, title, release_year, runtime_minutes, poster_url, accent, availability_checked_at, certification, certification_system",
             ),
           )
           .order("title")
@@ -100,43 +123,29 @@ async function fetchCatalog(): Promise<Catalog> {
           .range(from, to)
           .returns<MovieAvailability[]>(),
       ),
-      fetchAllRows<Podcast>((from, to) =>
-        supabase
-          .from("podcasts")
-          .select(
-            sel(
-              "id, slug, name, description, artwork_url, accent, episode_count, latest_episode_at, activity_status, website_url, curation_status",
-            ),
-          )
-          .order("name")
-          .range(from, to)
-          .returns<Podcast[]>(),
-      ),
-      fetchAllRows<PodcastMetric>((from, to) =>
-        supabase
-          .from("podcast_external_metrics")
-          .select(sel("podcast_id, platform, rating, rating_count, external_url"))
-          .order("podcast_id")
-          .range(from, to)
-          .returns<PodcastMetric[]>(),
-      ),
-      fetchAllRows<Episode>((from, to) =>
-        supabase
-          .from("podcast_episodes")
-          .select(sel("id, podcast_id, slug, title, description, released_at, duration_seconds, episode_number"))
-          .order("released_at", { ascending: false })
-          .order("id")
-          .range(from, to)
-          .returns<Episode[]>(),
-      ),
-      fetchAllRows<EpisodeSource>((from, to) =>
-        supabase
-          .from("episode_sources")
-          .select(sel("id, episode_id, platform, url, is_primary, embeddable"))
-          .order("id")
-          .range(from, to)
-          .returns<EpisodeSource[]>(),
-      ),
+      activePodcastIds.length === 0
+        ? Promise.resolve([] as PodcastMetric[])
+        : fetchAllRows<PodcastMetric>((from, to) =>
+            supabase
+              .from("podcast_external_metrics")
+              .select(sel("podcast_id, platform, rating, rating_count, external_url"))
+              .in("podcast_id", activePodcastIds)
+              .order("podcast_id")
+              .range(from, to)
+              .returns<PodcastMetric[]>(),
+          ),
+      activePodcastIds.length === 0
+        ? Promise.resolve([] as Episode[])
+        : fetchAllRows<Episode>((from, to) =>
+            supabase
+              .from("podcast_episodes")
+              .select(sel("id, podcast_id, slug, title, released_at, duration_seconds, episode_number"))
+              .in("podcast_id", activePodcastIds)
+              .order("released_at", { ascending: false })
+              .order("id")
+              .range(from, to)
+              .returns<Episode[]>(),
+          ),
       fetchAllRows<EpisodeMovie>((from, to) =>
         supabase
           .from("episode_movies")
@@ -145,14 +154,19 @@ async function fetchCatalog(): Promise<Catalog> {
           .range(from, to)
           .returns<EpisodeMovie[]>(),
       ),
+      fetchAllRows<{ id: string }>((from, to) =>
+        supabase
+          .from("movies")
+          .select(sel("id"))
+          .or(`title.imatch."${HOLIDAY_MATCH}",synopsis.imatch."${HOLIDAY_MATCH}"`)
+          .order("id")
+          .range(from, to)
+          .returns<{ id: string }[]>(),
+      ),
     ]);
 
-  // Parked shows stay in the database untouched but drop out of the app entirely:
-  // their episodes and episode → movie links are filtered out of the catalogue.
-  const activePodcasts = podcasts.filter((p) => p.curation_status !== "parked");
-  const activePodcastIds = new Set(activePodcasts.map((p) => p.id));
-  const activeEpisodes = episodes.filter((e) => activePodcastIds.has(e.podcast_id));
-  const activeEpisodeIds = new Set(activeEpisodes.map((e) => e.id));
+  // Links can only be filtered by show through the episode index we just read.
+  const activeEpisodeIds = new Set(episodes.map((e) => e.id));
 
   return {
     genres,
@@ -160,11 +174,11 @@ async function fetchCatalog(): Promise<Catalog> {
     movies,
     movieGenres,
     availability,
-    podcasts: activePodcasts,
-    metrics: metrics.filter((m) => activePodcastIds.has(m.podcast_id)),
-    episodes: activeEpisodes,
-    episodeSources: sources.filter((s) => activeEpisodeIds.has(s.episode_id)),
+    podcasts,
+    metrics,
+    episodes,
     episodeMovies: links.filter((l) => activeEpisodeIds.has(l.episode_id)),
+    holidayMovieIds: holiday.map((h) => h.id),
   };
 }
 
