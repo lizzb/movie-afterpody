@@ -18,9 +18,7 @@ export interface PodcastEpisodeRow {
     poster_url: string | null;
     accent: string;
   }[];
-  /** Best external destination for this episode, if we know one. */
-  /** Every platform listing for this episode — used for footer badges. */
-  sources: { platform: string; url: string }[];
+  // Listen link + platform badges load per visible row via useEpisodeDetails (Pass L2a).
 }
 
 export interface PodcastEntry {
