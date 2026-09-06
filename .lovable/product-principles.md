@@ -105,3 +105,7 @@ Instrumentation for this metric is Pass U31.
 - Lists never re-sort mid-interaction: snapshot order, re-rank on next load.
 - No fake or seeded catalogue data; movies originate from real podcast episode titles via TMDB.
 - No podcast episode is silently unmatched — unmatched episodes stay visible to admins.
+
+  # Operational safety / admin workflow
+
+  Administrative actions must be understood by consequence, not label. Actions such as Sync, Build, Recheck, Unlink, Confirm, Review and Reopen may operate at different scopes and may have downstream effects on review eligibility. Documentation must describe actual data effects, not merely the UI label. Workflows must avoid sequences where one action silently invalidates the assumptions required by the next.
