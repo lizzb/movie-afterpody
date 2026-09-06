@@ -29,27 +29,7 @@ better review UX → more human decisions → better evaluation data → better 
 
 Corollary: **automating volume before matching is accurate just multiplies review work.** Large-scale ingestion and scheduled refresh stay backlogged until the engine is trustworthy.
 
-## Primary product metric
-
-Never improve matching in a way that increases the number of human decisions faster than it increases useful confirmed coverage.
-
-- NOT: "We matched 15,000 more episodes."
-- YES: "We unlocked 800 additional trustworthy movie↔commentary relationships while creating only 120 additional review decisions."
-
-Instrumentation for this metric is Pass U31.
-
-## Design principles (existing, restated)
-
-- "Cinema Neon": soft blue-gray slate base, electric cyan accent, sparing glow. All colours are oklch tokens in `src/styles.css` — never hardcoded.
-- Outfit for headings, Hind for body.
-- Compact controls: one dual-handle slider per range, small chips for services, bare icons over filled circle buttons.
-- Lists never re-sort mid-interaction: snapshot order, re-rank on next load.
-- No fake or seeded catalogue data; movies originate from real podcast episode titles via TMDB.
-- No podcast episode is silently unmatched — unmatched episodes stay visible to admins.
-
-Added manually 2026-09-06:
-
-## Administrative work and automation
+## Administrative work and automation (Added manually 2026-09-06)
 
 ### Human effort is a product cost
 
@@ -107,3 +87,21 @@ When an operation can alter existing curation decisions, prefer:
 - visible reporting of what changed.
 
 Avoid destructive “cleanup” operations as routine maintenance.
+
+## Primary product metric
+
+Never improve matching in a way that increases the number of human decisions faster than it increases useful confirmed coverage.
+
+- NOT: "We matched 15,000 more episodes."
+- YES: "We unlocked 800 additional trustworthy movie↔commentary relationships while creating only 120 additional review decisions."
+
+Instrumentation for this metric is Pass U31.
+
+## Design principles (existing, restated)
+
+- "Cinema Neon": soft blue-gray slate base, electric cyan accent, sparing glow. All colours are oklch tokens in `src/styles.css` — never hardcoded.
+- Outfit for headings, Hind for body.
+- Compact controls: one dual-handle slider per range, small chips for services, bare icons over filled circle buttons.
+- Lists never re-sort mid-interaction: snapshot order, re-rank on next load.
+- No fake or seeded catalogue data; movies originate from real podcast episode titles via TMDB.
+- No podcast episode is silently unmatched — unmatched episodes stay visible to admins.
