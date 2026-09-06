@@ -59,6 +59,13 @@ The D/O/T5/G/H/Y repair pass is verified and closed (see "Already done"). The re
 
 - **Pass E2 — Commentary Score formatting consistency — S (~1-2 credits).** One score component everywhere (Tonight uses icon + label + accent badge; Lists uses a bare shaded numeric badge). Pick one canonical treatment with an explicit compact variant.
 - **Pass E3 — Commentary Score explanation copy — S (~1-2 credits) — NEEDS COPY.** Distinguish deterministic scoring from user preference changes that intentionally change the inputs.
+- \*\*Pass E4 — Commentary badge alternatives (NEEDS DESIGN):
+
+1. Popcorn icon + number only, label revealed on tap/hover.
+2. (Recommended) Replace the number with "N episodes" and move the score into a thin accent bar on the card edge.
+3. Keep the pill but shrink to icon + number, with a one-time coach-mark explaining it.
+4. Swap the numeric score for 1–3 popcorn glyphs (a rough tier rather than a false-precision number).
+
 - **Pass D3 — Per-page info sheets — M (~3-5 credits) — NEEDS COPY.** The info icon opens the same sheet on every screen; give Tonight, Movies, Shows, Lists and Setup their own content with shared sections factored out.
 
 #### Seasonal — Priority 4b
