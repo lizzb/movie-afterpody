@@ -1092,6 +1092,64 @@ Acceptance:
 - no unrelated visual/card changes;
 - verify the affected surfaces after implementation.
 
+#### Pass U52 — Large-result browsing / pagination UX — M (~3-5 credits) — NEEDS DESIGN / after L2b
+
+Current L1 protection uses bounded rendering with explicit "Show more" controls (Movies 40, Shows 30, Podcast detail 30 episodes / 24 movies). This prevents the browser from rendering the entire dataset, but the repeated `scroll → Show more → scroll → Show more` interaction is itself poor browsing UX.
+
+This pass should evaluate and improve the user-facing experience of browsing a large result set.
+
+Important distinction:
+
+- L1 = emergency render safeguard.
+- L2a = reduce unnecessary data transfer.
+- L2b = server-side filtering/sorting/ranking/counting and bounded paging.
+- U52 = decide how the user should actually browse through a large result set once that server-side paging architecture exists.
+- L3 = virtualization/rendering optimization and is supporting infrastructure, not the primary owner of this UX problem.
+
+Do not interpret this pass as "remove pagination" automatically.
+
+The desired outcome is:
+
+- the user can browse a large result set continuously without repeatedly feeling like the app has arbitrarily stopped;
+- the app still retrieves and renders only a safe bounded window;
+- full-scope filtering, sorting, ranking and counts remain correct;
+- navigating, filtering or returning to a list does not unnecessarily reset the user's position.
+
+Evaluate appropriate approaches such as:
+
+- larger server pages with safe rendering;
+- continuous/infinite scrolling;
+- virtualized continuous lists;
+- explicit "load more" that preserves the user's position more naturally;
+- other patterns appropriate to the app.
+
+The design should specifically address:
+
+- what happens when the user reaches the end of the currently loaded window;
+- whether additional results load automatically or through an explicit affordance;
+- preserving scroll position when new results are added;
+- what happens when filters/sorts/search change;
+- returning to a list after visiting a detail page;
+- mobile and desktop behavior;
+- whether result counts remain visible and trustworthy;
+- avoiding a giant DOM even when the logical result set is large.
+
+Constraints:
+
+- Do not restore unbounded client-side loading.
+- Do not trade away full-dataset correctness for UX smoothness.
+- Do not duplicate L2b's server-side query architecture.
+- Do not assume virtualization alone solves the interaction problem.
+- Do not remove bounded loading until the replacement has been shown to remain performant against the live dataset.
+
+Dependency:
+
+- L2b should establish the server-side paged data contract first.
+- L3 may provide the rendering mechanism where needed.
+- This pass decides the actual browsing interaction and acceptance criteria.
+
+Acceptance should include a real large result set and verify that the user can move through substantially more than the first 30/40 results without repeated disruptive stops, while maintaining safe render cost and correct result counts.
+
 ### Already documented elsewhere — DO NOT create duplicate pass
 
 #### Future performance optimization notes — covered by existing L3/L4/L5
