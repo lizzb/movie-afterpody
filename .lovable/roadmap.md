@@ -454,6 +454,20 @@ Deliver a UX/design exploration, not code:
 
 Optimize for fast repeated admin processing while preserving the existing user-facing Podcast Show experience. Do not implement anything in this pass.
 
+Also part of U40: Below is not actually just a date-formatting change. You're saying the current YYYY-MM-DD: title (duration) composition looks junky and you're questioning the information hierarchy.
+
+(related to U51B): Podcast show details > movie card: Podcast episode date - change from 2024-09-01 to 2024 Sep 1. Keep date - remember displaying JUST the title looked weird, because episode titles can often be exactly the movie title, so it can look like the same piece of data is being presented twice
+
+Potential alternatives worth evaluating:
+
+- date as small muted metadata above/beside title;
+- episode title + date in a secondary line;
+- episode number + date + duration;
+- compact date only when useful;
+- other compact treatment.
+
+Desired principle: retain identification/context information without making the relationship row look like a wall of punctuation.
+
 #### Pass U41 — Preferred podcast UX cleanup — S (~1-2 credits) — NEEDS DESIGN / RECONCILE with G3 and F
 
 Preferred show control on Podcast show details header:
@@ -947,6 +961,126 @@ Instead explain:
 - whether a new backlog item is actually necessary.
 
 Do not make unrelated ingestion or matching changes.
+
+#### Pass U50 — RECONCILE / ROADMAP EDIT ONLY — <estimateTBD>
+
+RECONCILE / ROADMAP EDIT ONLY — NO CODE
+
+Please make these additions to the existing roadmap items rather than creating duplicate passes.
+
+### Existing Commentary Score work
+
+Reconcile Pass E2, Pass E3, and Pass U28:
+
+There should eventually be a way to select/click the Commentary Score itself and/or an adjacent info affordance to get a concise explanation of:
+
+- what the score means;
+- what factors contribute to it;
+- ideally the score breakdown.
+
+Design preference: unobtrusive disclosure rather than permanent explanatory text.
+
+E2 remains about formatting consistency.
+E3 remains about explanation copy.
+U28 remains the deeper "Why this?" rationale and score decomposition.
+
+Also clarify in E2 that:
+
+- Commentary Score should use one shared component, potentially with a compact variant.
+- Duration should use one shared semantic component/treatment, with compact/full variants.
+- Semantic meaning and interaction should be consistent.
+- Visual density can be contextual.
+- Use the same component with a compact variant rather than completely different implementations.
+
+Do not create a new pass for this.
+
+### Existing J2 — Dedicated episode pages
+
+Add the following to the existing J2 rationale:
+
+"Body-click instinct: there must be a deeper object here."
+
+Treat the instinct to click the episode body as evidence that the content has a latent deeper object / Episode Details page. This supports the eventual Dedicated Episode Details page rather than being treated as a strange or invalid interaction instinct.
+
+Do not implement this now and do not create a new pass.
+
+### Existing Not Interested / status-control grammar
+
+Add this to the existing Not Interested / iconography work (H6) rather than creating a standalone pass.
+
+Tonight > movie card:
+
+- The top-right status controls currently feel heavy.
+- Do NOT move Not Interested underneath the poster art on movie cards. That space is associated with a different action grammar.
+- Avoid arbitrary per-content placement.
+- Establish a general action grammar, while recognizing that semantically equivalent controls do not necessarily need identical physical placement.
+
+The intended semantic categories are:
+
+- Positive/content-state controls: watchlist / watched
+- Negative/exclusion action: not interested
+- Podcast preference: preferred
+
+Think in terms of:
+
+- primary positive preference action;
+- negative/exclusion action;
+- status/list actions.
+
+The goal is a coherent placement/interaction grammar, not forcing every control into the same physical position.
+
+No code changes in this pass.
+
+#### Pass U51 — Small UI cleanup only — <estimateTBD>
+
+BUILD — Small UI cleanup only
+
+Implement ONLY the following three small UI changes. Do not make unrelated card/layout changes.
+
+### A. Tonight > movie card
+
+Change: `X episodes across X shows` to: `X episodes · X shows`
+No other wording changes.
+
+### B. Podcast show details > movie card
+
+The movie card is currently displaying: `YYYY-MM-DD: Episode title (duration)`
+Keep the episode date and do NOT remove it merely because the episode title may duplicate the movie title. That distinction is important because episode titles can often be exactly the movie title, so displaying only the title can look like the same piece of data is being presented twice.
+Change the date format from: `2024-09-01` to: `2024 Sep 1`
+
+Please preserve the underlying semantic information while making the relationship row visually cleaner.
+For this build, use the simplest existing metadata treatment that improves readability. Do not redesign the entire row.
+
+### 3. Movie year redundancy
+
+Movie titles should display:
+
+`Title` + muted year
+
+with the year inline and no additional parentheses.
+
+Do not show the year redundantly as:
+
+- `(YEAR)` after the title, AND
+- separate plaintext year near the header.
+
+For compact cards, a small muted year is probably enough.
+
+Do not turn the year into a pill unless the existing visual system clearly requires that treatment. The desired result is:
+
+`Title  1997`
+
+with the year visually subordinate to the title.
+
+Acceptance:
+
+- no duplicate movie-year presentation on Movie Details;
+- no parentheses around the inline year;
+- compact cards use a muted inline year;
+- Tonight wording is exactly `X episodes · X shows`;
+- Podcast show movie-card dates display as `YYYY Sep 1`;
+- no unrelated visual/card changes;
+- verify the affected surfaces after implementation.
 
 ### Already documented elsewhere — DO NOT create duplicate pass
 
