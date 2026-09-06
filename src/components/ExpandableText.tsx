@@ -26,7 +26,8 @@ export function ExpandableText({
 }: {
   text: string | null | undefined;
   className?: string;
-  lines?: 2 | 3;
+  /** Collapsed height. Pass 1 for dense admin rows (Pass U39). */
+  lines?: 1 | 2 | 3;
 }) {
   const [open, setOpen] = useState(false);
   const value = toPlainText(text ?? "");
@@ -35,7 +36,11 @@ export function ExpandableText({
 
   return (
     <div className={className}>
-      <p className={open ? "break-anywhere" : `${lines === 2 ? "line-clamp-2" : "line-clamp-3"}`}>
+      <p
+        className={
+          open ? "break-anywhere" : lines === 1 ? "line-clamp-1" : lines === 2 ? "line-clamp-2" : "line-clamp-3"
+        }
+      >
         {value}
       </p>
       {value.length > 120 ? (
