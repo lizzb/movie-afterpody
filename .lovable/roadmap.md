@@ -330,7 +330,12 @@ NEW BACKLOG ADDITIONS - REVIEWED 2026.09.06 832AM
 
 ### TO SEND NOW / next after current stability gate
 
-#### Pass U38 — Episode relationship action cleanup — M (~3-5 credits) — BUILD-ready / TO SEND
+#### Pass U38 — Episode relationship action cleanup — M (~3-5 credits) — SHIPPED 2026-09-06
+
+Acceptance: Implemented, not verified (admin surfaces could not be signed into during this pass; re-verify in app).
+
+- Implemented: episode-level "Mark episode reviewed" suppressed on movie-detail relationship cards (`includeReview={false}`); Confirm is now a reversible toggle backed by new `unconfirmEpisodeMatch`; Confirm icon added left of Flag incorrect on movie details; header right gutter now sized to the number of controls actually shown (2 or 3) instead of a fixed `pr-28`.
+- Deferred: inline relationship-level placement of confirm/flag (U42F).
 
 Movie details > episode card:
 
@@ -356,7 +361,11 @@ Relationship moderation principle: (not yet being abided to in this item - goal 
 - Keep relationship-level controls with the relationship they moderate.
 - Episode-level review controls belong in episode-centric/admin contexts, not a relationship-only card.
 
-#### Pass U39 — Unmatched Episodes episode context — S (~1-2 credits) — BUILD-ready / TO SEND
+#### Pass U39 — Unmatched Episodes episode context — S (~1-2 credits) — SHIPPED 2026-09-06
+
+Acceptance: Implemented, not verified (admin-only surface; re-verify in app).
+
+- Implemented: duration + date via the shared `formatEpisodeMeta` helper, and the episode description through the existing `ExpandableText` (Pass U24) component with a new one-line collapsed mode.
 
 In the Unmatched Episodes admin workflow (ingest/admin tools), add:
 

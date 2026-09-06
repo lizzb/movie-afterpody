@@ -11,6 +11,7 @@ export interface UnlinkedEpisode {
   podcast_id: string;
   podcastName: string;
   releasedAt: string | null;
+  durationSeconds: number | null;
 }
 
 const PAGE = 1000;
@@ -100,6 +101,7 @@ export async function fetchUnlinkedEpisodes(
       podcast_id: ep.podcast_id,
       podcastName: ep.podcasts.name,
       releasedAt: ep.released_at,
+      durationSeconds: ep.duration_seconds ?? null,
     }));
 
   return opts.limit ? unlinked.slice(0, opts.limit) : unlinked;

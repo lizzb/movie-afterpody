@@ -16,6 +16,8 @@ import { Artwork } from "@/components/Artwork";
 import { BrandBadge } from "@/components/BrandBadge";
 import { ScorePill } from "@/components/ScorePill";
 import { FlagMatchButton } from "@/components/FlagMatchButton";
+import { ConfirmMatchButton } from "@/components/ConfirmMatchButton";
+import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { EpisodeAdminActions } from "@/components/EpisodeAdminActions";
 import { MarkListenedButton } from "@/components/MarkListenedButton";
 import { PlatformBadges } from "@/components/PlatformBadges";
@@ -340,15 +342,18 @@ function EpisodeRow({
   quality: ProductionQuality | null;
 }) {
   const { episode, podcast, preferred, alsoCovers } = entry;
+  const isAdmin = useIsAdmin();
   const listenUrl = detail.listenUrl ?? podcast.website_url ?? null;
   const sources = detail.sources;
 
   return (
     <CardShell className="p-3">
       <CardControls>
+        <ConfirmMatchButton episodeId={episode.id} movieId={movieId} />
         <FlagMatchButton episodeId={episode.id} movieId={movieId} />
         <MarkListenedButton episodeSlug={episode.slug} listening={listening} />
       </CardControls>
+
 
       <div className="flex items-start gap-3">
         <div className="flex w-12 shrink-0 flex-col items-center gap-1.5">
@@ -380,7 +385,7 @@ function EpisodeRow({
 
         <div className="min-w-0 flex-1">
           <CardHeader
-            reserveRight
+            reserveRight={isAdmin ? 3 : 2}
             eyebrow={
               <>
                 <Link
@@ -410,7 +415,12 @@ function EpisodeRow({
       <CardFooter
         trailing={
           showReview ? (
-            <EpisodeAdminActions episodeId={episode.id} reviewed={reviewed} retired={retired} />
+            <EpisodeAdminActions
+              episodeId={episode.id}
+              reviewed={reviewed}
+              retired={retired}
+              includeReview={false}
+            />
           ) : null
         }
       >

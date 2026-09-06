@@ -5,7 +5,8 @@ import { AppShell } from "@/components/AppShell";
 import { Artwork } from "@/components/Artwork";
 import { MatchHistoryCard } from "@/components/admin/MatchHistoryCard";
 import { MatcherScoreCard } from "@/components/admin/MatcherScoreCard";
-import { MatchReviewCard, RelinkPicker } from "@/components/admin/MatchReviewCard";
+import { MatchReviewCard, RelinkPicker, formatEpisodeMeta } from "@/components/admin/MatchReviewCard";
+import { ExpandableText } from "@/components/ExpandableText";
 import { CollapsibleCard } from "@/components/admin/CollapsibleCard";
 import {
   AdminActionQueueProvider,
@@ -1009,9 +1010,16 @@ function UnmatchedEpisodesCard() {
                   >
                     <p className="break-anywhere font-medium">{ep.episodeTitle}</p>
                     <p className="text-xs text-muted-foreground">
-                      {ep.podcastName}
-                      {ep.releasedAt ? ` · ${ep.releasedAt}` : ""}
+                      {[ep.podcastName, formatEpisodeMeta(ep.releasedAt, ep.durationSeconds)]
+                        .filter(Boolean)
+                        .join(" · ")}
                     </p>
+                    {/* Pass U39 — one line by default, expanded on demand. */}
+                    <ExpandableText
+                      text={ep.description}
+                      lines={1}
+                      className="mt-1 text-xs text-muted-foreground"
+                    />
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                       <button
                         type="button"

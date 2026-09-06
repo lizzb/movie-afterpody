@@ -8,6 +8,11 @@ interface Props {
   /** True once the episode is marked "not about a movie". */
   retired?: boolean;
   variant?: "inline" | "block";
+  /**
+   * Pass U38 — episode-level sign-off only belongs in episode-centric contexts.
+   * A relationship-only card (one movie's episode) sets this to false.
+   */
+  includeReview?: boolean;
 }
 
 /**
@@ -18,7 +23,13 @@ interface Props {
  * A reviewed episode is settled, so only "Reopen" is offered.
  * Render only when the viewer is an admin.
  */
-export function EpisodeAdminActions({ episodeId, reviewed, retired = false, variant = "inline" }: Props) {
+export function EpisodeAdminActions({
+  episodeId,
+  reviewed,
+  retired = false,
+  variant = "inline",
+  includeReview = true,
+}: Props) {
   const retire = useMarkEpisodeNotAboutMovie();
   const undo = useUndoEpisodeRetirement();
   const isRetired = (retired || retire.isSuccess) && !undo.isSuccess;
@@ -26,6 +37,7 @@ export function EpisodeAdminActions({ episodeId, reviewed, retired = false, vari
 
   return (
     <div className="ml-auto flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+
       {reviewed ? null : (
         <button
           type="button"
@@ -59,7 +71,9 @@ export function EpisodeAdminActions({ episodeId, reviewed, retired = false, vari
           {isRetired ? "Undo not about a movie" : "Not about a movie"}
         </button>
       )}
-      <EpisodeReviewButton episodeId={episodeId} reviewed={reviewed} variant={variant} />
+      {includeReview ? (
+        <EpisodeReviewButton episodeId={episodeId} reviewed={reviewed} variant={variant} />
+      ) : null}
     </div>
   );
 }

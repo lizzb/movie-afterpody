@@ -37,6 +37,12 @@ export function CardControls({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * Reserved gutter sized to the number of 32px controls actually floated, so a
+ * two-control card does not force its title to wrap for room it never uses.
+ */
+const RESERVE: Record<number, string> = { 1: "pr-12", 2: "pr-[5.5rem]", 3: "pr-[7.5rem]" };
+
 export function CardHeader({
   eyebrow,
   title,
@@ -48,11 +54,13 @@ export function CardHeader({
   title: ReactNode;
   /** Muted secondary text inline with the title, e.g. the release year. */
   h2?: ReactNode;
-  /** Leave room for the floated upper-right controls. */
-  reserveRight?: boolean;
+  /** Leave room for the floated upper-right controls — `true` means two. */
+  reserveRight?: boolean | 1 | 2 | 3;
 }) {
+  const slots = reserveRight === true ? 2 : reserveRight === false ? 0 : reserveRight;
   return (
-    <div className={reserveRight ? "pr-28" : undefined}>
+    <div className={slots ? RESERVE[slots] : undefined}>
+
       {eyebrow ? (
         <p className="flex flex-wrap items-center gap-2 text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
           {eyebrow}

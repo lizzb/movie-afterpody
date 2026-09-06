@@ -1548,6 +1548,9 @@ export const listUnmatchedEpisodes = createServerFn({ method: "POST" })
         episodeTitle: ep.title,
         podcastName: ep.podcastName,
         releasedAt: ep.releasedAt,
+        // Pass U39 — enough context to judge a match without leaving the row.
+        durationSeconds: ep.durationSeconds,
+        description: ep.description,
       })),
     };
   });
@@ -1999,6 +2002,29 @@ export const confirmEpisodeMatch = createServerFn({ method: "POST" })
     });
     return { ok: true };
   });
+
+/**
+ * Pass U38 — undoes a confirmation so Confirm reads as a reversible
+ * relationship state, exactly like Flag incorrect. The link itself stays; only
+ * its review state returns to unreviewed, so it re-enters the review queue.
+ */
+export const unconfirmEpisodeMatch = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) => EpisodeMatchInput.parse(data))
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const { error } = await supabaseAdmin
+      .from("episode_movies")
+      .update({ review_state: "proposed", reviewed_at: null, reviewed_by: null })
+      .eq("episode_id", data.episodeId)
+      .eq("movie_id", data.movieId);
+    if (error) throw error;
+    return { ok: true };
+  });
+
+
 
 /**
  * Retires an episode from every review queue — it is not about a movie.
