@@ -16,6 +16,7 @@ import { Artwork } from "@/components/Artwork";
 import { BrandBadge } from "@/components/BrandBadge";
 import { ScorePill } from "@/components/ScorePill";
 import { FlagMatchButton } from "@/components/FlagMatchButton";
+import { ConfirmMatchButton } from "@/components/ConfirmMatchButton";
 import { EpisodeAdminActions } from "@/components/EpisodeAdminActions";
 import { MarkListenedButton } from "@/components/MarkListenedButton";
 import { PlatformBadges } from "@/components/PlatformBadges";
@@ -382,7 +383,7 @@ function EpisodeRow({
 
         <div className="min-w-0 flex-1">
           <CardHeader
-            reserveRight
+            reserveRight={3}
             eyebrow={
               <>
                 <Link
@@ -412,7 +413,12 @@ function EpisodeRow({
       <CardFooter
         trailing={
           showReview ? (
-            <EpisodeAdminActions episodeId={episode.id} reviewed={reviewed} retired={retired} />
+            <EpisodeAdminActions
+              episodeId={episode.id}
+              reviewed={reviewed}
+              retired={retired}
+              includeReview={false}
+            />
           ) : null
         }
       >
