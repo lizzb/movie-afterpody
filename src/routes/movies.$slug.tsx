@@ -346,9 +346,11 @@ function EpisodeRow({
   return (
     <CardShell className="p-3">
       <CardControls>
+        <ConfirmMatchButton episodeId={episode.id} movieId={movieId} />
         <FlagMatchButton episodeId={episode.id} movieId={movieId} />
         <MarkListenedButton episodeSlug={episode.slug} listening={listening} />
       </CardControls>
+
 
       <div className="flex items-start gap-3">
         <div className="flex w-12 shrink-0 flex-col items-center gap-1.5">
