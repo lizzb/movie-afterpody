@@ -72,7 +72,7 @@ export function MatcherScoreCard() {
             {MATCHER_STRATEGIES.map((s) => (
               <option key={s} value={s}>
                 {STRATEGY_LABEL[s]}
-                {s === DEFAULT_MATCHER_STRATEGY ? " (default)" : ""}
+                {""}
               </option>
             ))}
           </select>
