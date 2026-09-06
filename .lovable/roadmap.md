@@ -964,6 +964,9 @@ Do not make unrelated ingestion or matching changes.
 
 #### Pass U50 — RECONCILE / ROADMAP EDIT ONLY — <estimateTBD>
 
+Existing roadmap items that just need an edit/addendum
+E2/E3/U28, J2, H6/status-control grammar.
+
 RECONCILE / ROADMAP EDIT ONLY — NO CODE
 
 Please make these additions to the existing roadmap items rather than creating duplicate passes.
