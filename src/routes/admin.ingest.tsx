@@ -8,7 +8,6 @@ import { MatcherScoreCard } from "@/components/admin/MatcherScoreCard";
 import {
   MATCHER_STRATEGIES,
   STRATEGY_LABEL,
-  DEFAULT_MATCHER_STRATEGY,
   type MatcherStrategy,
 } from "@/lib/matcher-strategies";
 import { MatchReviewCard, RelinkPicker, formatEpisodeMeta } from "@/components/admin/MatchReviewCard";
