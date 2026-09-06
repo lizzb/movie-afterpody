@@ -22,6 +22,7 @@ import { PlatformBadges } from "@/components/PlatformBadges";
 import { ExpandableText } from "@/components/ExpandableText";
 import { EpisodeNotesFooter } from "@/components/EpisodeNotesFooter";
 import { CardControls, CardFooter, CardHeader, CardShell } from "@/components/card/Card";
+import { useEpisodeDetails, useMovieSynopsis, EMPTY_EPISODE_DETAIL, type EpisodeDetail } from "@/lib/details";
 import { useEpisodeReviewStates } from "@/lib/episode-reviews";
 
 
@@ -189,9 +190,7 @@ function MovieDetailPage() {
         </header>
 
         {/* Synopsis, full width */}
-        {movie.synopsis ? (
-          <p className="mt-4 text-sm leading-relaxed">{movie.synopsis}</p>
-        ) : null}
+        {synopsis ? <p className="mt-4 text-sm leading-relaxed">{synopsis}</p> : null}
         <p className="mt-2 text-xs text-muted-foreground">{score.explanation}</p>
 
         {/* Availability left, actions right */}
@@ -290,6 +289,7 @@ function MovieDetailPage() {
                 <EpisodeRow
                   key={ep.episode.id}
                   entry={ep}
+                  detail={details[ep.episode.id] ?? EMPTY_EPISODE_DETAIL}
                   movieId={movie.id}
                   showReview={reviewStates.isAdmin}
                   reviewed={reviewStates.reviews[ep.episode.id]?.reviewed ?? false}
@@ -317,6 +317,7 @@ function MovieDetailPage() {
  */
 function EpisodeRow({
   entry,
+  detail,
   movieId,
   showReview,
   reviewed,
@@ -326,6 +327,7 @@ function EpisodeRow({
   quality,
 }: {
   entry: EpisodeEntry;
+  detail: EpisodeDetail;
   movieId: string;
   showReview: boolean;
   reviewed: boolean;
@@ -334,7 +336,9 @@ function EpisodeRow({
   listening: ListeningStatus;
   quality: ProductionQuality | null;
 }) {
-  const { episode, podcast, preferred, listenUrl, sources, alsoCovers } = entry;
+  const { episode, podcast, preferred, alsoCovers } = entry;
+  const listenUrl = detail.listenUrl ?? podcast.website_url ?? null;
+  const sources = detail.sources;
 
   return (
     <CardShell className="p-3">
@@ -396,7 +400,7 @@ function EpisodeRow({
             {[episode.released_at, minutes(episode.duration_seconds)].filter(Boolean).join(" · ")}
             {alsoCovers.length > 0 ? ` · also covers ${alsoCovers.join(", ")}` : ""}
           </p>
-          <ExpandableText text={episode.description} className="mt-1.5 text-xs text-muted-foreground" />
+          <ExpandableText text={detail.description} className="mt-1.5 text-xs text-muted-foreground" />
         </div>
       </div>
 
