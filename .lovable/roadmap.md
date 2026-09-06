@@ -4,6 +4,23 @@
 
 Priority reflects the app's current state: a personal tool for one user, refining the match engine on a small data set. Anything aimed at a wider audience or large-scale automatic ingestion is deliberately low priority. Estimates use credit bands, not token counts: **S ~1-2 credits**, **M ~3-5**, **L ~6-10**, **XL ~10+**. Bands are ballparks for build cost — verification loops, debugging and design rounds push a pass toward the top of its band or past it.
 
+## Roadmap status conventions
+
+Use status labels precisely:
+
+- **SHIPPED / VERIFIED** — implementation is complete and the stated acceptance criteria have been verified.
+- **IMPLEMENTED, NOT VERIFIED** — code has been implemented, but one or more acceptance criteria could not be verified.
+- **NEEDS FOLLOW-UP** — a known issue, verification gap, or correctness concern remains.
+- **NEEDS DESIGN / PLAN** — planning or design must happen before implementation.
+- **HELD** — intentionally paused by the user; do not resume without authorization.
+- **DEFERRED** — intentionally postponed in favor of other work.
+
+Do not describe a pass as SHIPPED when its own acceptance section says it is not verified.
+
+When a verification blocker is environmental (for example, an admin-only UI cannot be exercised because the preview is not authenticated), record the blocker explicitly rather than silently treating the pass as verified.
+
+The roadmap is the source of truth for current pass status. Historical plan files remain historical.
+
 ---
 
 # Not yet done
