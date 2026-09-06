@@ -173,6 +173,7 @@ function buildEntries(catalog: Catalog, user: UserData, prefs: Prefs): MovieEntr
       episodes,
       watched: watchedIds.has(movie.id),
       notInterested: notInterested.has(movie.slug),
+      isHoliday: holidayIds.has(movie.id),
       onMyServices: services.some((s) => mySlugs.has(s.slug)),
     };
   });
@@ -196,8 +197,6 @@ function compare(a: MovieEntry, b: MovieEntry, key: Filters["sortBy"]): number {
       return b.score.score - a.score.score;
   }
 }
-
-const HOLIDAY_RE = /\b(santa|christmas)\b/i;
 
 export function applyFilters(
   entries: MovieEntry[],
