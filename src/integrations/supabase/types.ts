@@ -591,6 +591,7 @@ export type Database = {
           id: string
           last_synced_at: string | null
           latest_episode_at: string | null
+          matcher_strategy: Database["public"]["Enums"]["matcher_strategy"]
           name: string
           provider_source: string
           slug: string
@@ -610,6 +611,7 @@ export type Database = {
           id?: string
           last_synced_at?: string | null
           latest_episode_at?: string | null
+          matcher_strategy?: Database["public"]["Enums"]["matcher_strategy"]
           name: string
           provider_source?: string
           slug: string
@@ -629,6 +631,7 @@ export type Database = {
           id?: string
           last_synced_at?: string | null
           latest_episode_at?: string | null
+          matcher_strategy?: Database["public"]["Enums"]["matcher_strategy"]
           name?: string
           provider_source?: string
           slug?: string
@@ -964,6 +967,13 @@ export type Database = {
         | "confirm"
         | "not_about_a_movie"
       match_method: "seed" | "deterministic" | "heuristic" | "ai" | "manual"
+      matcher_strategy:
+        | "clean_title"
+        | "year_aware"
+        | "noisy_description"
+        | "actor_corroboration"
+        | "special_word_suppression"
+        | "stricter_threshold"
       media_type: "movie" | "tv"
       offer_type: "subscription" | "free_ads" | "rent" | "buy"
       podcast_activity: "active" | "slow" | "dormant" | "ended"
@@ -1116,6 +1126,14 @@ export const Constants = {
         "not_about_a_movie",
       ],
       match_method: ["seed", "deterministic", "heuristic", "ai", "manual"],
+      matcher_strategy: [
+        "clean_title",
+        "year_aware",
+        "noisy_description",
+        "actor_corroboration",
+        "special_word_suppression",
+        "stricter_threshold",
+      ],
       media_type: ["movie", "tv"],
       offer_type: ["subscription", "free_ads", "rent", "buy"],
       podcast_activity: ["active", "slow", "dormant", "ended"],

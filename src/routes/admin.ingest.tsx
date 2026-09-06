@@ -5,6 +5,11 @@ import { AppShell } from "@/components/AppShell";
 import { Artwork } from "@/components/Artwork";
 import { MatchHistoryCard } from "@/components/admin/MatchHistoryCard";
 import { MatcherScoreCard } from "@/components/admin/MatcherScoreCard";
+import {
+  MATCHER_STRATEGIES,
+  STRATEGY_LABEL,
+  type MatcherStrategy,
+} from "@/lib/matcher-strategies";
 import { MatchReviewCard, RelinkPicker, formatEpisodeMeta } from "@/components/admin/MatchReviewCard";
 import { ExpandableText } from "@/components/ExpandableText";
 import { CollapsibleCard } from "@/components/admin/CollapsibleCard";
@@ -33,6 +38,7 @@ import {
   rescanEpisodeMatches,
   resolveEpisodesToMovies,
   setPodcastCuration,
+  setPodcastMatcherStrategy,
   approveEpisodeMatch,
   markEpisodeNotAboutMovie,
 } from "@/lib/ingestion.functions";
@@ -1074,6 +1080,7 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
   const fetchCoverage = useServerFn(listPodcastCoverage);
   const sync = useServerFn(ingestPodcast);
   const setCuration = useServerFn(setPodcastCuration);
+  const setMatcherStrategy = useServerFn(setPodcastMatcherStrategy);
   const rescanShow = useServerFn(rescanEpisodeMatches);
   const buildShow = useServerFn(resolveEpisodesToMovies);
   const queryClient = useQueryClient();
@@ -1100,7 +1107,7 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
   const showKey = (podcastId: string, action: string) => `podcast:${podcastId}:${action}`;
   const rowStatus = (podcastId: string, action: string) => queue.status(showKey(podcastId, action));
   const rowPending = (podcastId: string) =>
-    ["sync", "recheck", "build", "curation"].some((a) => rowStatus(podcastId, a) !== "idle");
+    ["sync", "recheck", "build", "curation", "strategy"].some((a) => rowStatus(podcastId, a) !== "idle");
 
   const refresh = async () => {
     await queryClient.invalidateQueries({ queryKey: ["podcast-coverage"] });
@@ -1228,6 +1235,21 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
       })
       .catch((e: Error) => setError(e.message));
 
+  /**
+   * Pass U4 — assign a named matcher strategy. Only future resolve/recheck runs
+   * change; confirmed links, rejected pairs and review state are untouched.
+   */
+  const setStrategy = (podcastId: string, strategy: MatcherStrategy, name: string) =>
+    queue
+      .run(showKey(podcastId, "strategy"), `Matcher strategy — ${name}`, async () => {
+        setError(null);
+        await setMatcherStrategy({ data: { podcastId, strategy } });
+        await refresh();
+      })
+      .catch((e: Error) => setError(e.message));
+
+
+
   const row = (p: (typeof all)[number]) => {
     const busy = rowPending(p.podcastId);
     const complete = p.feedTotal > 0 && p.stored >= p.feedTotal;
@@ -1279,8 +1301,27 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
               : " (never synced here)"}
           </p>
 
-
+          {/* Pass U4 — which named matcher strategy this show is matched with. */}
+          <label className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+            <span>Matcher:</span>
+            <select
+              value={p.matcherStrategy}
+              onChange={(e) =>
+                void setStrategy(p.podcastId, e.target.value as MatcherStrategy, p.name)
+              }
+              disabled={rowStatus(p.podcastId, "strategy") !== "idle" || bulkRunning}
+              className="max-w-[13rem] rounded-full border border-border bg-card px-2 py-1 text-xs font-semibold text-foreground disabled:opacity-50"
+            >
+              {MATCHER_STRATEGIES.map((s) => (
+                <option key={s} value={s}>
+                  {STRATEGY_LABEL[s]}
+                </option>
+              ))}
+            </select>
+            {rowStatus(p.podcastId, "strategy") !== "idle" ? <span>Saving…</span> : null}
+          </label>
         </div>
+
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           <button
             type="button"

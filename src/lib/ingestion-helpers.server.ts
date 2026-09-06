@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
+import { asMatcherStrategy, type MatcherStrategy } from "@/lib/matcher-strategies";
 
 type Admin = SupabaseClient<Database>;
 
@@ -12,7 +13,10 @@ export interface UnlinkedEpisode {
   podcastName: string;
   releasedAt: string | null;
   durationSeconds: number | null;
+  /** Pass U4 — the matcher strategy assigned to this episode's show. */
+  matcherStrategy: MatcherStrategy;
 }
+
 
 const PAGE = 1000;
 
@@ -43,8 +47,14 @@ export interface EpisodeRow {
   released_at: string | null;
   duration_seconds: number | null;
   disposition: "needs_review" | "movie_matched" | "not_about_a_movie";
-  podcasts: { id: string; name: string; curation_status: "active" | "parked" };
+  podcasts: {
+    id: string;
+    name: string;
+    curation_status: "active" | "parked";
+    matcher_strategy: MatcherStrategy;
+  };
 }
+
 
 /**
  * Every episode, paged, newest first.
@@ -61,8 +71,9 @@ export async function fetchAllEpisodes(
     let q = admin
       .from("podcast_episodes")
       .select(
-        "id, slug, title, description, podcast_id, released_at, duration_seconds, disposition, podcasts!inner(id, name, curation_status)",
+        "id, slug, title, description, podcast_id, released_at, duration_seconds, disposition, podcasts!inner(id, name, curation_status, matcher_strategy)",
       )
+
       .order("released_at", { ascending: false })
       .range(from, to);
     if (opts.podcastId) q = q.eq("podcast_id", opts.podcastId);
@@ -102,6 +113,8 @@ export async function fetchUnlinkedEpisodes(
       podcastName: ep.podcasts.name,
       releasedAt: ep.released_at,
       durationSeconds: ep.duration_seconds ?? null,
+      matcherStrategy: asMatcherStrategy(ep.podcasts.matcher_strategy),
+
     }));
 
   return opts.limit ? unlinked.slice(0, opts.limit) : unlinked;

@@ -4,7 +4,14 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { accentFor } from "./accents";
 import { nullIfBlank } from "./utils";
+import {
+  MATCHER_STRATEGIES,
+  asMatcherStrategy,
+  strategyConfig,
+  type MatcherStrategy,
+} from "./matcher-strategies";
 import type { Database } from "@/integrations/supabase/types";
+
 
 const IngestPodcastInput = z.object({
   query: z.string().min(1).optional(),
@@ -247,13 +254,19 @@ export const ingestPodcast = createServerFn({ method: "POST" })
         },
         { onConflict: "slug" },
       )
-      .select("id, slug, name")
+      .select("id, slug, name, matcher_strategy")
       .single();
+
 
     if (podcastError || !upsertedPodcast) throw podcastError || new Error("Failed to upsert podcast");
 
+    // Pass U4 — the show's assigned matcher strategy (default = pre-U4 rules).
+    const showStrategy = asMatcherStrategy(upsertedPodcast.matcher_strategy);
+    const strategyBoost = strategyConfig(showStrategy).writeThresholdBoost;
+
     const episodes = await clients.getEpisodesByFeedUrl(apiKey, apiSecret, feed.url, data.maxEpisodes);
     const { data: movies } = await clients.supabaseAdmin.from("movies").select("id, title, release_year, collection_id");
+
     const movieList = movies ?? [];
 
     /**
@@ -366,10 +379,15 @@ export const ingestPodcast = createServerFn({ method: "POST" })
         continue;
       }
 
-      const candidates = clients.matchEpisodeToMovies(storedTitle.title, movieList, { description: ep.description || null });
+      // Pass U4 — this show's assigned strategy decides how the same
+      // deterministic rules are weighted, and how high the write bar sits.
+      const candidates = clients.matchEpisodeToMovies(storedTitle.title, movieList, {
+        description: ep.description || null,
+        strategy: showStrategy,
+      });
       const top = candidates.find((c) => !rejectedPairs.has(`${upsertedEp.id}:${c.movieId}`));
       if (top) {
-        if (top.confidence >= 80) {
+        if (top.confidence >= 80 + strategyBoost) {
           await clients.supabaseAdmin
             .from("episode_movies")
             .upsert(
@@ -384,7 +402,8 @@ export const ingestPodcast = createServerFn({ method: "POST" })
             );
           existingLinkEpisodes.add(upsertedEp.id);
           insertedMatches += 1;
-        } else if (top.confidence >= 50) {
+        } else if (top.confidence >= 50 + strategyBoost) {
+
           await clients.supabaseAdmin
             .from("episode_movies")
             .upsert(
@@ -507,7 +526,10 @@ export const suggestEpisodeMatches = createServerFn({ method: "POST" })
           rejectionCountByMovie,
           description: ep.description,
           commonEpisodeWords,
+          // Pass U4 — score with this show's assigned strategy.
+          strategy: asMatcherStrategy(ep.podcasts.matcher_strategy),
         }).filter((c) => !rejectedPairs.has(`${ep.id}:${c.movieId}`));
+
 
         const top = candidates[0];
         return {
@@ -975,6 +997,33 @@ export const setPodcastCuration = createServerFn({ method: "POST" })
     return { ok: true, status: data.status };
   });
 
+/**
+ * Pass U4 — assign a named matcher strategy to one show. Strategy choice only
+ * affects future resolve/recheck runs: existing confirmed links, rejected pairs
+ * and review state are untouched.
+ */
+export const setPodcastMatcherStrategy = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data) =>
+    z
+      .object({
+        podcastId: z.string().uuid(),
+        strategy: z.enum(MATCHER_STRATEGIES),
+      })
+      .parse(data),
+  )
+  .handler(async ({ data, context }) => {
+    await requireAdmin(context);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin
+      .from("podcasts")
+      .update({ matcher_strategy: data.strategy })
+      .eq("id", data.podcastId);
+    if (error) throw error;
+    return { ok: true, strategy: data.strategy as MatcherStrategy };
+  });
+
+
 export const listIngestionStats = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
@@ -1255,14 +1304,17 @@ export const resolveEpisodesToMovies = createServerFn({ method: "POST" })
       | "no_title_extracted"
       | "no_tmdb_match"
       | "already_rejected"
+      | "below_strategy_threshold"
       | "error";
     const REASON_LABEL: Record<SkipReason, string> = {
       not_about_a_movie: "Title looks like it isn't about a movie",
       no_title_extracted: "No movie title could be extracted from the episode title",
       no_tmdb_match: "TMDB had no confident match for the extracted title",
       already_rejected: "The only TMDB match is a pair you already rejected",
+      below_strategy_threshold: "Match too weak for this show's stricter matcher strategy",
       error: "Errored during lookup",
     };
+
     const buckets = new Map<SkipReason, string[]>();
     const note = (reason: SkipReason, detail: string) => {
       const list = buckets.get(reason) ?? [];
@@ -1281,6 +1333,11 @@ export const resolveEpisodesToMovies = createServerFn({ method: "POST" })
         continue;
       }
 
+      // Pass U4 — this show's strategy raises the bar a TMDB match must clear
+      // before it is written (0 for every strategy except stricter threshold).
+      const boost = strategyConfig(ep.matcherStrategy).writeThresholdBoost;
+      const acceptFloor = boost > 0 ? 60 + boost : 0;
+
       let outcome: "linked" | SkipReason = "no_tmdb_match";
 
       for (const candidate of candidates) {
@@ -1295,18 +1352,24 @@ export const resolveEpisodesToMovies = createServerFn({ method: "POST" })
             outcome = "already_rejected";
             continue;
           }
+          if (match.confidence < acceptFloor) {
+            outcome = "below_strategy_threshold";
+            continue;
+          }
 
+          const auto = match.confidence >= 85 + boost;
           const { error } = await supabaseAdmin.from("episode_movies").upsert(
             {
               episode_id: ep.id,
               movie_id: movie.id,
-              match_method: match.confidence >= 85 ? "deterministic" : "heuristic",
+              match_method: auto ? "deterministic" : "heuristic",
               match_confidence: Math.min(1, match.confidence / 100),
               is_primary_subject: true,
-              review_state: match.confidence >= 85 ? "auto_linked" : "proposed",
+              review_state: auto ? "auto_linked" : "proposed",
             },
             { onConflict: "episode_id, movie_id" },
           );
+
           if (error) throw error;
           linked += 1;
           outcome = "linked";
@@ -1436,19 +1499,22 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
       episodeId: string,
       candidate: { movieId: string; confidence: number; signals: object },
       isPrimary: boolean,
+      /** Pass U4 — extra points the show's strategy requires before auto-linking. */
+      boost: number,
     ) => {
       // Final guard: a rejected pair must never be written back, whatever the
       // caller thought.
       if (rejected.has(`${episodeId}:${candidate.movieId}`)) return false;
+      const auto = candidate.confidence >= 80 + boost;
       const { error } = await supabaseAdmin.from("episode_movies").upsert(
 
         {
           episode_id: episodeId,
           movie_id: candidate.movieId,
-          match_method: candidate.confidence >= 80 ? "deterministic" : "heuristic",
+          match_method: auto ? "deterministic" : "heuristic",
           match_confidence: candidate.confidence / 100,
           is_primary_subject: isPrimary,
-          review_state: candidate.confidence >= 80 ? "auto_linked" : "proposed",
+          review_state: auto ? "auto_linked" : "proposed",
           signals: { ...candidate.signals } as Database["public"]["Tables"]["episode_movies"]["Row"]["signals"],
         },
         { onConflict: "episode_id, movie_id" },
@@ -1459,21 +1525,25 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
     for (const ep of episodes) {
       const existing = linksByEpisode.get(ep.id) ?? [];
       const linkedMovieIds = new Set(existing.map((l) => l.movie_id));
+      // Pass U4 — recheck scores each episode with its own show's strategy.
+      const strategy = asMatcherStrategy(ep.podcasts.matcher_strategy);
+      const boost = strategyConfig(strategy).writeThresholdBoost;
       const candidates = matchEpisodeToMovies(ep.title, movieList, {
         rejectionCountByMovie,
         description: ep.description,
         commonEpisodeWords,
+        strategy,
       }).filter((c) => !rejected.has(`${ep.id}:${c.movieId}`));
 
 
       // 1. No links at all — the original behaviour.
       if (existing.length === 0) {
         const top = candidates[0];
-        if (!top || top.confidence < 50) {
+        if (!top || top.confidence < 50 + boost) {
           stillUnlinked += 1;
           continue;
         }
-        if (await writeLink(ep.id, top, true)) linked += 1;
+        if (await writeLink(ep.id, top, true, boost)) linked += 1;
         else stillUnlinked += 1;
         linkedMovieIds.add(top.movieId);
       } else if (data.rescoreWeakLinks) {
@@ -1487,10 +1557,10 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
         if (
           best &&
           weakest &&
-          best.confidence >= 50 &&
+          best.confidence >= 50 + boost &&
           best.confidence - Math.round(weakest.match_confidence * 100) >= IMPROVE_MARGIN
         ) {
-          if (await writeLink(ep.id, best, weakest.is_primary_subject)) {
+          if (await writeLink(ep.id, best, weakest.is_primary_subject, boost)) {
             await supabaseAdmin
               .from("episode_movies")
               .delete()
@@ -1514,16 +1584,17 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
       // 3. Extra links for episodes that cover more than one film.
       if (data.addExtraLinks) {
         const extras = candidates
-          .filter((c) => !linkedMovieIds.has(c.movieId) && c.confidence >= EXTRA_LINK_MIN)
+          .filter((c) => !linkedMovieIds.has(c.movieId) && c.confidence >= EXTRA_LINK_MIN + boost)
           .slice(0, MAX_EXTRA_LINKS);
         for (const extra of extras) {
-          if (await writeLink(ep.id, extra, false)) {
+          if (await writeLink(ep.id, extra, false, boost)) {
             extraAdded += 1;
             linkedMovieIds.add(extra.movieId);
           }
         }
       }
     }
+
 
     return { scanned: episodes.length, linked, improved, extraAdded, stillUnlinked };
   });
@@ -1566,7 +1637,7 @@ export const listPodcastCoverage = createServerFn({ method: "GET" })
     const { data: podcasts, error } = await supabaseAdmin
       .from("podcasts")
       .select(
-        "id, name, slug, artwork_url, accent, episode_count, curation_status, sync_generation, last_synced_at",
+        "id, name, slug, artwork_url, accent, episode_count, curation_status, sync_generation, last_synced_at, matcher_strategy",
       )
       .order("name");
     if (error) throw error;
@@ -1646,6 +1717,9 @@ export const listPodcastCoverage = createServerFn({ method: "GET" })
         stored: own.length,
         feedTotal: p.episode_count ?? 0,
         curationStatus: (p.curation_status ?? "active") as "active" | "parked",
+        /** Pass U4 — the named matcher strategy assigned to this show. */
+        matcherStrategy: asMatcherStrategy(p.matcher_strategy),
+
         linked: linkedCount,
         retired,
         unmatched: own.length - linkedCount - retired,
@@ -2558,12 +2632,27 @@ export const resolveEpisodeFlags = createServerFn({ method: "POST" })
  */
 export const scoreMatcher = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator((data) =>
+    z
+      .object({
+        /** Pass U4 — score as if this strategy were assigned everywhere. */
+        strategy: z.enum(MATCHER_STRATEGIES).nullish(),
+        /** Pass U4 — restrict the labels to one show. */
+        podcastId: z.string().uuid().nullish(),
+      })
+      .default({})
+      .parse(data ?? {}),
+  )
+  .handler(async ({ data, context }) => {
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { evaluateMatcher } = await import("./matcher-eval.server");
-    return evaluateMatcher(supabaseAdmin);
+    return evaluateMatcher(supabaseAdmin, {
+      strategy: data.strategy ?? null,
+      podcastId: data.podcastId ?? null,
+    });
   });
+
 
 /**
  * Pass Y — content ratings backfill. Chunked and resumable: unchecked movies
