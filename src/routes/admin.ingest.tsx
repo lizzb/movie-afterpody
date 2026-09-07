@@ -525,8 +525,14 @@ function IngestPodcastForm({ onSuccess }: { onSuccess: () => void }) {
           </p>
           {mutation.data.episodesFailed > 0 ? (
             <p className="text-xs text-destructive">
-              {mutation.data.episodesFailed} episodes failed to store:{" "}
+              {mutation.data.episodesFailed} episodes could not be stored:{" "}
               {mutation.data.episodeErrors.join("; ")}
+            </p>
+          ) : null}
+          {mutation.data.episodesWarned > 0 ? (
+            <p className="text-xs text-muted-foreground">
+              {mutation.data.episodesWarned} stored with a caveat:{" "}
+              {mutation.data.episodeWarnings.join("; ")}
             </p>
           ) : null}
         </div>
