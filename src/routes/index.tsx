@@ -1,12 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Sparkles } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { FilterBar } from "@/components/FilterBar";
 import { MovieCard } from "@/components/MovieCard";
 import { PageHeader } from "@/components/PageHeader";
 import { ViewToggle } from "@/components/ViewToggle";
-import { applyFilters, useDiscovery } from "@/lib/discovery";
+import { usePrefs } from "@/lib/prefs";
+import { useFacets, useMoviePage } from "@/lib/server-lists";
 
 export const Route = createFileRoute("/")({
   head: () => ({
