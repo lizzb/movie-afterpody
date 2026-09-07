@@ -138,7 +138,7 @@ Pass G2's `.layout-locked` hardening is now scoped to touch-primary viewports: o
 
 - **Pass U2 — Multi-movie episode editor — L (~6-10 credits).** Handle double features, trilogies, franchises and "covered in passing" vs "primary subject" by letting one episode link to multiple movies with a coverage role; UI to add/remove/reorder links per episode.
 - **Pass U3 — Curated blocklist/allowlist — M (~3-5 credits).** Admin-managed high-noise phrase lists (ad/promo/joke titles) and per-title allowlist overrides feeding the matcher's keyword suppression.
-- **Pass U4 — Per-podcast matcher tuning — IMPLEMENTED, NOT VERIFIED — 2026-09-06.** Six named matcher strategies (`src/lib/matcher-strategies.ts`): clean-title (default, reproduces pre-U4 behaviour), year-aware, noisy-title + description, actor/name corroboration, special-word suppression, stricter threshold. Each is a named configuration of the existing deterministic signals in `matching.server.ts` — no new scoring model, no new data source. Per-show assignment stored on `podcasts.matcher_strategy` (default `clean_title`; all 53 shows started there), editable from the show curation row selector, used by Recheck/Resolve for that show. "Score the matcher" accepts an optional strategy and show scope. **Acceptance classification:** Verified — DB persistence + default assignment; selector visible/persists across reload (desktop + mobile 390px); per-strategy scoring (default threshold 25, precision 0.501 / recall 0.979 — unchanged from the pre-U4 baseline; stricter-threshold run at 45 gives precision 0.696); confirmed links and rejection records untouched (no resolve run, no writes outside `podcasts.matcher_strategy`). Implemented, not verified — a non-default show re-resolve proposal diff (skipped to avoid spending TMDB/ingest budget). Deferred — actor/name corroboration is limited to the existing description/year corroboration signals because no cast cache exists; true cast-mention matching remains Pass P → U23.
+- **Pass U4 — Per-podcast matcher tuning — IMPLEMENTED, NOT VERIFIED — 2026-09-06.** Six named matcher strategies (`src/lib/matcher-strategies.ts`): clean-title (default, reproduces pre-U4 behaviour), year-aware, noisy-title + description, actor/name corroboration, special-word suppression, stricter threshold. Each is a named configuration of the existing deterministic signals in `matching.server.ts` — no new scoring model, no new data source. Per-show assignment stored on `podcasts.matcher_strategy` (default `clean_title`; all 53 shows started there), editable from the show curation row selector, used by Recheck/Resolve for that show. "Score the matcher" accepts an optional strategy and show scope. **Acceptance classification:** Verified — DB persistence + default assignment; selector visible/persists across reload (desktop + mobile 390px); per-strategy scoring (default threshold 25, precision 0.501 / recall 0.979 — unchanged from the pre-U4 baseline; stricter-threshold run at 45 gives precision 0.696); confirmed links and rejection records untouched (no resolve run, no writes outside `podcasts.matcher_strategy`). Implemented, not verified — a non-default show re-resolve proposal diff (skipped to avoid spending TMDB/ingest budget). Deferred — actor/name corroboration is limited to the existing description/year corroboration signals because no cast cache exists; true cast-mention matching remains Pass P → U23. **Wording note (2026-09-07):** "actor/name corroboration" is year/description corroboration only today; genuine cast-based behaviour arrives in Pass U4A below.
 - **Pass U5 — Training/evaluation dashboard — M (~3-5 credits).** Turn "Score the matcher" scorecard output into recommended rule changes with before/after evals (extends `matcher-eval.server.ts`).
 - **Pass U6 — Low-confidence link maintenance — S (~1-2 credits).** A safe "clear low-confidence auto links and rerun the current engine" maintenance action with a dry-run preview, guarding manual/confirmed links and parked shows (related to Pass Z).
 
@@ -1192,6 +1192,56 @@ Dependency:
 - This pass decides the actual browsing interaction and acceptance criteria.
 
 Acceptance should include a real large result set and verify that the user can move through substantially more than the first 30/40 results without repeated disruptive stops, while maintaining safe render cost and correct result counts.
+
+#### Pass U53 — "Mark episode reviewed" also confirms the episode's current links — M (~3-5 credits) — backlog, filed 2026-09-07
+
+Full analysis: `.lovable/plan/plan-backlog-only-three-filings-2026-09-07.md` (section A).
+
+Logically safe, with one hard condition: the button may only sit on surfaces that show the episode's whole link set (U38 already removed it from movie-detail cards via `includeReview={false}` — that is now a safety rule, not cosmetics), and the write must re-read the database rather than trust the rendered page.
+
+Semantics for `setEpisodeReviewed({ reviewed: true })`, per episode, server-side:
+
+1. Read the episode's current `episode_movies` rows at click time (never from client input).
+2. Read open (`resolved_at is null`) `episode_link_flags` for the episode.
+3. Refuse when any current link carries an open flag ("Resolve the flagged link first") — no review record, no confirmations.
+4. Otherwise set every non-`confirmed` current link to `confirmed` with `reviewed_at`/`reviewed_by`; already-confirmed links keep their original reviewer/timestamp.
+5. Upsert the episode review record exactly as today.
+6. Zero-link episodes may always become reviewed; retired episodes are a link no-op.
+7. Client sends an optional `expectedLinkIds` snapshot; a mismatch aborts with "This episode changed — reload before signing off" (concurrency guard).
+8. Reopen (`reviewed: false`) never touches link state.
+9. Bulk mark-reviewed stays review-only by default; mass confirmation requires an explicit opt-in.
+10. Never creates links, never touches `episode_match_rejections`, never runs matching, never writes movie rows.
+
+The existing `episode_review_stale_on_flag` trigger already reopens a review when a link is later flagged, keeping the reverse direction consistent. No migration needed.
+
+Acceptance: DB-verified confirmation of current non-confirmed links; original reviewer/timestamp preserved on already-confirmed links; open-flag case refused with nothing written; zero-link episode reviewable; retired no-op; stale snapshot aborts with DB untouched; rejection row count unchanged and no new `episode_movies`/`movies` writes; reopen leaves confirmations intact; bulk path does not confirm unless opted in. Verify in a signed-in admin session on the podcast-detail episode list and the Unmatched/Match review cards, classifying each item per the project convention.
+
+#### Pass U54 — Show curation card: sync-status clarity, "Current" filter, mobile layout — M (~3-5 credits) — backlog, filed 2026-09-07
+
+Full analysis: `.lovable/plan/plan-backlog-only-three-filings-2026-09-07.md` (section B).
+
+**1. "never synced here" reconciled.** "Here" = this app's database. The phrase renders only when `podcasts.last_synced_at` is null (`admin.ingest.tsx` ~line 1301 via `lastSyncedAt` in `listPodcastCoverage`). `last_synced_at` is written in exactly one place — the feed sync path (`ingestion.functions.ts` ~line 442) — so episodes stored by earlier import/backfill paths leave it null, which is how a show holds episodes and still reads "never synced here". It says nothing about the provider updating its feed. Three distinct concepts sit next to each other on the card: **stored** (`own.length`), **feed total** (`podcasts.episode_count`, provider-reported at last metadata read), and **last synced** (when we last ran a sync). Recommended wording: "Feed not synced in this app yet".
+
+**2. Inline placement.** Move the sync date / not-yet-synced phrase onto the `XXX stored / XXX in feed · complete` line. No wider card redesign.
+
+**3. New status word + pill filter — "Current".** A show is Current only when all three hold: (a) `incomplete === false`; (b) `episodesUnreviewed === 0 && stored > 0` (episode-level review, not `fullyReviewed`); (c) `last_synced_at` non-null and within a rolling 168 hours UTC, computed server-side and returned as a boolean. Null `last_synced_at` never qualifies. Pills: All / Current / Needs attention.
+
+**Documented discrepancy:** `fullyReviewed` (`ingestion.functions.ts` line 1733) does NOT mean this — it is link-level (`stored > 0 && awaitingReview === 0 && unmatched === 0`) and ignores episode review records and sync recency. The filter must not reuse it and this pass must not redefine it.
+
+**4. Mobile layout.** Header row = artwork, title, Park/Re-activate right; full-width status line with Sync episodes right-aligned; matcher label + select beneath it; footer row = Recheck episodes + Build movies, wrapping/stacking under ~360 px. Constraint: buttons carry live status text ("Queued…", "Rechecking…"), so widths change during runs — use `min-w-0`/`flex-wrap`, not fixed columns. Verify at 320 px, 390 px and desktop.
+
+Ship as one pass; split only if item 4 alone exceeds its band (U54a = wording + inline + filter, U54b = layout). Acceptance: wording changed and inline; Current computed server-side to the three conditions with the exact 168-hour boundary; deterministic filtering; never-synced shows excluded; `fullyReviewed` semantics unchanged; nothing clipped or overflowing at 320/390/desktop; no change to matching, review or curation behaviour.
+
+#### Pass U4A — Cast-based actor-name corroboration matcher strategy — M (~3-5 credits) — BLOCKED on Pass P + Pass U23 — filed 2026-09-07
+
+U4's `actor_corroboration` strategy is not cast-based today; it relies on the existing year and description corroboration signals. After P and U23 are verified, point that strategy at U23's existing `castMention` signal inside the current U4 per-show architecture.
+
+Requirements: reuse U23's `castMention` (no duplicate cast-name matching); cached cast data only, no matcher-time network requests; preserve existing strategy assignments and the `clean_title` default; changing a show's strategy must not modify confirmed links or resurrect rejected pairs; effect limited to future resolve/recheck through the existing U4 path; use "Score the matcher" for before/after evidence before wider assignment.
+
+Non-goals: cast ingestion/caching (Pass P), `castMention` implementation (Pass U23), automatic strategy assignment, broad matcher replay or recheck.
+
+Acceptance: the strategy's scoring/corroboration behaviour changes with `castMention`; the existing U4 selector can assign it per show; "Score the matcher" gives before/after evidence; confirmed links and rejection records unchanged; a non-default test show demonstrates the expected behaviour.
+
 
 ### Already documented elsewhere — DO NOT create duplicate pass
 
