@@ -1801,18 +1801,35 @@ export const relinkEpisodeMovie = createServerFn({ method: "POST" })
       .eq("movie_id", data.fromMovieId)
       .maybeSingle();
 
-    const { error: delError } = await supabaseAdmin
+    // Pass U32 — same delete-then-verify contract the bulk path uses:
+    // `.select()` reports the rows actually removed, and a zero-row delete is
+    // only acceptable when the link is genuinely absent already.
+    const { data: removed, error: delError } = await supabaseAdmin
       .from("episode_movies")
       .delete()
       .eq("episode_id", data.episodeId)
-      .eq("movie_id", data.fromMovieId);
+      .eq("movie_id", data.fromMovieId)
+      .select("episode_id");
     if (delError) throw delError;
+    if ((removed ?? []).length === 0) {
+      const { data: stillThere } = await supabaseAdmin
+        .from("episode_movies")
+        .select("episode_id")
+        .eq("episode_id", data.episodeId)
+        .eq("movie_id", data.fromMovieId)
+        .maybeSingle();
+      if (stillThere) {
+        // Nothing recorded, nothing logged: the row must stay visible.
+        return { ok: false as const, relinked: false, error: "link could not be removed" };
+      }
+    }
 
     const { error: rejError } = await supabaseAdmin.from("episode_match_rejections").upsert(
       { episode_id: data.episodeId, movie_id: data.fromMovieId, rejected_by: context.userId },
       { onConflict: "episode_id, movie_id" },
     );
     if (rejError) throw rejError;
+
 
     if (data.toMovieId) {
       const { error: insError } = await supabaseAdmin.from("episode_movies").upsert(
