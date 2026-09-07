@@ -74,6 +74,29 @@ function actionClass(tone: keyof typeof ACTION_TONES, active: boolean) {
   }`;
 }
 
+/**
+ * Pass U33 — bulk buttons read as the same control family as the row actions:
+ * coloured text on grey when idle, and only the button that was actually pressed
+ * fills with its colour (carrying the spinner) until the operation resolves.
+ * Unpressed siblings stay text-on-grey and simply go quiet while disabled.
+ */
+function bulkClass(
+  tone: keyof typeof ACTION_TONES | "neutral",
+  active: boolean,
+  disabled: boolean,
+) {
+  const base =
+    "inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold transition-colors";
+  if (tone === "neutral") {
+    return `${base} border border-border ${disabled ? "text-muted-foreground opacity-60" : "hover:bg-secondary"}`;
+  }
+  const t = ACTION_TONES[tone];
+  if (active) return `${base} ${t.active}`;
+  if (disabled) return `${base} bg-muted text-muted-foreground opacity-60`;
+  return `${base} ${t.idle}`;
+}
+
+
 const BANDS = [
   { label: "Weakest first (≤ 80%)", value: 0.8 },
   { label: "Stronger too (≤ 95%)", value: 0.95 },
@@ -604,7 +627,13 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
       else if (vars.action === "confirm")
         await confirmFn({ data: { episodeId: vars.episodeId, movieId: vars.movieId } });
       else if (vars.action === "retire") await retireFn({ data: { episodeId: vars.episodeId } });
-      else await relinkFn({ data: { episodeId: vars.episodeId, fromMovieId: vars.movieId } });
+      else {
+        // Pass U32 — the server verifies the delete really landed; an
+        // unverified unlink must leave the row listed with an explicit error.
+        const res = await relinkFn({ data: { episodeId: vars.episodeId, fromMovieId: vars.movieId } });
+        if (!res.ok) throw new Error(res.error ?? "The link could not be removed.");
+      }
+
 
       if (vars.wasFlagged) {
         await resolveFlagsFn({
@@ -669,10 +698,12 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
           if (forProposal) {
             await approveFn({ data: { episodeId: row.episodeId, movieId } });
           } else {
-            await relinkFn({
+            const res = await relinkFn({
               data: { episodeId: row.episodeId, fromMovieId: row.movieId, toMovieId: movieId },
             });
+            if (!res.ok) throw new Error(res.error ?? "The old link could not be removed.");
           }
+
           if (row.flagged) {
             await resolveFlagsFn({
               data: { episodeId: row.episodeId, movieId: row.movieId, resolution: "fixed" },
@@ -757,6 +788,11 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
   });
 
   const selectedCount = Object.keys(selected).length;
+  // Pass U33 — exactly one bulk action can be in flight, and it is the only one
+  // allowed to show a filled colour while it runs.
+  const bulkBusy = bulk.isPending;
+  const runningBulk = bulk.isPending ? (bulk.variables?.action ?? null) : null;
+
   const allVisibleSelected = visibleRows.length > 0 && visibleRows.every((r) => selected[r.key]);
 
   const toggleAll = () => {
@@ -1061,20 +1097,28 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
                 <>
                   <button
                     type="button"
-                    disabled={bulk.isPending}
+                    disabled={bulkBusy}
                     onClick={() => runBulk("approve")}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-teal px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"
+                    className={bulkClass("positive", runningBulk === "approve", bulkBusy)}
                   >
-                    <Check className="size-3.5" aria-hidden />
+                    {runningBulk === "approve" ? (
+                      <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                    ) : (
+                      <Check className="size-3.5" aria-hidden />
+                    )}
                     Approve selected
                   </button>
                   <button
                     type="button"
-                    disabled={bulk.isPending}
+                    disabled={bulkBusy}
                     onClick={() => runBulk("reject")}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs font-semibold disabled:opacity-50"
+                    className={bulkClass("negative", runningBulk === "reject", bulkBusy)}
                   >
-                    <X className="size-3.5" aria-hidden />
+                    {runningBulk === "reject" ? (
+                      <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                    ) : (
+                      <X className="size-3.5" aria-hidden />
+                    )}
                     Reject selected
                   </button>
                 </>
@@ -1082,20 +1126,28 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
                 <>
                   <button
                     type="button"
-                    disabled={bulk.isPending}
+                    disabled={bulkBusy}
                     onClick={() => runBulk("confirm")}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-teal px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"
+                    className={bulkClass("positive", runningBulk === "confirm", bulkBusy)}
                   >
-                    <Check className="size-3.5" aria-hidden />
+                    {runningBulk === "confirm" ? (
+                      <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                    ) : (
+                      <Check className="size-3.5" aria-hidden />
+                    )}
                     Confirm selected
                   </button>
                   <button
                     type="button"
-                    disabled={bulk.isPending}
+                    disabled={bulkBusy}
                     onClick={() => runBulk("unlink")}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs font-semibold disabled:opacity-50"
+                    className={bulkClass("negative", runningBulk === "unlink", bulkBusy)}
                   >
-                    <Unlink className="size-3.5" aria-hidden />
+                    {runningBulk === "unlink" ? (
+                      <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                    ) : (
+                      <Unlink className="size-3.5" aria-hidden />
+                    )}
                     Unlink selected
                   </button>
                 </>
@@ -1104,51 +1156,50 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
                   interview episodes out of every queue at once. */}
               <button
                 type="button"
-                disabled={bulk.isPending}
+                disabled={bulkBusy}
                 onClick={() => runBulk("retire")}
-                className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs font-semibold disabled:opacity-50"
+                className={bulkClass("retire", runningBulk === "retire", bulkBusy)}
               >
-                <Ban className="size-3.5" aria-hidden />
+                {runningBulk === "retire" ? (
+                  <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                ) : (
+                  <Ban className="size-3.5" aria-hidden />
+                )}
                 Not about a movie
               </button>
               {/* Pass U8 — episode-level sign-off, per-episode verified server side. */}
               <button
                 type="button"
-                disabled={bulk.isPending}
+                disabled={bulkBusy}
                 onClick={() =>
                   void markReviewed(
                     visibleRows.filter((r) => selected[r.key]).map((r) => r.episodeId),
                     true,
                   )
                 }
-                className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs font-semibold disabled:opacity-50"
+                className={bulkClass("neutral", false, bulkBusy)}
               >
                 <CheckCheck className="size-3.5" aria-hidden />
                 Mark reviewed
               </button>
               <button
                 type="button"
-                disabled={bulk.isPending}
+                disabled={bulkBusy}
                 onClick={() =>
                   void markReviewed(
                     visibleRows.filter((r) => selected[r.key]).map((r) => r.episodeId),
                     false,
                   )
                 }
-                className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs font-semibold disabled:opacity-50"
+                className={bulkClass("neutral", false, bulkBusy)}
               >
                 <RotateCcw className="size-3.5" aria-hidden />
                 Reopen
               </button>
-
-              {bulk.isPending ? (
-                <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Loader2 className="size-3.5 animate-spin" aria-hidden />
-                  Applying…
-                </span>
-              ) : null}
             </div>
           ) : null}
+
+
 
           <ul className="mt-3 space-y-2">
             {visibleRows.map((row) => (

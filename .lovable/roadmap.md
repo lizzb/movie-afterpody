@@ -244,13 +244,20 @@ Make the primary product metric measurable: per matcher change and per review se
 
 ### Match Review UX and filter feedback (filed 2026-09-02, backlog only — full detail in `.lovable/plan/match-review-ux-filter-feedback-backlog-2026-09-02.md`)
 
-#### Pass U32 — Verify single-row unlink like bulk unlink — S (~1-2 credits) — Priority 2
+#### Pass U32 — Verify single-row unlink like bulk unlink — S (~1-2 credits) — IMPLEMENTED, NOT VERIFIED 2026-09-07
 
-Follow-up candidate recorded during U12 verification (not a U12 gap): the single-row `relinkEpisodeMovie` unlink deletes without the delete-then-verify readback that bulk unlink now performs. Apply the same per-pair verification, return ok/failed, and restore the row with an error toast when the delete did not persist.
+`relinkEpisodeMovie` now deletes with `.select()`, re-reads the pair when zero rows come back, and returns `{ ok: false, error }` without recording a rejection or logging an action when the link is still there. Match Review turns that into a thrown error, so the row is restored (`unmarkDone`) and the message is shown instead of the row silently vanishing.
 
-#### Pass U33 — Bulk action button visual states — S (~1-2 credits) — Priority 1
+- **Verified:** typecheck passes; both single-unlink and relink call sites check `ok`.
+- **Implemented, not verified:** a forced failing delete was not exercised in the running app (admin-only surface; test browser signed out).
 
-Bulk buttons must match the row-action family: Approve/Confirm = green text on grey, Unlink/Reject = red text on grey, Not about a movie = amber text on grey; only the pressed button flips to white-on-colour and holds that state (with the spinner) until the operation resolves, while unpressed siblings disable as text-on-grey and never fill. Fixes today's always-green "confirm selected" reading as pre-selected during loading. Semantic tokens only. Full state table in the plan file.
+#### Pass U33 — Bulk action button visual states — S (~1-2 credits) — IMPLEMENTED, NOT VERIFIED 2026-09-07
+
+Bulk buttons now use a `bulkClass()` helper built on the same `ACTION_TONES` tokens as the row actions: Approve/Confirm teal text on muted grey, Reject/Unlink destructive text on grey, Not about a movie gold text on grey, Mark reviewed/Reopen neutral outline. Only the pressed action fills (white on colour) and carries the spinner for the whole operation; siblings stay text-on-grey and go quiet while disabled. The separate "Applying…" spinner label was removed as redundant.
+
+- **Verified:** typecheck passes; pressed action derived from `bulk.variables.action`, so exactly one button can be filled.
+- **Implemented, not verified:** in-flight screenshot at 390px (admin-only surface; test browser signed out).
+
 
 #### Pass U34 — Mobile action-button sizing — S (~1-2 credits) — Priority 1b — NEEDS DESIGN APPROVAL
 
