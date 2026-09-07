@@ -5,7 +5,7 @@ Mode: PLAN. No code changes. Approving this plan files these items into `.lovabl
 
 ---
 
-## A. Pass U40 — "Mark episode reviewed" confirms the episode's current links — M (~3–5)
+## A. Pass U53 — "Mark episode reviewed" confirms the episode's current links — M (~3–5)
 
 ### 1. Is the behaviour logically safe?
 
@@ -57,7 +57,7 @@ Note the existing trigger `episode_review_stale_on_flag` already reopens a revie
 
 ---
 
-## B. Pass U41 — Show curation card: sync-status clarity, "Current" filter, mobile layout — M (~3–5)
+## B. Pass U54 — Show curation card: sync-status clarity, "Current" filter, mobile layout — M (~3–5)
 
 ### 1. What "never synced here" means (determined from code)
 
@@ -101,7 +101,7 @@ Current row is one `flex-wrap` line with a five-line text block and four pill bu
 Constraint to respect: the buttons carry live status text ("Queued…", "Rechecking…"), so widths change during runs — use `min-w-0`/`flex-wrap` rather than fixed columns. Verify at 390 px and 320 px.
 
 ### Split rule
-Ship as one pass; only split if item 4 alone exceeds its band (then U41a = wording + inline + filter, U41b = layout).
+Ship as one pass; only split if item 4 alone exceeds its band (then U54a = wording + inline + filter, U54b = layout).
 
 ### Acceptance
 Wording changed and inline; `Current` computed server-side per the three conditions with the 168-hour boundary; pill filters the list deterministically; "never synced" shows never qualify; `fullyReviewed` semantics unchanged; no card content clipped or overflowing at 320/390/desktop; no changes to matching, review, or curation behaviour.
