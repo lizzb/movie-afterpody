@@ -66,8 +66,12 @@ export function useShowPage(args: {
   limit: number;
   term?: string;
   mode?: "all" | "streamable" | "preferred";
+  /** Keep the ranking snapshot from first render so cards never jump mid-tap. */
+  freezeTaste?: boolean;
 }) {
-  const taste = useTaste();
+  const live = useTaste();
+  const [firstTaste] = useState(live);
+  const taste = args.freezeTaste ? firstTaste : live;
   const { limit, term = "", mode = "all" } = args;
   const query = useQuery({
     queryKey: ["show-page", { limit, term, mode, taste }],
