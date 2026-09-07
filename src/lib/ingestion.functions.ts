@@ -311,7 +311,10 @@ export const ingestPodcast = createServerFn({ method: "POST" })
     let matchesSkippedProtected = 0;
     // Surfaced instead of swallowed: a feed with 900 episodes that only stores 700
     // should say why rather than looking like a coverage mystery.
+    // U49 — two distinct buckets: an episode that genuinely could not be stored
+    // (a failure) vs one that stored fine but carries a caveat (a warning).
     const episodeErrors: string[] = [];
+    const episodeWarnings: string[] = [];
 
 
 
@@ -342,7 +345,7 @@ export const ingestPodcast = createServerFn({ method: "POST" })
         continue;
       }
       if (storedTitle.fallback) {
-        episodeErrors.push(`${storedTitle.title}: feed did not provide an episode title; stored without matching`);
+        episodeWarnings.push(`${storedTitle.title}: feed did not provide an episode title; stored without matching`);
       }
 
       insertedEpisodes += 1;
@@ -452,6 +455,9 @@ export const ingestPodcast = createServerFn({ method: "POST" })
       episodesInserted: insertedEpisodes,
       episodesFailed: episodeErrors.length,
       episodeErrors: episodeErrors.slice(0, 10),
+      /** Stored successfully, but with a caveat worth reading (U49). */
+      episodesWarned: episodeWarnings.length,
+      episodeWarnings: episodeWarnings.slice(0, 10),
       matchesInserted: insertedMatches,
       pendingMatches,
       matchesSkippedProtected,
