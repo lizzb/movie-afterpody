@@ -11,42 +11,19 @@ import type { Database } from "@/integrations/supabase/types";
 import { buildEntries, applyFilters, type MovieEntry } from "./entries";
 import { buildPodcastEntries, type PodcastEntry } from "./podcast-entries";
 import { DEFAULT_PREFS, toUserData, type Filters, type Prefs } from "./prefs";
+import type { Taste } from "./taste";
 import type {
   Catalog,
   Episode,
   EpisodeMovie,
-  EpisodeRating,
   Genre,
-  ListeningStatus,
   Movie,
   MovieAvailability,
   MovieGenre,
   Podcast,
   PodcastMetric,
-  ProductionQuality,
   StreamingService,
 } from "./types";
-
-/** The slug-keyed personal signals the ranking needs. Small by construction. */
-export interface Taste {
-  serviceSlugs: string[];
-  preferredPodcastSlugs: string[];
-  ratings: Record<string, EpisodeRating>;
-  listening: Record<string, ListeningStatus>;
-  quality: Record<string, ProductionQuality>;
-  watchedMovieSlugs: string[];
-  notInterestedSlugs: string[];
-}
-
-export const EMPTY_TASTE: Taste = {
-  serviceSlugs: [],
-  preferredPodcastSlugs: [],
-  ratings: {},
-  listening: {},
-  quality: {},
-  watchedMovieSlugs: [],
-  notInterestedSlugs: [],
-};
 
 function client() {
   return createClient<Database>(
