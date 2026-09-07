@@ -525,8 +525,14 @@ function IngestPodcastForm({ onSuccess }: { onSuccess: () => void }) {
           </p>
           {mutation.data.episodesFailed > 0 ? (
             <p className="text-xs text-destructive">
-              {mutation.data.episodesFailed} episodes failed to store:{" "}
+              {mutation.data.episodesFailed} episodes could not be stored:{" "}
               {mutation.data.episodeErrors.join("; ")}
+            </p>
+          ) : null}
+          {mutation.data.episodesWarned > 0 ? (
+            <p className="text-xs text-muted-foreground">
+              {mutation.data.episodesWarned} stored with a caveat:{" "}
+              {mutation.data.episodeWarnings.join("; ")}
             </p>
           ) : null}
         </div>
@@ -1119,7 +1125,8 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
     const note =
       `stored ${result.episodesInserted} of ${result.episodesFetched} fetched` +
       (result.feedTotal ? ` · feed reports ${result.feedTotal}` : "") +
-      (result.episodesFailed > 0 ? ` · ${result.episodesFailed} failed` : "");
+      (result.episodesFailed > 0 ? ` · ${result.episodesFailed} could not be stored` : "") +
+      (result.episodesWarned > 0 ? ` · ${result.episodesWarned} stored with a caveat` : "");
     setSyncLog((prev) => [{ name, message: note, ok: result.episodesFailed === 0 }, ...prev].slice(0, 25));
   };
 
@@ -1163,11 +1170,19 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
       .run(showKey(podcastId, "build"), `Build movies — ${name}`, async () => {
       setError(null);
       const r = await buildShow({ data: { podcastId, limit: 100 } });
+      // U49 — the server already returns why each episode was skipped; the row
+      // used to drop it, so name the top reasons here instead.
+      const why = r.skipReasons
+        .slice(0, 2)
+        .map((s) => `${s.count} ${s.label.toLowerCase()}`)
+        .join("; ");
       setSyncLog((prev) =>
         [
           {
             name,
-            message: `build: ${r.linked} linked · ${r.moviesCreated} movies created · ${r.skipped} skipped`,
+            message:
+              `build: ${r.linked} linked · ${r.moviesCreated} movies created · ${r.skipped} skipped` +
+              (why ? ` — ${why}` : ""),
             ok: true,
           },
           ...prev,

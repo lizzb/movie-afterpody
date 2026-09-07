@@ -894,7 +894,7 @@ This is an architecture/operations audit only.
 
 Update the roadmap or documentation only if needed to record the current, corrected workflow.
 
-#### Pass U49 — TRIAGE: Sync reporting/count inconsistencies — <estimateTBD>
+#### Pass U49 — TRIAGE: Sync reporting/count inconsistencies — S — Triaged 2026-09-07; quick fixes shipped (see outcome below)
 
 TRIAGE: Sync reporting/count inconsistencies / ingestion accounting / truthfulness
 
@@ -1011,6 +1011,27 @@ Instead explain:
 - whether a new backlog item is actually necessary.
 
 Do not make unrelated ingestion or matching changes.
+
+### U49 triage outcome (2026-09-07) — quick fixes shipped, rest reconciled
+
+Traced `syncPodcast`, `resolveUnmatchedEpisodes`, `listPodcastCoverage` and the admin row UI.
+
+1. **fetched / stored / feed / failed — EXPECTED / CORRECT (wording only).**
+   - `feed reports N` = `podcasts.episode_count`, a Podcast Index **provider statistic** refreshed on each sync — it is a cached count, not a recount of the items returned.
+   - `fetched` = items the episodes endpoint actually returned (capped by `maxEpisodes`).
+   - `stored` = successful upserts in this run (inserts **and** updates), not new rows.
+   - `fetched > feed reported` and `stored > feed reported` are both legitimate: the provider's count lags the item list, and stored rows accumulate across syncs (including episodes later dropped from the feed). `complete` is `episode_count <= stored`, so `stored > feed` reads complete — correct under this definition.
+   - Caveat: because `stored` counts upsert successes, slug collisions inflate it relative to real rows. That is exactly **Pass U17**; no duplicate work filed.
+   - Row Sync result and coverage row use *different* denominators by design (one is this-run counts, the other is stored-vs-feed). Canonical interpretation recorded above; no code change.
+
+2. **"1 failed" — BUG, QUICK FIX (done).** Episodes with no feed-provided title were pushed into the same `episodeErrors` array *after* being stored successfully, so a stored-with-caveat episode was reported as a storage failure and flipped the sync log to not-ok. Now split into `episodesFailed`/`episodeErrors` (genuine upsert failures) and `episodesWarned`/`episodeWarnings` (stored, untitled, skipped for matching), with truthful wording in both the ingest card and the per-show sync log.
+
+3. **Per-show Build reporting — MISLEADING / UX REPORTING ISSUE, QUICK FIX (done).** `resolveUnmatchedEpisodes` already returns `skipReasons` with labels, counts and examples; the row-level handler discarded them. The row message now names the top two reasons; full detail stays in the page-level section.
+
+4. **"0 linked · 0 created · N skipped" — DOCUMENTATION (no code).** Every attempted episode lands in exactly one bucket: `not_about_a_movie` (title heuristic), `no_title_extracted`, `no_tmdb_match`, `already_rejected`, `below_strategy_threshold` (U4 stricter strategies), `error`. The build pool excludes linked episodes, retired episodes, parked shows and admin-reviewed episodes, so a fully reviewed show legitimately returns all zeros. Duplicate links are impossible — links upsert on `(episode_id, movie_id)` — and rejected pairs are checked immediately before every write, so they are never resurrected.
+
+No further backlog item is needed: the only remaining substantive issue (stored-count truthfulness) is already **Pass U17 — S**.
+
 
 #### Pass U50 — RECONCILE / ROADMAP EDIT ONLY — <estimateTBD>
 
