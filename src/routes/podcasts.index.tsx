@@ -41,35 +41,24 @@ const MODES: { value: Mode; label: string }[] = [
 ];
 
 function PodcastsPage() {
-  const { podcastEntries, prefs, isLoading } = usePodcasts();
+  const prefs = usePrefs();
   const [term, setTerm] = useState("");
   const [mode, setMode] = useState<Mode>("all");
+  const [limit, setLimit] = useState(30);
   const view = prefs.viewModes["podcasts"] ?? "rows";
 
-  const filtered = useMemo(() => {
-    const needle = term.trim().toLowerCase();
-    return podcastEntries.filter((e) => {
-      if (needle && !e.podcast.name.toLowerCase().includes(needle)) return false;
-      if (mode === "streamable" && e.streamableUnwatched.length === 0) return false;
-      if (mode === "preferred" && !e.preferred) return false;
-      return true;
-    });
-  }, [podcastEntries, term, mode]);
+  // Pass L2b — ranked and filtered on the server across every active show.
+  // The ranking snapshot is frozen for the visit so cards never jump mid-tap.
+  const { rows: results, total, isLoading } = useShowPage({
+    term,
+    mode,
+    limit,
+    freezeTaste: true,
+  });
 
-  // Snapshot the order when the query/filter changes so following a show does not
-  // make its card jump (or appear to vanish) mid-tap. Re-ranking applies next load.
-  const orderKey = `${term.trim().toLowerCase()}|${mode}|${isLoading}`;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const order = useMemo(() => filtered.map((e) => e.podcast.slug), [orderKey]);
-
-  const results = useMemo(() => {
-    const index = new Map(order.map((slug, i) => [slug, i]));
-    return [...filtered].sort(
-      (a, b) =>
-        (index.get(a.podcast.slug) ?? Number.MAX_SAFE_INTEGER) -
-        (index.get(b.podcast.slug) ?? Number.MAX_SAFE_INTEGER),
-    );
-  }, [filtered, order]);
+  useEffect(() => {
+    setLimit(30);
+  }, [term, mode]);
 
   return (
     <AppShell>
