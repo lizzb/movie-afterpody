@@ -1125,7 +1125,8 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
     const note =
       `stored ${result.episodesInserted} of ${result.episodesFetched} fetched` +
       (result.feedTotal ? ` · feed reports ${result.feedTotal}` : "") +
-      (result.episodesFailed > 0 ? ` · ${result.episodesFailed} failed` : "");
+      (result.episodesFailed > 0 ? ` · ${result.episodesFailed} could not be stored` : "") +
+      (result.episodesWarned > 0 ? ` · ${result.episodesWarned} stored with a caveat` : "");
     setSyncLog((prev) => [{ name, message: note, ok: result.episodesFailed === 0 }, ...prev].slice(0, 25));
   };
 
