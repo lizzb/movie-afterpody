@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import { confirmEpisodeMatch, unconfirmEpisodeMatch } from "@/lib/ingestion.functions";
-import { useDiscovery } from "@/lib/discovery";
 import { flagKey } from "@/lib/flags";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 
@@ -10,14 +10,35 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 const LOCAL_KEY = ["link-confirmations"] as const;
 type LocalState = Record<string, boolean>;
 
+async function fetchConfirmedKeys(): Promise<string[]> {
+  const out: string[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await supabase
+      .from("episode_movies")
+      .select("episode_id, movie_id")
+      .eq("review_state", "confirmed")
+      .order("episode_id")
+      .range(from, from + 999);
+    if (error) throw new Error(error.message);
+    const rows = data ?? [];
+    for (const r of rows) out.push(flagKey(r.episode_id, r.movie_id));
+    if (rows.length < 1000) return out;
+  }
+}
+
 /**
- * Pass K4 — link review state on consumer episode rows. Confirmed links come
- * straight from the catalogue read, so no extra request per row; L2a follow-up
- * layers this session's confirmations on top instead of refetching everything.
+ * Pass K4 — link review state on consumer episode rows. Pass L2b reads only the
+ * confirmed pairs (admins only) instead of deriving them from a full catalogue
+ * read, and layers this session's confirmations on top.
  */
 export function useConfirmedLinks() {
-  const { catalog } = useDiscovery();
   const isAdmin = useIsAdmin();
+  const links = useQuery({
+    queryKey: ["episode-links", "confirmed"],
+    queryFn: fetchConfirmedKeys,
+    enabled: isAdmin,
+    staleTime: 5 * 60 * 1000,
+  });
   const local = useQuery<LocalState>({
     queryKey: LOCAL_KEY,
     queryFn: () => ({}),
@@ -26,10 +47,7 @@ export function useConfirmedLinks() {
   });
   const overrides = local.data ?? {};
 
-  const confirmed = new Set<string>();
-  for (const link of catalog?.episodeMovies ?? []) {
-    if (link.review_state === "confirmed") confirmed.add(flagKey(link.episode_id, link.movie_id));
-  }
+  const confirmed = new Set<string>(links.data ?? []);
   for (const [key, on] of Object.entries(overrides)) {
     if (on) confirmed.add(key);
     else confirmed.delete(key);
