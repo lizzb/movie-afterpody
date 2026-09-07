@@ -1867,7 +1867,7 @@ export const relinkEpisodeMovie = createServerFn({ method: "POST" })
       previousConfidence: existing ? Number(existing.match_confidence) : null,
     });
 
-    return { ok: true, relinked: Boolean(data.toMovieId) };
+    return { ok: true as const, relinked: Boolean(data.toMovieId), error: undefined };
   });
 
 /**
