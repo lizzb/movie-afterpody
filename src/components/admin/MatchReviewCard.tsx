@@ -675,10 +675,12 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
           if (forProposal) {
             await approveFn({ data: { episodeId: row.episodeId, movieId } });
           } else {
-            await relinkFn({
+            const res = await relinkFn({
               data: { episodeId: row.episodeId, fromMovieId: row.movieId, toMovieId: movieId },
             });
+            if (!res.ok) throw new Error(res.error ?? "The old link could not be removed.");
           }
+
           if (row.flagged) {
             await resolveFlagsFn({
               data: { episodeId: row.episodeId, movieId: row.movieId, resolution: "fixed" },
