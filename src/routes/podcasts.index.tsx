@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Heart, Mic, Search, Star } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { PageHeader } from "@/components/PageHeader";
@@ -7,8 +7,9 @@ import { CatalogAddCard } from "@/components/CatalogAddCard";
 import { Artwork } from "@/components/Artwork";
 import { BrandBadge } from "@/components/BrandBadge";
 import { ViewToggle } from "@/components/ViewToggle";
-import { usePodcasts, type PodcastEntry } from "@/lib/podcasts";
-import { prefsActions, type ViewMode } from "@/lib/prefs";
+import type { PodcastSummary } from "@/lib/podcast-entries";
+import { useShowPage } from "@/lib/server-lists";
+import { prefsActions, usePrefs, type ViewMode } from "@/lib/prefs";
 
 export const Route = createFileRoute("/podcasts/")({
   head: () => ({
@@ -40,35 +41,24 @@ const MODES: { value: Mode; label: string }[] = [
 ];
 
 function PodcastsPage() {
-  const { podcastEntries, prefs, isLoading } = usePodcasts();
+  const prefs = usePrefs();
   const [term, setTerm] = useState("");
   const [mode, setMode] = useState<Mode>("all");
+  const [limit, setLimit] = useState(30);
   const view = prefs.viewModes["podcasts"] ?? "rows";
 
-  const filtered = useMemo(() => {
-    const needle = term.trim().toLowerCase();
-    return podcastEntries.filter((e) => {
-      if (needle && !e.podcast.name.toLowerCase().includes(needle)) return false;
-      if (mode === "streamable" && e.streamableUnwatched.length === 0) return false;
-      if (mode === "preferred" && !e.preferred) return false;
-      return true;
-    });
-  }, [podcastEntries, term, mode]);
+  // Pass L2b — ranked and filtered on the server across every active show.
+  // The ranking snapshot is frozen for the visit so cards never jump mid-tap.
+  const { rows: results, total, isLoading } = useShowPage({
+    term,
+    mode,
+    limit,
+    freezeTaste: true,
+  });
 
-  // Snapshot the order when the query/filter changes so following a show does not
-  // make its card jump (or appear to vanish) mid-tap. Re-ranking applies next load.
-  const orderKey = `${term.trim().toLowerCase()}|${mode}|${isLoading}`;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const order = useMemo(() => filtered.map((e) => e.podcast.slug), [orderKey]);
-
-  const results = useMemo(() => {
-    const index = new Map(order.map((slug, i) => [slug, i]));
-    return [...filtered].sort(
-      (a, b) =>
-        (index.get(a.podcast.slug) ?? Number.MAX_SAFE_INTEGER) -
-        (index.get(b.podcast.slug) ?? Number.MAX_SAFE_INTEGER),
-    );
-  }, [filtered, order]);
+  useEffect(() => {
+    setLimit(30);
+  }, [term, mode]);
 
   return (
     <AppShell>
@@ -131,33 +121,46 @@ function PodcastsPage() {
             </p>
           )
         ) : (
-          <ChunkedPodcasts key={`${view}:${term}:${mode}:${results.length}`} results={results} view={view} />
+          <>
+            <ul
+              className={
+                view === "tiles"
+                  ? "mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"
+                  : "mt-4 space-y-2.5"
+              }
+            >
+              {results.map((entry) => (
+                <PodcastCard key={entry.podcast.id} entry={entry} view={view} />
+              ))}
+            </ul>
+            {results.length < total ? (
+              <button
+                type="button"
+                onClick={() => setLimit((n) => n + 30)}
+                className="mt-4 w-full rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold text-foreground"
+              >
+                Show 30 more{" "}
+                <span className="text-muted-foreground">({total - results.length} remaining)</span>
+              </button>
+            ) : null}
+          </>
         )}
       </main>
     </AppShell>
   );
 }
 
-function ChunkedPodcasts({ results, view }: { results: PodcastEntry[]; view: ViewMode }) {
-  const [limit, setLimit] = useState(30);
-  const visible = results.slice(0, limit);
-  return (
-    <>
-      <ul className={view === "tiles" ? "mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4" : "mt-4 space-y-2.5"}>
-        {visible.map((entry) => <PodcastCard key={entry.podcast.id} entry={entry} view={view} />)}
-      </ul>
-      {visible.length < results.length ? (
-        <button type="button" onClick={() => setLimit((n) => n + 30)} className="mt-4 w-full rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold text-foreground">
-          Show 30 more <span className="text-muted-foreground">({results.length - visible.length} remaining)</span>
-        </button>
-      ) : null}
-    </>
-  );
-}
-
-function PodcastCard({ entry, view }: { entry: PodcastEntry; view: ViewMode }) {
-  const { podcast, preferred, matchScore, streamableUnwatched, movies, metric, episodeCount, links } =
-    entry;
+function PodcastCard({ entry, view }: { entry: PodcastSummary; view: ViewMode }) {
+  const {
+    podcast,
+    preferred,
+    matchScore,
+    streamableCount,
+    movieCount,
+    metric,
+    episodeCount,
+    links,
+  } = entry;
 
   if (view === "tiles") {
     return (
@@ -173,7 +176,7 @@ function PodcastCard({ entry, view }: { entry: PodcastEntry; view: ViewMode }) {
           />
           <h2 className="mt-2 line-clamp-2 text-sm font-semibold leading-snug">{podcast.name}</h2>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            Match {matchScore} · {streamableUnwatched.length} tonight
+            Match {matchScore} · {streamableCount} tonight
           </p>
         </Link>
       </li>
@@ -204,10 +207,10 @@ function PodcastCard({ entry, view }: { entry: PodcastEntry; view: ViewMode }) {
                 Match {matchScore}
               </span>
               <span className="rounded-full bg-secondary px-2 py-1 text-secondary-foreground">
-                {streamableUnwatched.length} tonight
+                {streamableCount} tonight
               </span>
               <span className="rounded-full bg-secondary px-2 py-1 text-secondary-foreground">
-                {movies.length} movie{movies.length === 1 ? "" : "s"} · {episodeCount} ep
+                {movieCount} movie{movieCount === 1 ? "" : "s"} · {episodeCount} ep
               </span>
               {metric?.rating != null ? (
                 <span className="inline-flex items-center gap-1 rounded-full bg-gold-soft px-2 py-1 text-gold">

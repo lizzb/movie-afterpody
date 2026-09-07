@@ -24,7 +24,8 @@ import {
 import { useEpisodeReviewStates } from "@/lib/episode-reviews";
 import { useEpisodeDetails, EMPTY_EPISODE_DETAIL, type EpisodeDetail } from "@/lib/details";
 
-import { usePodcasts, type PodcastEpisodeRow, type PodcastMovie } from "@/lib/podcasts";
+import type { PodcastEpisodeRow, PodcastMovie } from "@/lib/podcast-entries";
+import { useShowDetail } from "@/lib/server-lists";
 import { prefsActions, usePrefs, type ViewMode } from "@/lib/prefs";
 
 
@@ -62,11 +63,13 @@ const prettyPlatform = (slug: string) =>
 
 function PodcastDetailPage() {
   const { slug } = Route.useParams();
-  const { podcastEntries, prefs, isLoading } = usePodcasts();
-  const entry = podcastEntries.find((e) => e.podcast.slug === slug);
+  const prefs = usePrefs();
+  // Pass L2b — this show's page is assembled on the server; only this show's
+  // episodes and covered movies are transferred.
+  const { detail, isLoading } = useShowDetail(slug);
   const view = prefs.viewModes["podcast-detail"] ?? "rows";
   const reviewStates = useEpisodeReviewStates(
-    entry?.allEpisodes.map((row) => row.episode.id) ?? [],
+    detail?.allEpisodes.map((row) => row.episode.id) ?? [],
   );
 
 
@@ -80,7 +83,7 @@ function PodcastDetailPage() {
     );
   }
 
-  if (!entry) {
+  if (!detail) {
     return (
       <AppShell>
         <main className="mx-auto w-full max-w-3xl px-4 py-16 text-center">
@@ -97,15 +100,17 @@ function PodcastDetailPage() {
     podcast,
     preferred,
     matchScore,
-    movies,
-    streamableUnwatched,
+    movieCount,
+    streamable: streamableUnwatched,
+    streamableTotal,
+    rest,
+    restTotal,
     metric,
     episodeCount,
     allEpisodes,
     reasons,
     links,
-  } = entry;
-  const rest = movies.filter((m) => !streamableUnwatched.includes(m));
+  } = detail;
 
   return (
     <AppShell>
@@ -142,7 +147,7 @@ function PodcastDetailPage() {
               </span>
               <span aria-hidden>·</span>
               <span>
-                {movies.length} movie{movies.length === 1 ? "" : "s"}
+                {movieCount} movie{movieCount === 1 ? "" : "s"}
               </span>
               {metric?.rating != null ? (
                 <>
@@ -214,12 +219,11 @@ function PodcastDetailPage() {
         <section className="mt-7">
           <div className="flex items-center justify-between gap-3">
             <h2 className="font-display text-lg font-bold">
-              Watchable tonight{" "}
-              <span className="text-muted-foreground">({streamableUnwatched.length})</span>
+              Watchable tonight <span className="text-muted-foreground">({streamableTotal})</span>
             </h2>
             <ViewToggle surface="podcast-detail" value={view} />
           </div>
-          {streamableUnwatched.length === 0 ? (
+          {streamableTotal === 0 ? (
             <p className="mt-3 rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
               Nothing this show covers is unwatched on your services.{" "}
               <Link to="/settings" className="font-semibold text-coral">
@@ -232,10 +236,10 @@ function PodcastDetailPage() {
           )}
         </section>
 
-        {rest.length > 0 ? (
+        {restTotal > 0 ? (
           <section className="mt-7">
             <h2 className="font-display text-lg font-bold">
-              Also covered <span className="text-muted-foreground">({rest.length})</span>
+              Also covered <span className="text-muted-foreground">({restTotal})</span>
             </h2>
             <CoveredList items={rest} view={view} />
           </section>
