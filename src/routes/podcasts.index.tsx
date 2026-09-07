@@ -176,7 +176,7 @@ function PodcastCard({ entry, view }: { entry: PodcastSummary; view: ViewMode })
           />
           <h2 className="mt-2 line-clamp-2 text-sm font-semibold leading-snug">{podcast.name}</h2>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            Match {matchScore} · {streamableUnwatched.length} tonight
+            Match {matchScore} · {streamableCount} tonight
           </p>
         </Link>
       </li>
@@ -207,10 +207,10 @@ function PodcastCard({ entry, view }: { entry: PodcastSummary; view: ViewMode })
                 Match {matchScore}
               </span>
               <span className="rounded-full bg-secondary px-2 py-1 text-secondary-foreground">
-                {streamableUnwatched.length} tonight
+                {streamableCount} tonight
               </span>
               <span className="rounded-full bg-secondary px-2 py-1 text-secondary-foreground">
-                {movies.length} movie{movies.length === 1 ? "" : "s"} · {episodeCount} ep
+                {movieCount} movie{movieCount === 1 ? "" : "s"} · {episodeCount} ep
               </span>
               {metric?.rating != null ? (
                 <span className="inline-flex items-center gap-1 rounded-full bg-gold-soft px-2 py-1 text-gold">
