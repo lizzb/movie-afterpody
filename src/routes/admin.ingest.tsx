@@ -1170,11 +1170,19 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
       .run(showKey(podcastId, "build"), `Build movies — ${name}`, async () => {
       setError(null);
       const r = await buildShow({ data: { podcastId, limit: 100 } });
+      // U49 — the server already returns why each episode was skipped; the row
+      // used to drop it, so name the top reasons here instead.
+      const why = r.skipReasons
+        .slice(0, 2)
+        .map((s) => `${s.count} ${s.label.toLowerCase()}`)
+        .join("; ");
       setSyncLog((prev) =>
         [
           {
             name,
-            message: `build: ${r.linked} linked · ${r.moviesCreated} movies created · ${r.skipped} skipped`,
+            message:
+              `build: ${r.linked} linked · ${r.moviesCreated} movies created · ${r.skipped} skipped` +
+              (why ? ` — ${why}` : ""),
             ok: true,
           },
           ...prev,
