@@ -1069,20 +1069,28 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
                 <>
                   <button
                     type="button"
-                    disabled={bulk.isPending}
+                    disabled={bulkBusy}
                     onClick={() => runBulk("approve")}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-teal px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"
+                    className={bulkClass("positive", runningBulk === "approve", bulkBusy)}
                   >
-                    <Check className="size-3.5" aria-hidden />
+                    {runningBulk === "approve" ? (
+                      <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                    ) : (
+                      <Check className="size-3.5" aria-hidden />
+                    )}
                     Approve selected
                   </button>
                   <button
                     type="button"
-                    disabled={bulk.isPending}
+                    disabled={bulkBusy}
                     onClick={() => runBulk("reject")}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs font-semibold disabled:opacity-50"
+                    className={bulkClass("negative", runningBulk === "reject", bulkBusy)}
                   >
-                    <X className="size-3.5" aria-hidden />
+                    {runningBulk === "reject" ? (
+                      <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                    ) : (
+                      <X className="size-3.5" aria-hidden />
+                    )}
                     Reject selected
                   </button>
                 </>
@@ -1090,20 +1098,28 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
                 <>
                   <button
                     type="button"
-                    disabled={bulk.isPending}
+                    disabled={bulkBusy}
                     onClick={() => runBulk("confirm")}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-teal px-3 py-2 text-xs font-semibold text-primary-foreground disabled:opacity-50"
+                    className={bulkClass("positive", runningBulk === "confirm", bulkBusy)}
                   >
-                    <Check className="size-3.5" aria-hidden />
+                    {runningBulk === "confirm" ? (
+                      <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                    ) : (
+                      <Check className="size-3.5" aria-hidden />
+                    )}
                     Confirm selected
                   </button>
                   <button
                     type="button"
-                    disabled={bulk.isPending}
+                    disabled={bulkBusy}
                     onClick={() => runBulk("unlink")}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs font-semibold disabled:opacity-50"
+                    className={bulkClass("negative", runningBulk === "unlink", bulkBusy)}
                   >
-                    <Unlink className="size-3.5" aria-hidden />
+                    {runningBulk === "unlink" ? (
+                      <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                    ) : (
+                      <Unlink className="size-3.5" aria-hidden />
+                    )}
                     Unlink selected
                   </button>
                 </>
@@ -1112,49 +1128,49 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
                   interview episodes out of every queue at once. */}
               <button
                 type="button"
-                disabled={bulk.isPending}
+                disabled={bulkBusy}
                 onClick={() => runBulk("retire")}
-                className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs font-semibold disabled:opacity-50"
+                className={bulkClass("retire", runningBulk === "retire", bulkBusy)}
               >
-                <Ban className="size-3.5" aria-hidden />
+                {runningBulk === "retire" ? (
+                  <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                ) : (
+                  <Ban className="size-3.5" aria-hidden />
+                )}
                 Not about a movie
               </button>
               {/* Pass U8 — episode-level sign-off, per-episode verified server side. */}
               <button
                 type="button"
-                disabled={bulk.isPending}
+                disabled={bulkBusy}
                 onClick={() =>
                   void markReviewed(
                     visibleRows.filter((r) => selected[r.key]).map((r) => r.episodeId),
                     true,
                   )
                 }
-                className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs font-semibold disabled:opacity-50"
+                className={bulkClass("neutral", false, bulkBusy)}
               >
                 <CheckCheck className="size-3.5" aria-hidden />
                 Mark reviewed
               </button>
               <button
                 type="button"
-                disabled={bulk.isPending}
+                disabled={bulkBusy}
                 onClick={() =>
                   void markReviewed(
                     visibleRows.filter((r) => selected[r.key]).map((r) => r.episodeId),
                     false,
                   )
                 }
-                className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-2 text-xs font-semibold disabled:opacity-50"
+                className={bulkClass("neutral", false, bulkBusy)}
               >
                 <RotateCcw className="size-3.5" aria-hidden />
                 Reopen
               </button>
+            </div>
+          ) : null}
 
-              {bulk.isPending ? (
-                <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Loader2 className="size-3.5 animate-spin" aria-hidden />
-                  Applying…
-                </span>
-              ) : null}
             </div>
           ) : null}
 
