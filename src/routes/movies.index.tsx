@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Clapperboard, Mic, Search } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { CatalogAddCard } from "@/components/CatalogAddCard";
@@ -7,8 +7,8 @@ import { FilterBar } from "@/components/FilterBar";
 import { MovieCard } from "@/components/MovieCard";
 import { PageHeader } from "@/components/PageHeader";
 import { ViewToggle } from "@/components/ViewToggle";
-import { applyFilters, useDiscovery } from "@/lib/discovery";
-import { NO_FILTERS, prefsActions } from "@/lib/prefs";
+import { useFacets, useMoviePage } from "@/lib/server-lists";
+import { NO_FILTERS, prefsActions, usePrefs } from "@/lib/prefs";
 
 export const Route = createFileRoute("/movies/")({
   head: () => ({
