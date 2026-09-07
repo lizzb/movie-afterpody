@@ -788,6 +788,11 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
   });
 
   const selectedCount = Object.keys(selected).length;
+  // Pass U33 — exactly one bulk action can be in flight, and it is the only one
+  // allowed to show a filled colour while it runs.
+  const bulkBusy = bulk.isPending;
+  const runningBulk = bulk.isPending ? (bulk.variables?.action ?? null) : null;
+
   const allVisibleSelected = visibleRows.length > 0 && visibleRows.every((r) => selected[r.key]);
 
   const toggleAll = () => {
