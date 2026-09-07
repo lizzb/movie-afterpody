@@ -59,7 +59,7 @@ function TonightPage() {
           />
         </div>
 
-        {!isLoading && (catalog?.availability.length ?? 0) === 0 ? (
+        {!isLoading && !facets.isLoading && facets.availabilityCount === 0 ? (
           <p className="mb-3 rounded-2xl border border-dashed border-border bg-card p-3 text-xs text-muted-foreground">
             No streaming availability has been imported yet, so the &ldquo;only my services&rdquo;
             filter has nothing to match.{" "}
@@ -73,15 +73,15 @@ function TonightPage() {
 
         <FilterBar
           filters={prefs.filters}
-          genres={catalog?.genres ?? []}
-          services={catalog?.services ?? []}
+          genres={facets.genres}
+          services={facets.services}
           mySlugs={prefs.serviceSlugs}
-          resultCount={results.length}
+          resultCount={total}
         />
 
         <div className="mt-3 flex items-center justify-between gap-3">
           <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-            Showing {Math.min(visibleResults.length, results.length)} of {results.length} matches
+            Showing {Math.min(visibleResults.length, total)} of {total} matches
           </p>
           <ViewToggle surface="tonight" value={view} />
         </div>
@@ -92,7 +92,7 @@ function TonightPage() {
               <li key={i} className="h-24 animate-pulse rounded-2xl bg-muted" />
             ))}
           </ul>
-        ) : results.length === 0 ? (
+        ) : total === 0 ? (
           <p className="mt-8 rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
             Nothing matches those parameters. Loosen the runtime or era, or{" "}
             <Link to="/settings" className="font-semibold text-coral">
@@ -114,7 +114,7 @@ function TonightPage() {
           </ul>
         )}
 
-        {!isLoading && visibleResults.length < results.length ? (
+        {!isLoading && visibleResults.length < total ? (
           <button
             type="button"
             onClick={() => setVisibleCount((count) => count + 10)}
