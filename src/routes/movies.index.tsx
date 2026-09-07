@@ -32,25 +32,23 @@ export const Route = createFileRoute("/movies/")({
 });
 
 function MoviesPage() {
-  const { entries, catalog, prefs, isLoading } = useDiscovery();
+  const prefs = usePrefs();
   const view = prefs.viewModes["movies"] ?? "rows";
   const [term, setTerm] = useState("");
+  const [limit, setLimit] = useState(40);
+  const facets = useFacets();
 
-  // Pass H5 — Movies browses with its own filter object, wide open by default.
-  const results = useMemo(() => {
-    const needle = term.trim().toLowerCase();
-    return applyFilters(entries, prefs.movieFilters).filter(
-      (e) => !needle || e.movie.title.toLowerCase().includes(needle),
-    );
-  }, [entries, prefs.movieFilters, term]);
+  // Pass L2b — filtering, sorting, scoring and counting happen on the server
+  // over the whole catalogue; only this page of results is transferred.
+  const { rows, total, catalogTotal, showMatches, isLoading } = useMoviePage({
+    filters: prefs.movieFilters,
+    term,
+    limit,
+  });
 
-  const showMatches = useMemo(() => {
-    const needle = term.trim().toLowerCase();
-    if (!needle) return [];
-    return (catalog?.podcasts ?? [])
-      .filter((p) => p.name.toLowerCase().includes(needle))
-      .slice(0, 6);
-  }, [catalog, term]);
+  useEffect(() => {
+    setLimit(40);
+  }, [term, prefs.movieFilters]);
 
   return (
     <AppShell>
@@ -59,7 +57,7 @@ function MoviesPage() {
           icon={Clapperboard}
           eyebrow="Movies"
           title="Browse all movies"
-          subtitle={`${entries.length} title${entries.length === 1 ? "" : "s"} in the catalogue`}
+          subtitle={`${catalogTotal} title${catalogTotal === 1 ? "" : "s"} in the catalogue`}
         />
 
         <div className="mt-4 flex items-center gap-2">
@@ -82,11 +80,11 @@ function MoviesPage() {
         <div className="mt-3">
           <FilterBar
             filters={prefs.movieFilters}
-            genres={catalog?.genres ?? []}
-            services={catalog?.services ?? []}
+            genres={facets.genres}
+            services={facets.services}
             mySlugs={prefs.serviceSlugs}
-            resultCount={results.length}
-            totalCount={entries.length}
+            resultCount={total}
+            totalCount={catalogTotal}
             variant="movies"
             showNotInterested
             collapsible
@@ -123,7 +121,7 @@ function MoviesPage() {
               <li key={i} className="h-28 animate-pulse rounded-2xl bg-muted" />
             ))}
           </ul>
-        ) : results.length === 0 ? (
+        ) : rows.length === 0 ? (
           term.trim() ? (
             <CatalogAddCard kind="movie" term={term.trim()} />
           ) : (
@@ -132,26 +130,31 @@ function MoviesPage() {
             </p>
           )
         ) : (
-          <ChunkedMovies key={`${view}:${term}:${results.length}`} results={results} view={view} />
+          <>
+            <ul
+              className={
+                view === "tiles"
+                  ? "mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"
+                  : "mt-5 space-y-2.5"
+              }
+            >
+              {rows.map((entry) => (
+                <MovieCard key={entry.movie.id} entry={entry} view={view} />
+              ))}
+            </ul>
+            {rows.length < total ? (
+              <button
+                type="button"
+                onClick={() => setLimit((n) => n + 40)}
+                className="mt-4 w-full rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold text-foreground"
+              >
+                Show 40 more{" "}
+                <span className="text-muted-foreground">({total - rows.length} remaining)</span>
+              </button>
+            ) : null}
+          </>
         )}
       </main>
     </AppShell>
-  );
-}
-
-function ChunkedMovies({ results, view }: { results: ReturnType<typeof useDiscovery>["entries"]; view: "rows" | "tiles" }) {
-  const [limit, setLimit] = useState(40);
-  const visible = results.slice(0, limit);
-  return (
-    <>
-      <ul className={view === "tiles" ? "mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4" : "mt-5 space-y-2.5"}>
-        {visible.map((entry) => <MovieCard key={entry.movie.id} entry={entry} view={view} />)}
-      </ul>
-      {visible.length < results.length ? (
-        <button type="button" onClick={() => setLimit((n) => n + 40)} className="mt-4 w-full rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold text-foreground">
-          Show 40 more <span className="text-muted-foreground">({results.length - visible.length} remaining)</span>
-        </button>
-      ) : null}
-    </>
   );
 }
