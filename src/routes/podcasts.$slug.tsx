@@ -62,11 +62,13 @@ const prettyPlatform = (slug: string) =>
 
 function PodcastDetailPage() {
   const { slug } = Route.useParams();
-  const { podcastEntries, prefs, isLoading } = usePodcasts();
-  const entry = podcastEntries.find((e) => e.podcast.slug === slug);
+  const prefs = usePrefs();
+  // Pass L2b — this show's page is assembled on the server; only this show's
+  // episodes and covered movies are transferred.
+  const { detail, isLoading } = useShowDetail(slug);
   const view = prefs.viewModes["podcast-detail"] ?? "rows";
   const reviewStates = useEpisodeReviewStates(
-    entry?.allEpisodes.map((row) => row.episode.id) ?? [],
+    detail?.allEpisodes.map((row) => row.episode.id) ?? [],
   );
 
 
@@ -80,7 +82,7 @@ function PodcastDetailPage() {
     );
   }
 
-  if (!entry) {
+  if (!detail) {
     return (
       <AppShell>
         <main className="mx-auto w-full max-w-3xl px-4 py-16 text-center">
@@ -97,15 +99,17 @@ function PodcastDetailPage() {
     podcast,
     preferred,
     matchScore,
-    movies,
-    streamableUnwatched,
+    movieCount,
+    streamable: streamableUnwatched,
+    streamableTotal,
+    rest,
+    restTotal,
     metric,
     episodeCount,
     allEpisodes,
     reasons,
     links,
-  } = entry;
-  const rest = movies.filter((m) => !streamableUnwatched.includes(m));
+  } = detail;
 
   return (
     <AppShell>
