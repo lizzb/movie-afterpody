@@ -604,7 +604,13 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
       else if (vars.action === "confirm")
         await confirmFn({ data: { episodeId: vars.episodeId, movieId: vars.movieId } });
       else if (vars.action === "retire") await retireFn({ data: { episodeId: vars.episodeId } });
-      else await relinkFn({ data: { episodeId: vars.episodeId, fromMovieId: vars.movieId } });
+      else {
+        // Pass U32 — the server verifies the delete really landed; an
+        // unverified unlink must leave the row listed with an explicit error.
+        const res = await relinkFn({ data: { episodeId: vars.episodeId, fromMovieId: vars.movieId } });
+        if (!res.ok) throw new Error(res.error ?? "The link could not be removed.");
+      }
+
 
       if (vars.wasFlagged) {
         await resolveFlagsFn({
