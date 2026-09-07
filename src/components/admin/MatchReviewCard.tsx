@@ -74,6 +74,29 @@ function actionClass(tone: keyof typeof ACTION_TONES, active: boolean) {
   }`;
 }
 
+/**
+ * Pass U33 — bulk buttons read as the same control family as the row actions:
+ * coloured text on grey when idle, and only the button that was actually pressed
+ * fills with its colour (carrying the spinner) until the operation resolves.
+ * Unpressed siblings stay text-on-grey and simply go quiet while disabled.
+ */
+function bulkClass(
+  tone: keyof typeof ACTION_TONES | "neutral",
+  active: boolean,
+  disabled: boolean,
+) {
+  const base =
+    "inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold transition-colors";
+  if (tone === "neutral") {
+    return `${base} border border-border ${disabled ? "text-muted-foreground opacity-60" : "hover:bg-secondary"}`;
+  }
+  const t = ACTION_TONES[tone];
+  if (active) return `${base} ${t.active}`;
+  if (disabled) return `${base} bg-muted text-muted-foreground opacity-60`;
+  return `${base} ${t.idle}`;
+}
+
+
 const BANDS = [
   { label: "Weakest first (≤ 80%)", value: 0.8 },
   { label: "Stronger too (≤ 95%)", value: 0.95 },
