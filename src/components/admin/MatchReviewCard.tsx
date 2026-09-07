@@ -1171,8 +1171,7 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
             </div>
           ) : null}
 
-            </div>
-          ) : null}
+
 
           <ul className="mt-3 space-y-2">
             {visibleRows.map((row) => (
