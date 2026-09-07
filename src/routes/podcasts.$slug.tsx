@@ -219,12 +219,11 @@ function PodcastDetailPage() {
         <section className="mt-7">
           <div className="flex items-center justify-between gap-3">
             <h2 className="font-display text-lg font-bold">
-              Watchable tonight{" "}
-              <span className="text-muted-foreground">({streamableUnwatched.length})</span>
+              Watchable tonight <span className="text-muted-foreground">({streamableTotal})</span>
             </h2>
             <ViewToggle surface="podcast-detail" value={view} />
           </div>
-          {streamableUnwatched.length === 0 ? (
+          {streamableTotal === 0 ? (
             <p className="mt-3 rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
               Nothing this show covers is unwatched on your services.{" "}
               <Link to="/settings" className="font-semibold text-coral">
@@ -237,10 +236,10 @@ function PodcastDetailPage() {
           )}
         </section>
 
-        {rest.length > 0 ? (
+        {restTotal > 0 ? (
           <section className="mt-7">
             <h2 className="font-display text-lg font-bold">
-              Also covered <span className="text-muted-foreground">({rest.length})</span>
+              Also covered <span className="text-muted-foreground">({restTotal})</span>
             </h2>
             <CoveredList items={rest} view={view} />
           </section>
