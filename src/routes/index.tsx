@@ -31,16 +31,18 @@ export const Route = createFileRoute("/")({
 });
 
 function TonightPage() {
-  const { catalog, entries, prefs, isLoading } = useDiscovery();
+  const prefs = usePrefs();
   const view = prefs.viewModes["tonight"] ?? "rows";
   const [visibleCount, setVisibleCount] = useState(10);
+  const facets = useFacets();
 
-  // Tonight never suggests "Not interested" titles, regardless of the filter.
-  const results = useMemo(
-    () => applyFilters(entries, prefs.filters, { alwaysHideNotInterested: true }),
-    [entries, prefs.filters],
-  );
-  const visibleResults = results.slice(0, visibleCount);
+  // Pass L2b — ranked on the server over the full candidate set; Tonight never
+  // suggests "Not interested" titles, regardless of the filter.
+  const { rows: visibleResults, total, isLoading } = useMoviePage({
+    filters: prefs.filters,
+    limit: visibleCount,
+    tonight: true,
+  });
 
   useEffect(() => {
     setVisibleCount(10);
