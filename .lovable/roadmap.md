@@ -894,7 +894,7 @@ This is an architecture/operations audit only.
 
 Update the roadmap or documentation only if needed to record the current, corrected workflow.
 
-#### Pass U49 — TRIAGE: Sync reporting/count inconsistencies — <estimateTBD>
+#### Pass U49 — TRIAGE: Sync reporting/count inconsistencies — S — Triaged 2026-09-07; quick fixes shipped (see outcome below)
 
 TRIAGE: Sync reporting/count inconsistencies / ingestion accounting / truthfulness
 
