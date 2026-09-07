@@ -121,33 +121,46 @@ function PodcastsPage() {
             </p>
           )
         ) : (
-          <ChunkedPodcasts key={`${view}:${term}:${mode}:${results.length}`} results={results} view={view} />
+          <>
+            <ul
+              className={
+                view === "tiles"
+                  ? "mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4"
+                  : "mt-4 space-y-2.5"
+              }
+            >
+              {results.map((entry) => (
+                <PodcastCard key={entry.podcast.id} entry={entry} view={view} />
+              ))}
+            </ul>
+            {results.length < total ? (
+              <button
+                type="button"
+                onClick={() => setLimit((n) => n + 30)}
+                className="mt-4 w-full rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold text-foreground"
+              >
+                Show 30 more{" "}
+                <span className="text-muted-foreground">({total - results.length} remaining)</span>
+              </button>
+            ) : null}
+          </>
         )}
       </main>
     </AppShell>
   );
 }
 
-function ChunkedPodcasts({ results, view }: { results: PodcastEntry[]; view: ViewMode }) {
-  const [limit, setLimit] = useState(30);
-  const visible = results.slice(0, limit);
-  return (
-    <>
-      <ul className={view === "tiles" ? "mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4" : "mt-4 space-y-2.5"}>
-        {visible.map((entry) => <PodcastCard key={entry.podcast.id} entry={entry} view={view} />)}
-      </ul>
-      {visible.length < results.length ? (
-        <button type="button" onClick={() => setLimit((n) => n + 30)} className="mt-4 w-full rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold text-foreground">
-          Show 30 more <span className="text-muted-foreground">({results.length - visible.length} remaining)</span>
-        </button>
-      ) : null}
-    </>
-  );
-}
-
-function PodcastCard({ entry, view }: { entry: PodcastEntry; view: ViewMode }) {
-  const { podcast, preferred, matchScore, streamableUnwatched, movies, metric, episodeCount, links } =
-    entry;
+function PodcastCard({ entry, view }: { entry: PodcastSummary; view: ViewMode }) {
+  const {
+    podcast,
+    preferred,
+    matchScore,
+    streamableCount,
+    movieCount,
+    metric,
+    episodeCount,
+    links,
+  } = entry;
 
   if (view === "tiles") {
     return (
