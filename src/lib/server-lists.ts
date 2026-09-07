@@ -3,7 +3,7 @@
  * filters + a compact taste profile and receives one bounded page plus honest
  * full-scope totals.
  */
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { usePrefs, type Filters } from "./prefs";
 import { tasteFromPrefs, type Taste } from "./taste";
