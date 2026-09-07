@@ -24,7 +24,8 @@ import {
 import { useEpisodeReviewStates } from "@/lib/episode-reviews";
 import { useEpisodeDetails, EMPTY_EPISODE_DETAIL, type EpisodeDetail } from "@/lib/details";
 
-import { usePodcasts, type PodcastEpisodeRow, type PodcastMovie } from "@/lib/podcasts";
+import type { PodcastEpisodeRow, PodcastMovie } from "@/lib/podcast-entries";
+import { useShowDetail } from "@/lib/server-lists";
 import { prefsActions, usePrefs, type ViewMode } from "@/lib/prefs";
 
 
@@ -146,7 +147,7 @@ function PodcastDetailPage() {
               </span>
               <span aria-hidden>·</span>
               <span>
-                {movies.length} movie{movies.length === 1 ? "" : "s"}
+                {movieCount} movie{movieCount === 1 ? "" : "s"}
               </span>
               {metric?.rating != null ? (
                 <>
