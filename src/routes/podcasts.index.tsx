@@ -150,17 +150,17 @@ function PodcastsPage() {
   );
 }
 
-function PodcastCard({ entry, view }: { entry: PodcastSummary; view: ViewMode }) {
-  const {
-    podcast,
-    preferred,
-    matchScore,
-    streamableCount,
-    movieCount,
-    metric,
-    episodeCount,
-    links,
-  } = entry;
+function PodcastCard({
+  entry,
+  view,
+  preferred,
+}: {
+  entry: PodcastSummary;
+  view: ViewMode;
+  /** Live follow state, so the heart responds on the first tap. */
+  preferred: boolean;
+}) {
+  const { podcast, matchScore, streamableCount, movieCount, metric, episodeCount, links } = entry;
 
   if (view === "tiles") {
     return (
