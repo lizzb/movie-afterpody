@@ -112,6 +112,8 @@ function PodcastDetailPage() {
     links,
   } = detail;
 
+  const lastEpisodeLabel = lastEpisodeText(allEpisodes);
+
   return (
     <AppShell>
       <main className="mx-auto w-full max-w-3xl px-4 pb-16 pt-4">
