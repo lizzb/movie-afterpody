@@ -44,7 +44,7 @@ function PodcastsPage() {
   const prefs = usePrefs();
   const [term, setTerm] = useState("");
   const [mode, setMode] = useState<Mode>("all");
-  const [limit, setLimit] = useState(30);
+  const [limit, setLimit] = useState(50);
   const view = prefs.viewModes["podcasts"] ?? "rows";
 
   // Pass L2b — ranked and filtered on the server across every active show,
@@ -52,7 +52,7 @@ function PodcastsPage() {
   const { rows: results, total, isLoading } = useShowPage({ term, mode, limit });
 
   useEffect(() => {
-    setLimit(30);
+    setLimit(50);
   }, [term, mode]);
 
   return (
@@ -136,10 +136,10 @@ function PodcastsPage() {
             {results.length < total ? (
               <button
                 type="button"
-                onClick={() => setLimit((n) => n + 30)}
+                onClick={() => setLimit((n) => n + 50)}
                 className="mt-4 w-full rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold text-foreground"
               >
-                Show 30 more{" "}
+                Show 50 more{" "}
                 <span className="text-muted-foreground">({total - results.length} remaining)</span>
               </button>
             ) : null}

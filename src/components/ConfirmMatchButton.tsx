@@ -36,8 +36,8 @@ export function ConfirmMatchButton({
       title={title}
       className={`grid size-8 shrink-0 place-items-center rounded-full border transition-colors disabled:opacity-50 ${
         isConfirmed
-          ? "border-transparent bg-teal text-primary-foreground"
-          : "border-border text-teal hover:bg-teal hover:text-primary-foreground"
+          ? "border-transparent bg-teal-soft text-teal"
+          : "border-border text-muted-foreground hover:text-teal"
       }`}
     >
       <Check className="size-4" aria-hidden />

@@ -61,6 +61,27 @@ const prettyPlatform = (slug: string) =>
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
 
+const SIX_MONTHS_MS = 183 * 24 * 60 * 60 * 1000;
+
+/**
+ * Consumer-facing recency line, from the episodes already on this page.
+ * Recent shows a day ("August 24"); older shows a month ("February 2026").
+ */
+function lastEpisodeText(rows: PodcastEpisodeRow[]): string | null {
+  let newest: number | null = null;
+  for (const row of rows) {
+    const at = row.episode.released_at ? Date.parse(row.episode.released_at) : NaN;
+    if (!Number.isNaN(at) && (newest === null || at > newest)) newest = at;
+  }
+  if (newest === null) return null;
+  const recent = Date.now() - newest < SIX_MONTHS_MS;
+  const date = new Date(newest).toLocaleDateString("en-US",
+    recent ? { month: "long", day: "numeric" } : { month: "long", year: "numeric" },
+  );
+  return `Last episode: ${date}`;
+}
+
+
 function PodcastDetailPage() {
   const { slug } = Route.useParams();
   const prefs = usePrefs();
@@ -112,6 +133,8 @@ function PodcastDetailPage() {
     links,
   } = detail;
 
+  const lastEpisodeLabel = lastEpisodeText(allEpisodes);
+
   return (
     <AppShell>
       <main className="mx-auto w-full max-w-3xl px-4 pb-16 pt-4">
@@ -159,8 +182,12 @@ function PodcastDetailPage() {
                   </span>
                 </>
               ) : null}
-              <span aria-hidden>·</span>
-              <span className="capitalize">{podcast.activity_status}</span>
+              {lastEpisodeLabel ? (
+                <>
+                  <span aria-hidden>·</span>
+                  <span>{lastEpisodeLabel}</span>
+                </>
+              ) : null}
             </p>
             {reasons.length > 0 ? (
               <p className="mt-2 text-xs text-muted-foreground">{reasons.slice(0, 2).join(" · ")}</p>
@@ -294,7 +321,7 @@ function EpisodeFeed({
   const [match, setMatch] = useState<MatchFilter>("all");
   const [review, setReview] = useState<ReviewFilter>("all");
   const [sort, setSort] = useState<SortKey>("newest");
-  const [limit, setLimit] = useState(30);
+  const [limit, setLimit] = useState(150);
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -455,8 +482,8 @@ function EpisodeFeed({
         </ol>
       )}
       {limit < visible.length ? (
-        <button type="button" onClick={() => setLimit((n) => n + 30)} className="mt-3 w-full rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold text-foreground">
-          Show 30 more <span className="text-muted-foreground">({visible.length - limit} remaining)</span>
+        <button type="button" onClick={() => setLimit((n) => n + 150)} className="mt-3 w-full rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold text-foreground">
+          Show 150 more <span className="text-muted-foreground">({visible.length - limit} remaining)</span>
         </button>
       ) : null}
     </section>
@@ -596,7 +623,7 @@ function PodcastEpisodeCard({
 
 
 function CoveredList({ items, view }: { items: PodcastMovie[]; view: ViewMode }) {
-  const [limit, setLimit] = useState(24);
+  const [limit, setLimit] = useState(70);
   const visible = items.slice(0, limit);
   return (
     <>
@@ -604,8 +631,8 @@ function CoveredList({ items, view }: { items: PodcastMovie[]; view: ViewMode })
         {visible.map((m) => <CoveredMovie key={m.entry.movie.id} item={m} view={view} />)}
       </ul>
       {visible.length < items.length ? (
-        <button type="button" onClick={() => setLimit((n) => n + 24)} className="mt-3 w-full rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold text-foreground">
-          Show 24 more <span className="text-muted-foreground">({items.length - visible.length} remaining)</span>
+        <button type="button" onClick={() => setLimit((n) => n + 70)} className="mt-3 w-full rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold text-foreground">
+          Show 70 more <span className="text-muted-foreground">({items.length - visible.length} remaining)</span>
         </button>
       ) : null}
     </>
