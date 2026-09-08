@@ -997,6 +997,30 @@ function UnmatchedEpisodesCard() {
         ) : null}
         {rowError ? <p className="mt-2 text-sm text-destructive">{rowError}</p> : null}
       </div>
+      <div className="mt-4">
+        <label htmlFor="unmatched-search" className="text-xs font-semibold text-muted-foreground">
+          Search unmatched episodes
+        </label>
+        <div className="mt-1 flex items-center gap-2">
+          <input
+            id="unmatched-search"
+            type="search"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Show name, show description, episode title or description"
+            className="min-w-0 flex-1 rounded-full border border-border bg-background px-4 py-2 text-sm"
+          />
+          {searchInput ? (
+            <button
+              type="button"
+              onClick={() => setSearchInput("")}
+              className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold hover:bg-secondary"
+            >
+              Clear
+            </button>
+          ) : null}
+        </div>
+      </div>
       {query.isLoading ? (
         <div className="mt-4 h-24 animate-pulse rounded-2xl bg-muted" />
       ) : query.isError ? (
@@ -1008,12 +1032,20 @@ function UnmatchedEpisodesCard() {
             ? ` ${query.data?.totalIncludingParked} unmatched episodes remain in parked shows.`
             : ""}
         </p>
+      ) : search && (query.data?.matching ?? 0) === 0 ? (
+        <p className="mt-4 text-sm text-muted-foreground">
+          No unmatched episodes match “{search}”. {query.data?.total} unmatched in active shows.
+        </p>
       ) : (
         <>
           <p className="mt-3 text-sm font-semibold">
-            {query.data?.total} unmatched in active shows
+            {search
+              ? `${query.data?.matching} matching “${search}”`
+              : `${query.data?.total} unmatched in active shows`}
             <span className="ml-1 font-normal text-muted-foreground">
-              · {query.data?.totalIncludingParked} including parked shows
+              {search
+                ? `· of ${query.data?.total} unmatched in active shows`
+                : `· ${query.data?.totalIncludingParked} including parked shows`}
             </span>
           </p>
           <ul className="mt-3 space-y-2">
