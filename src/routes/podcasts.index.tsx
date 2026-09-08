@@ -47,14 +47,9 @@ function PodcastsPage() {
   const [limit, setLimit] = useState(30);
   const view = prefs.viewModes["podcasts"] ?? "rows";
 
-  // Pass L2b — ranked and filtered on the server across every active show.
-  // The ranking snapshot is frozen for the visit so cards never jump mid-tap.
-  const { rows: results, total, isLoading } = useShowPage({
-    term,
-    mode,
-    limit,
-    freezeTaste: true,
-  });
+  // Pass L2b — ranked and filtered on the server across every active show,
+  // against the live taste profile so services and hearts always apply.
+  const { rows: results, total, isLoading } = useShowPage({ term, mode, limit });
 
   useEffect(() => {
     setLimit(30);
@@ -130,7 +125,12 @@ function PodcastsPage() {
               }
             >
               {results.map((entry) => (
-                <PodcastCard key={entry.podcast.id} entry={entry} view={view} />
+                <PodcastCard
+                  key={entry.podcast.id}
+                  entry={entry}
+                  view={view}
+                  preferred={prefs.preferredPodcastSlugs.includes(entry.podcast.slug)}
+                />
               ))}
             </ul>
             {results.length < total ? (
@@ -150,17 +150,17 @@ function PodcastsPage() {
   );
 }
 
-function PodcastCard({ entry, view }: { entry: PodcastSummary; view: ViewMode }) {
-  const {
-    podcast,
-    preferred,
-    matchScore,
-    streamableCount,
-    movieCount,
-    metric,
-    episodeCount,
-    links,
-  } = entry;
+function PodcastCard({
+  entry,
+  view,
+  preferred,
+}: {
+  entry: PodcastSummary;
+  view: ViewMode;
+  /** Live follow state, so the heart responds on the first tap. */
+  preferred: boolean;
+}) {
+  const { podcast, matchScore, streamableCount, movieCount, metric, episodeCount, links } = entry;
 
   if (view === "tiles") {
     return (
