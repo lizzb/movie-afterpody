@@ -125,7 +125,12 @@ function PodcastsPage() {
               }
             >
               {results.map((entry) => (
-                <PodcastCard key={entry.podcast.id} entry={entry} view={view} />
+                <PodcastCard
+                  key={entry.podcast.id}
+                  entry={entry}
+                  view={view}
+                  preferred={prefs.preferredPodcastSlugs.includes(entry.podcast.slug)}
+                />
               ))}
             </ul>
             {results.length < total ? (
