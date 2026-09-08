@@ -877,9 +877,15 @@ function UnmatchedEpisodesCard() {
   const fn = useServerFn(listUnmatchedEpisodes);
   const rescanFn = useServerFn(rescanEpisodeMatches);
   const client = useQueryClient();
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(searchInput.trim()), 250);
+    return () => clearTimeout(t);
+  }, [searchInput]);
   const query = useQuery({
-    queryKey: ["unmatched-episodes"],
-    queryFn: () => fn({ data: { limit: 40 } }),
+    queryKey: ["unmatched-episodes", search],
+    queryFn: () => fn({ data: { limit: 40, ...(search ? { search } : {}) } }),
     retry: false,
     refetchOnWindowFocus: false,
   });
