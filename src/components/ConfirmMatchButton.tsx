@@ -34,8 +34,6 @@ export function ConfirmMatchButton({
       aria-pressed={isConfirmed}
       aria-label={title}
       title={title}
-      // Same lightweight grammar as FlagMatchButton: soft tinted fill when set,
-      // bare outline otherwise.
       className={`grid size-8 shrink-0 place-items-center rounded-full border transition-colors disabled:opacity-50 ${
         isConfirmed
           ? "border-transparent bg-teal-soft text-teal"
