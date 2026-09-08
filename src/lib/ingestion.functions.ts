@@ -1608,7 +1608,9 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
 /** Safety net: nothing should be invisible, so expose every episode with no movie link. */
 export const listUnmatchedEpisodes = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data) => ResolveInput.parse(data))
+  .inputValidator((data) =>
+    ResolveInput.extend({ search: z.string().trim().max(120).optional() }).parse(data),
+  )
   .handler(async ({ data, context }) => {
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -1617,10 +1619,21 @@ export const listUnmatchedEpisodes = createServerFn({ method: "POST" })
       fetchUnlinkedEpisodes(supabaseAdmin, { podcastId: data.podcastId }),
       fetchUnlinkedEpisodes(supabaseAdmin, { podcastId: data.podcastId, activeOnly: false }),
     ]);
+    // Search spans the episode title/description and the show's name/description,
+    // so a query matches whether you remember the episode or only the show.
+    const term = data.search?.toLowerCase() ?? "";
+    const matches = term
+      ? all.filter((ep) =>
+          [ep.title, ep.description, ep.podcastName, ep.podcastDescription].some((field) =>
+            (field ?? "").toLowerCase().includes(term),
+          ),
+        )
+      : all;
     return {
       total: all.length,
       totalIncludingParked: everything.length,
-      episodes: all.slice(0, data.limit).map((ep) => ({
+      matching: matches.length,
+      episodes: matches.slice(0, data.limit).map((ep) => ({
         episodeId: ep.id,
         episodeTitle: ep.title,
         podcastName: ep.podcastName,
