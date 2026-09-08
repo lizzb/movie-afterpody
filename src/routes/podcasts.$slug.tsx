@@ -159,8 +159,12 @@ function PodcastDetailPage() {
                   </span>
                 </>
               ) : null}
-              <span aria-hidden>·</span>
-              <span className="capitalize">{podcast.activity_status}</span>
+              {lastEpisodeLabel ? (
+                <>
+                  <span aria-hidden>·</span>
+                  <span>{lastEpisodeLabel}</span>
+                </>
+              ) : null}
             </p>
             {reasons.length > 0 ? (
               <p className="mt-2 text-xs text-muted-foreground">{reasons.slice(0, 2).join(" · ")}</p>
