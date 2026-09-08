@@ -1268,7 +1268,48 @@ Requirements: reuse U23's `castMention` (no duplicate cast-name matching); cache
 
 Non-goals: cast ingestion/caching (Pass P), `castMention` implementation (Pass U23), automatic strategy assignment, broad matcher replay or recheck.
 
-Acceptance: the strategy's scoring/corroboration behaviour changes with `castMention`; the existing U4 selector can assign it per show; "Score the matcher" gives before/after evidence; confirmed links and rejection records unchanged; a non-default test show demonstrates the expected behaviour.
+
+### Matcher evidence hierarchy (U55–U61) — parent initiative — filed 2026-09-08
+
+Plan: `.lovable/plan/plan-backlog-only-matcher-evidence-hierarchy-false-positive-2026-09-08.md` (full root-cause analysis, evidence architecture, and the complete regression example set). One matcher, one scoring path; Pass W keeps ownership of family/collection collapse; U4 stays configuration only. Two shared stages are added ahead of scoring: a conservative episode-title **parse** stage (roles: prefix / primary title / extra title / subtitle / guest / chatter) and an **evidence** stage (token distinctiveness by IDF over catalogue titles, sentence-scoped description title+year mentions, content-type cues). Every new rule surfaces an explainable signal on the link. Cross-cutting non-goals: a second matcher, ML/embeddings/new APIs, per-show one-off exceptions, optimizing for more links, treating rising match counts as success, and any broad replay/recheck (replay is a separate, later, explicitly guarded operation with a stated consumer-facing benefit). Cross-cutting protections: no writes to confirmed links, rejection records or review states; rejected pairs never resurrected. Every pass is accepted only when its own regression cases pass **and** `scoreMatcher` shows precision up with recall not materially down — a recall drop above 2 points at threshold 25 blocks the pass.
+
+Sequence: U55 → U56 → U57 → U58 → U60 → U59 → U61, scoring the matcher after each. Total if all built ≈ 20–30 credits.
+
+#### Pass U55 — Episode-title parsing stage — M (~3-5 credits) — no dependencies
+
+Deterministic structural parser producing role-labelled segments before scoring. Guest segments (` with `, ` w/ `, ` featuring `, ` feat. `) stop contributing title evidence; conservative splitting only, and `with` stays intact when the whole string matches a catalogue title, so genuine titles are not broken. Regression: `88: Human Nature with Colby Day` ≠ `Disclosure Day`; `56: Road to Perdition with Blake Howard` ≠ `Howard the Duck`; `FELICITY FRIDAYS: "Ancient History" w/ Danette Chavez & Amy Smart` ≠ `Chasing Amy`; `209: Felicia's Journey w/ Billy Ray Brewton` and `220: For the Love of the Game w/ Billy Ray Brewton & Amanda Smith` ≠ `Billy Madison`.
+
+#### Pass U56 — Token distinctiveness and missing-token penalty — M (~3-5 credits) — depends on U55
+
+IDF-weighted coverage so distinctive title components outweigh generic overlap, post-colon chatter is demoted, and a candidate's own high-IDF words that are absent from the episode become negative evidence scaled by IDF (stopwords and structurally normal subtitle omissions exempt). Regression: `78. The Broken Hearts Gallery: …` prefers `The Broken Hearts Gallery (2020)` over `Broken Arrow (1996)`; `135. The First Time: …` prefers `The First Time (2012)` over `Smile (2022)`; `51: Music of the Heart` and `195: Meet Me in St. Louis: …` never prefer `Knife+Heart (2018)`.
+
+#### Pass U57 — Description title+year evidence and the year gate — M (~3-5 credits) — depends on U56
+
+Replaces the flat verbatim description bonus with sentence-scoped exact/near-exact title mentions adjacent to a year, and gates year evidence: a year may only add once the candidate already has non-generic lexical or description evidence, otherwise it contributes zero. Regression: `82: My Blueberry Nights with David Sims` prefers `My Blueberry Nights (2007)` over `White Nights (1985)`; `63: What Planet Are You From?` prefers the 2000 film; `π (1998)` surfaces no unrelated 1998 titles (`Pokémon: The First Movie`, `The Man in the Iron Mask`, `The Truman Show`). U4's `year_aware` tunes weight only and is never a substitute for this guard.
+
+#### Pass U58 — Sequel and subtitle identity, reconciled with Pass W — S (~1-2 credits) — depends on U55
+
+A pre-pass ahead of W's family collapse, not a second sequel system: a bare `II`/`2`/part marker is a distinguisher requiring base-title identity and never acts as shared positive evidence; base-title vs subtitle decomposition means subtitle-only overlap is insufficient unless independently distinctive. Regression: `23: Mission: Impossible II` ≠ `Ghostbusters II`; `3: Shrek 2`, `160: Universal Solider 2`, `176: The Rage: Carrie 2` ≠ `Deadpool 2`; `6: Transformers: Revenge of the Fallen` beats `Revenge of the Nerds`; `4: Pirates of the Caribbean: Dead Man's Chest` beats `The Family Man`.
+
+#### Pass U59 — Multi-title extraction — M (~3-5 credits) — depends on U55
+
+Detect multiple title segments (` & `, ` and `) only when both sides independently resolve to plausible catalogue titles, then evaluate each candidate independently through the normal rules with per-relationship confirm/reject behaviour unchanged. Extraction only — Pass U2 still owns multi-movie editing and coverage roles; no UI work here. Regression: `18. Waitress & Off the Menu: …` yields independent `Waitress` and `Off the Menu`; `30. Forever My Girl & The Road Less Traveled: …` yields both titles. **Band flag:** if independent per-candidate linking touches the write path more than expected this reaches L — stop and report rather than expand.
+
+#### Pass U60 — Contextual non-movie content-type exclusion — S (~1-2 credits) — independent
+
+Sentence-scoped content-type cues (`documentary series`, `album`, similar) act as strong negative evidence only when the cue sits in the same sentence as the candidate title, overridable by an exact title or a title+year mention. Not a keyword ban. Regression: `42 Up` + "documentary series" ≠ `Up, up, and Away`; `PLAY` + "one of the most influential albums" ≠ `Foul Play`; plus a positive control where unrelated use of "series"/"album" does not suppress a strong movie match.
+
+#### Pass U61 — Show-scoped confusion memory (derived) — M (~3-5 credits) — independent, do last
+
+Derived from existing decision history — `episode_match_rejections` + `match_actions` aggregated per `(show, movie)` into rejection count, confirmed-here count and confirmed-elsewhere-in-show count. No migration and no cached table. **Case B** (rejected ≥2 in the show, never confirmed there): progressive demotion, cap 20 at two rejections and 10 at four or more, overridable only by an exact title or description title+year. **Case A** (confirmed somewhere in the show): no show-level suppression; a small demotion applies only when this episode's evidence is weak (`weak`/`description` rule, or coverage below 0.75). Never a global blocklist, never deletes history, never touches confirmed or manual links; the existing global `rejectedBefore` penalty stays and the show-scoped term applies as a separate explainable signal, taking the stronger of the two rather than stacking. Regression: repeatedly rejected `Don't Look Now` and `Re-Animator` become strongly demoted for The Rom Complex; a movie genuinely confirmed for a show is never show-blocked because of rejections on unrelated episodes.
+
+#### Pass U62 — TRIAGE: truncated episode descriptions behind "Show more" — S (~1-2 credits)
+
+Separate UI/data-loading question, not matcher work: on The Rom Complex, episode descriptions appear truncated in the expansion workflow, including the full text needed to inspect cases such as `18. Waitress & Off the Menu`. Determine whether the description is truncated at fetch, at storage, or only in display, then report; no matcher change belongs here.
+
+**Ownership boundaries for this initiative.** High-noise phrase/allowlist curation stays **Pass U3**. Per-show sensitivity stays **Pass U4** — a later `strict_evidence` strategy may raise U55–U58 sensitivities, but none of these fixes ship as a strategy, because every pattern is general. Director/people evidence (e.g. "Nora Ephron's directorial debut" wrongly suggesting `Life Is Ruff`) stays deferred: extend **U23**'s `castMention` to director names over **Pass P**'s cached credits, consumed by **U4A**'s strategy — no new people subsystem, no duplicate cast ingestion, no matcher-time network calls. Franchise/collection collapse remains **Pass W**'s.
+
+
 
 
 ### Already documented elsewhere — DO NOT create duplicate pass
