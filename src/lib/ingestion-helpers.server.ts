@@ -11,6 +11,7 @@ export interface UnlinkedEpisode {
   description: string | null;
   podcast_id: string;
   podcastName: string;
+  podcastDescription: string | null;
   releasedAt: string | null;
   durationSeconds: number | null;
   /** Pass U4 — the matcher strategy assigned to this episode's show. */
@@ -50,6 +51,7 @@ export interface EpisodeRow {
   podcasts: {
     id: string;
     name: string;
+    description: string | null;
     curation_status: "active" | "parked";
     matcher_strategy: MatcherStrategy;
   };
@@ -71,7 +73,7 @@ export async function fetchAllEpisodes(
     let q = admin
       .from("podcast_episodes")
       .select(
-        "id, slug, title, description, podcast_id, released_at, duration_seconds, disposition, podcasts!inner(id, name, curation_status, matcher_strategy)",
+        "id, slug, title, description, podcast_id, released_at, duration_seconds, disposition, podcasts!inner(id, name, description, curation_status, matcher_strategy)",
       )
 
       .order("released_at", { ascending: false })
@@ -111,6 +113,7 @@ export async function fetchUnlinkedEpisodes(
       description: ep.description,
       podcast_id: ep.podcast_id,
       podcastName: ep.podcasts.name,
+      podcastDescription: ep.podcasts.description,
       releasedAt: ep.released_at,
       durationSeconds: ep.duration_seconds ?? null,
       matcherStrategy: asMatcherStrategy(ep.podcasts.matcher_strategy),
