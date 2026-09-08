@@ -35,7 +35,7 @@ function MoviesPage() {
   const prefs = usePrefs();
   const view = prefs.viewModes["movies"] ?? "rows";
   const [term, setTerm] = useState("");
-  const [limit, setLimit] = useState(40);
+  const [limit, setLimit] = useState(100);
   const facets = useFacets();
 
   // Pass L2b — filtering, sorting, scoring and counting happen on the server
@@ -47,7 +47,7 @@ function MoviesPage() {
   });
 
   useEffect(() => {
-    setLimit(40);
+    setLimit(100);
   }, [term, prefs.movieFilters]);
 
   return (
@@ -145,10 +145,10 @@ function MoviesPage() {
             {rows.length < total ? (
               <button
                 type="button"
-                onClick={() => setLimit((n) => n + 40)}
+                onClick={() => setLimit((n) => n + 100)}
                 className="mt-4 w-full rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold text-foreground"
               >
-                Show 40 more{" "}
+                Show 100 more{" "}
                 <span className="text-muted-foreground">({total - rows.length} remaining)</span>
               </button>
             ) : null}
