@@ -61,6 +61,27 @@ const prettyPlatform = (slug: string) =>
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
 
+const SIX_MONTHS_MS = 183 * 24 * 60 * 60 * 1000;
+
+/**
+ * Consumer-facing recency line, from the episodes already on this page.
+ * Recent shows a day ("August 24"); older shows a month ("February 2026").
+ */
+function lastEpisodeText(rows: PodcastEpisodeRow[]): string | null {
+  let newest: number | null = null;
+  for (const row of rows) {
+    const at = row.episode.released_at ? Date.parse(row.episode.released_at) : NaN;
+    if (!Number.isNaN(at) && (newest === null || at > newest)) newest = at;
+  }
+  if (newest === null) return null;
+  const recent = Date.now() - newest < SIX_MONTHS_MS;
+  const date = new Date(newest).toLocaleDateString("en-US",
+    recent ? { month: "long", day: "numeric" } : { month: "long", year: "numeric" },
+  );
+  return `Last episode: ${date}`;
+}
+
+
 function PodcastDetailPage() {
   const { slug } = Route.useParams();
   const prefs = usePrefs();
