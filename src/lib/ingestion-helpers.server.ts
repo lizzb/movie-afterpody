@@ -138,6 +138,45 @@ export async function fetchRejectedPairs(admin: Admin): Promise<Set<string>> {
 }
 
 /**
+ * Pass U63 — rejected pairs for a known episode window only. Matching only ever
+ * consults pairs for the episodes it is scoring, so reading the whole rejection
+ * table into a worker was avoidable memory pressure.
+ */
+export async function fetchRejectedPairsForEpisodes(
+  admin: Admin,
+  episodeIds: string[],
+): Promise<Set<string>> {
+  const out = new Set<string>();
+  const CHUNK = 300;
+  for (let i = 0; i < episodeIds.length; i += CHUNK) {
+    const slice = episodeIds.slice(i, i + CHUNK);
+    if (!slice.length) continue;
+    const rows = await pageAll<{ episode_id: string; movie_id: string }>((from, to) =>
+      admin
+        .from("episode_match_rejections")
+        .select("episode_id, movie_id")
+        .in("episode_id", slice)
+        .order("episode_id")
+        .order("movie_id")
+        .range(from, to),
+    );
+    for (const r of rows) out.add(`${r.episode_id}:${r.movie_id}`);
+  }
+  return out;
+}
+
+/** Rejection totals per movie, aggregated in Postgres (Pass U63). */
+export async function fetchRejectionCountsByMovieFast(
+  admin: Admin,
+): Promise<Record<string, number>> {
+  const { data, error } = await admin.rpc("admin_rejection_counts");
+  if (error) throw error;
+  const counts: Record<string, number> = {};
+  for (const row of data ?? []) counts[row.movie_id] = Number(row.rejections);
+  return counts;
+}
+
+/**
  * Episodes an admin has explicitly signed off. Automated matching must never
  * change a reviewed episode's coverage: only an explicit invalidation (the
  * `episode_reviews.reopened_at` triggers, or a manual reopen) makes it eligible
