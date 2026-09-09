@@ -942,6 +942,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_podcast_coverage: {
+        Args: never
+        Returns: {
+          awaiting_review: number
+          episodes_reviewed: number
+          linked: number
+          podcast_id: string
+          retired: number
+          reviewed: number
+          stored: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
