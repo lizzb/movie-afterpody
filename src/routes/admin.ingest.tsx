@@ -888,7 +888,11 @@ function UnmatchedEpisodesCard() {
     queryFn: () => fn({ data: { limit: 40, ...(search ? { search } : {}) } }),
     retry: false,
     refetchOnWindowFocus: false,
+    // Keep the previous results on screen while the next search runs, so the
+    // list never collapses into a grey block mid-typing.
+    placeholderData: (prev) => prev,
   });
+  const searching = query.isFetching && !query.isLoading;
   const rescanAction = useQueuedAction("rescan-all", "Recheck every episode against existing movies");
   const rescan = useMutation({
     mutationFn: (vars: Parameters<typeof rescanFn>[0]) => rescanAction.start(() => rescanFn(vars)),
