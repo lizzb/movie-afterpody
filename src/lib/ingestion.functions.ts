@@ -479,40 +479,49 @@ export const suggestEpisodeMatches = createServerFn({ method: "POST" })
       "./providers/episode-title.server"
     );
 
-    const { fetchAllEpisodes, fetchRejectionCountsByMovie, fetchReviewedEpisodeIds, pageAll } = await import(
-      "./ingestion-helpers.server"
-    );
+    const { pageAll, fetchRejectedPairsForEpisodes } = await import("./ingestion-helpers.server");
 
-    // Paged: a single response is capped at 1000 rows and there are 7k+ episodes,
-    // which is why the same handful of episodes used to reappear forever.
-    let episodes = await fetchAllEpisodes(supabaseAdmin, { podcastId: data.podcastId });
+    /**
+     * Pass U63 — eligibility (retired / already-confirmed / signed-off) is
+     * decided in Postgres. Loading all ~14k episodes plus the whole
+     * episode_movies, episode_reviews and rejection tables into this worker
+     * exhausted its CPU/memory budget and returned 502s. The filters are
+     * identical to the ones this handler used to apply in JS, so the queue
+     * contents and totals are unchanged.
+     */
+    const { data: eligibleRows, error: eligibleError } = await supabaseAdmin.rpc(
+      "admin_match_eligible_episodes",
+      {
+        p_podcast_id: data.podcastId ?? undefined,
+        p_exclude_confirmed: true,
+        p_limit: MATCH_SCAN_CAP,
+        p_offset: 0,
+      },
+    );
+    if (eligibleError) throw eligibleError;
+    let episodes = (eligibleRows ?? []).map((row) => ({
+      id: row.id,
+      slug: row.slug,
+      title: row.title,
+      description: row.description,
+      podcast_id: row.podcast_id,
+      released_at: row.released_at,
+      duration_seconds: row.duration_seconds,
+      podcasts: { name: row.podcast_name, matcher_strategy: row.matcher_strategy },
+    }));
     if (data.episodeId) episodes = episodes.filter((ep) => ep.id === data.episodeId);
 
     const movieList = await pageAll<{ id: string; title: string; release_year: number | null; collection_id: number | null }>(
       (from, to) => supabaseAdmin.from("movies").select("id, title, release_year, collection_id").range(from, to),
     );
 
-    const [existingLinks, rejections, rejectionCountByMovie, reviewedEpisodes] = await Promise.all([
-      pageAll<{ episode_id: string; movie_id: string; match_method: string }>((from, to) =>
-        supabaseAdmin.from("episode_movies").select("episode_id, movie_id, match_method").range(from, to),
-      ),
-      pageAll<{ episode_id: string; movie_id: string }>((from, to) =>
-        supabaseAdmin.from("episode_match_rejections").select("episode_id, movie_id").range(from, to),
+    const [rejectedPairs, rejectionCountByMovie] = await Promise.all([
+      fetchRejectedPairsForEpisodes(
+        supabaseAdmin,
+        episodes.map((ep) => ep.id),
       ),
       fetchRejectionCountsByMovie(supabaseAdmin),
-      fetchReviewedEpisodeIds(supabaseAdmin),
     ]);
-
-    const rejectedPairs = new Set(rejections.map((r) => `${r.episode_id}:${r.movie_id}`));
-    // Confirmed = anything an admin approved or a high-confidence deterministic link.
-    const confirmedEpisodes = new Set(
-      existingLinks
-        .filter(
-          (l) =>
-            l.match_method === "manual" || l.match_method === "deterministic" || l.match_method === "seed",
-        )
-        .map((l) => l.episode_id),
-    );
 
     const term = data.search?.trim().toLowerCase();
     // Words common across this catalogue's episode titles carry no signal.
