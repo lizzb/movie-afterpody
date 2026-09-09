@@ -1504,24 +1504,34 @@ const ReviewRow = memo(function ReviewRow({
           <>
             <button
               type="button"
+              disabled={pending}
               onClick={() => {
                 setChosen("approve");
                 onAct("approve", row);
               }}
-              className={actionClass("positive", chosen === "approve")}
+              className={actionClass("positive", chosen === "approve", pending)}
             >
-              <Check className="size-3.5" aria-hidden />
+              {chosen === "approve" ? (
+                <Loader2 className="size-3.5 animate-spin" aria-hidden />
+              ) : (
+                <Check className="size-3.5" aria-hidden />
+              )}
               Approve
             </button>
             <button
               type="button"
+              disabled={pending}
               onClick={() => {
                 setChosen("reject");
                 onAct("reject", row);
               }}
-              className={actionClass("negative", chosen === "reject")}
+              className={actionClass("negative", chosen === "reject", pending)}
             >
-              <X className="size-3.5" aria-hidden />
+              {chosen === "reject" ? (
+                <Loader2 className="size-3.5 animate-spin" aria-hidden />
+              ) : (
+                <X className="size-3.5" aria-hidden />
+              )}
               Reject
             </button>
           </>
@@ -1529,24 +1539,34 @@ const ReviewRow = memo(function ReviewRow({
           <>
             <button
               type="button"
+              disabled={pending}
               onClick={() => {
                 setChosen("confirm");
                 onAct("confirm", row);
               }}
-              className={actionClass("positive", chosen === "confirm")}
+              className={actionClass("positive", chosen === "confirm", pending)}
             >
-              <Check className="size-3.5" aria-hidden />
+              {chosen === "confirm" ? (
+                <Loader2 className="size-3.5 animate-spin" aria-hidden />
+              ) : (
+                <Check className="size-3.5" aria-hidden />
+              )}
               {row.flagged ? "Actually correct" : "Correct"}
             </button>
             <button
               type="button"
+              disabled={pending}
               onClick={() => {
                 setChosen("unlink");
                 onAct("unlink", row);
               }}
-              className={actionClass("negative", chosen === "unlink")}
+              className={actionClass("negative", chosen === "unlink", pending)}
             >
-              <Unlink className="size-3.5" aria-hidden />
+              {chosen === "unlink" ? (
+                <Loader2 className="size-3.5 animate-spin" aria-hidden />
+              ) : (
+                <Unlink className="size-3.5" aria-hidden />
+              )}
               Unlink
             </button>
           </>
@@ -1555,14 +1575,19 @@ const ReviewRow = memo(function ReviewRow({
         {reviewed ? null : (
           <button
             type="button"
+            disabled={pending}
             onClick={() => {
               setChosen("retire");
               onAct("retire", row);
             }}
             title="Stop suggesting matches for this episode"
-            className={actionClass("retire", chosen === "retire")}
+            className={actionClass("retire", chosen === "retire", pending)}
           >
-            <Ban className="size-3.5" aria-hidden />
+            {chosen === "retire" ? (
+              <Loader2 className="size-3.5 animate-spin" aria-hidden />
+            ) : (
+              <Ban className="size-3.5" aria-hidden />
+            )}
             Not about a movie
           </button>
         )}
