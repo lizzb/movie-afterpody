@@ -981,6 +981,26 @@ export type Database = {
           rejections: number
         }[]
       }
+      admin_unlinked_episode_counts: {
+        Args: never
+        Returns: {
+          active_count: number
+          all_count: number
+        }[]
+      }
+      admin_unlinked_episodes: {
+        Args: { p_limit?: number; p_podcast_id?: string; p_search?: string }
+        Returns: {
+          description: string
+          duration_seconds: number
+          id: string
+          match_count: number
+          podcast_name: string
+          released_at: string
+          title: string
+          total_count: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
