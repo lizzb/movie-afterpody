@@ -1525,7 +1525,9 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
       }
     }
 
-    const commonEpisodeWords = computeCommonEpisodeWords(episodes.map((ep) => ep.title));
+    // Corpus statistic: derived from the whole eligible pool, not just this
+    // batch, so batching cannot change how an episode scores.
+    const commonEpisodeWords = computeCommonEpisodeWords(pool.map((ep) => ep.title));
 
     let linked = 0;
 
@@ -1634,7 +1636,15 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
     }
 
 
-    return { scanned: episodes.length, linked, improved, extraAdded, stillUnlinked };
+    return {
+      scanned: episodes.length,
+      linked,
+      improved,
+      extraAdded,
+      stillUnlinked,
+      pool: pool.length,
+      remaining: Math.max(0, pool.length - episodes.length),
+    };
   });
 
 /** Safety net: nothing should be invisible, so expose every episode with no movie link. */
