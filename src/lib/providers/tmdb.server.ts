@@ -27,6 +27,10 @@ export interface TmdbMovieDetails {
   imdb_id?: string | null;
   /** Franchise the film belongs to, used to disambiguate sequels when matching. */
   belongs_to_collection?: { id: number; name: string } | null;
+  /** Appended to the detail call so certification costs no extra request. */
+  release_dates?: {
+    results?: { iso_3166_1?: string; release_dates?: { certification?: string }[] }[];
+  };
 }
 
 export interface TmdbWatchProvider {
@@ -65,8 +69,20 @@ export async function searchTmdbMovies(apiKey: string, query: string, year?: num
 }
 
 export async function getTmdbMovieDetails(apiKey: string, tmdbId: number): Promise<TmdbMovieDetails | null> {
-  const data = (await tmdbFetch(`/movie/${tmdbId}?append_to_response=external_ids`, apiKey)) as TmdbMovieDetails;
+  const data = (await tmdbFetch(
+    `/movie/${tmdbId}?append_to_response=external_ids,release_dates`,
+    apiKey,
+  )) as TmdbMovieDetails;
   return data ?? null;
+}
+
+/** US certification out of an already-fetched detail payload. */
+export function certificationFromDetails(details: TmdbMovieDetails): TmdbCertification {
+  const us = (details.release_dates?.results ?? []).find((r) => r.iso_3166_1 === "US");
+  const cert = (us?.release_dates ?? [])
+    .map((r) => (r.certification ?? "").trim())
+    .find((value) => value.length > 0);
+  return { certification: cert ?? null, system: cert ? "MPA" : null };
 }
 
 export async function getTmdbWatchProviders(apiKey: string, tmdbId: number): Promise<TmdbWatchProvidersResponse> {
@@ -91,6 +107,8 @@ export interface MatchedTmdbMovie {
   imdbId: string | null;
   collectionId: number | null;
   confidence: number;
+  /** From the same detail request — no separate certification call needed. */
+  certification: TmdbCertification;
 }
 
 export async function findBestTmdbMatch(
@@ -162,6 +180,7 @@ export async function findBestTmdbMatch(
     imdbId: details.imdb_id ?? null,
     collectionId: details.belongs_to_collection?.id ?? null,
     confidence: best.confidence,
+    certification: certificationFromDetails(details),
   };
 }
 
@@ -190,6 +209,7 @@ export async function findTmdbByImdbId(apiKey: string, imdbId: string): Promise<
     imdbId: details.imdb_id ?? imdbId,
     collectionId: details.belongs_to_collection?.id ?? null,
     confidence: 100,
+    certification: certificationFromDetails(details),
   };
 }
 

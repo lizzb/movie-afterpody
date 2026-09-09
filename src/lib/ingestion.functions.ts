@@ -728,12 +728,9 @@ export const enrichMovie = createServerFn({ method: "POST" })
       : await findBestTmdbMatch(apiKey, title!, year);
     if (!match) throw new Error(`No TMDB match found for "${imdbId ?? title}"`);
 
-    // Content rating comes from the same detail call path (Pass Y).
-    const { getTmdbMovieCertification } = await import("./providers/tmdb.server");
-    const cert = await getTmdbMovieCertification(apiKey, match.tmdbId).catch(() => ({
-      certification: null,
-      system: null,
-    }));
+    // Content rating rides along on the TMDB detail request the match already
+    // made, so adding a movie no longer waits on a second round trip.
+    const cert = match.certification;
 
     const baseUpdate = {
       title: match.title,
@@ -1661,13 +1658,17 @@ export const listUnmatchedEpisodes = createServerFn({ method: "POST" })
      * source; the rules (active shows, retired episodes excluded, search across
      * episode title/description and show name/description) are unchanged.
      */
+    // The parked-show total is only displayed when no search is active, so a
+    // search keystroke costs one query instead of two.
     const [listResult, countResult] = await Promise.all([
       supabaseAdmin.rpc("admin_unlinked_episodes", {
         ...(data.podcastId ? { p_podcast_id: data.podcastId } : {}),
         ...(data.search ? { p_search: data.search } : {}),
         p_limit: data.limit,
       }),
-      supabaseAdmin.rpc("admin_unlinked_episode_counts"),
+      data.search
+        ? Promise.resolve({ data: null, error: null })
+        : supabaseAdmin.rpc("admin_unlinked_episode_counts"),
     ]);
     if (listResult.error) throw listResult.error;
     if (countResult.error) throw countResult.error;

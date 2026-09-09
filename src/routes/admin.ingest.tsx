@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
+import { Loader2 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { Artwork } from "@/components/Artwork";
 import { MatchHistoryCard } from "@/components/admin/MatchHistoryCard";
@@ -888,7 +889,11 @@ function UnmatchedEpisodesCard() {
     queryFn: () => fn({ data: { limit: 40, ...(search ? { search } : {}) } }),
     retry: false,
     refetchOnWindowFocus: false,
+    // Keep the previous results on screen while the next search runs, so the
+    // list never collapses into a grey block mid-typing.
+    placeholderData: (prev) => prev,
   });
+  const searching = query.isFetching && !query.isLoading;
   const rescanAction = useQueuedAction("rescan-all", "Recheck every episode against existing movies");
   const rescan = useMutation({
     mutationFn: (vars: Parameters<typeof rescanFn>[0]) => rescanAction.start(() => rescanFn(vars)),
@@ -1013,14 +1018,14 @@ function UnmatchedEpisodesCard() {
             placeholder="Show name, show description, episode title or description"
             className="min-w-0 flex-1 rounded-full border border-border bg-background px-4 py-2 text-sm"
           />
-          {searchInput ? (
-            <button
-              type="button"
-              onClick={() => setSearchInput("")}
-              className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold hover:bg-secondary"
+          {searching ? (
+            <span
+              role="status"
+              className="inline-flex shrink-0 items-center gap-1.5 text-xs font-semibold text-teal"
             >
-              Clear
-            </button>
+              <Loader2 className="size-3.5 animate-spin" aria-hidden />
+              Searching…
+            </span>
           ) : null}
         </div>
       </div>
@@ -1149,6 +1154,9 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
   const [syncLog, setSyncLog] = useState<{ name: string; message: string; ok: boolean }[]>([]);
   const bulkRunning = bulkSync.pending;
   const bulkCancel = useRef(false);
+  // Visible acknowledgement for "Stop after this show" — the ref alone changed
+  // nothing on screen until the current show finished.
+  const [stopRequested, setStopRequested] = useState(false);
 
   /** Pass U14 — every per-show action is a queue entry, so clicks never race. */
   const showKey = (podcastId: string, action: string) => `podcast:${podcastId}:${action}`;
@@ -1275,6 +1283,7 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
     bulkSync
       .start(async () => {
         bulkCancel.current = false;
+        setStopRequested(false);
         setError(null);
         setSyncLog([]);
         for (const p of incompleteActive) {
@@ -1504,12 +1513,21 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
         {bulkRunning ? (
           <button
             type="button"
+            disabled={stopRequested}
             onClick={() => {
               bulkCancel.current = true;
+              // Cancelling only takes effect after the current show finishes, so
+              // acknowledge the press immediately.
+              setStopRequested(true);
             }}
-            className="rounded-full border border-border px-4 py-2 text-sm font-semibold"
+            className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold ${
+              stopRequested
+                ? "bg-gold text-primary-foreground"
+                : "border border-border hover:bg-secondary"
+            }`}
           >
-            Stop after this show
+            {stopRequested ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
+            {stopRequested ? "Stopping after this show…" : "Stop after this show"}
           </button>
         ) : null}
       </div>

@@ -67,11 +67,15 @@ const ACTION_TONES = {
   },
 } as const;
 
-function actionClass(tone: keyof typeof ACTION_TONES, active: boolean) {
+function actionClass(tone: keyof typeof ACTION_TONES, active: boolean, disabled = false) {
   const t = ACTION_TONES[tone];
-  return `inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold transition-colors ${
-    active ? t.active : t.idle
-  }`;
+  const base =
+    "inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold transition-colors";
+  // Pass U33 — the pressed action keeps its filled colour for the whole
+  // operation; siblings stay visible as quiet text-on-grey while disabled.
+  if (active) return `${base} ${t.active}`;
+  if (disabled) return `${base} bg-muted text-muted-foreground opacity-60`;
+  return `${base} ${t.idle}`;
 }
 
 /**
@@ -1090,9 +1094,14 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
 
           </div>
 
-          {selectedCount > 0 ? (
+          {/* Pass U33 — stays mounted while a bulk action runs: selecting rows
+              clears the selection optimistically, and unmounting the bar here
+              hid the pressed action instead of showing it filled. */}
+          {selectedCount > 0 || bulkBusy ? (
             <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-background p-3">
-              <span className="text-xs font-semibold">{selectedCount} selected</span>
+              <span className="text-xs font-semibold">
+                {bulkBusy ? `${bulk.variables?.pairs.length ?? 0} in progress` : `${selectedCount} selected`}
+              </span>
               {tab === "proposed" ? (
                 <>
                   <button
@@ -1418,7 +1427,7 @@ const ReviewRow = memo(function ReviewRow({
       aria-busy={pending}
       className={`rounded-xl border bg-background transition-opacity ${
         selected ? "border-primary" : "border-border"
-      } ${pending ? "pointer-events-none opacity-60" : ""}`}
+      } ${pending ? "pointer-events-none" : ""}`}
     >
       {/* Header is the selection target (comfortable on a phone), but text
           stays selectable: a click that ends a text selection is ignored. */}
@@ -1483,7 +1492,9 @@ const ReviewRow = memo(function ReviewRow({
 
       <div className="flex flex-wrap items-center gap-2 px-3 pb-3">
 
-        {pending ? (
+        {/* Pass U33 — the spinner lives inside the pressed button. Only a
+            bulk-driven pending row (no local choice) shows a separate status. */}
+        {pending && !chosen ? (
           <span role="status" className="inline-flex items-center gap-1.5 text-xs font-semibold text-teal">
             <Loader2 className="size-3.5 animate-spin" aria-hidden />
             Saving…
@@ -1493,24 +1504,34 @@ const ReviewRow = memo(function ReviewRow({
           <>
             <button
               type="button"
+              disabled={pending}
               onClick={() => {
                 setChosen("approve");
                 onAct("approve", row);
               }}
-              className={actionClass("positive", chosen === "approve")}
+              className={actionClass("positive", chosen === "approve", pending)}
             >
-              <Check className="size-3.5" aria-hidden />
+              {chosen === "approve" ? (
+                <Loader2 className="size-3.5 animate-spin" aria-hidden />
+              ) : (
+                <Check className="size-3.5" aria-hidden />
+              )}
               Approve
             </button>
             <button
               type="button"
+              disabled={pending}
               onClick={() => {
                 setChosen("reject");
                 onAct("reject", row);
               }}
-              className={actionClass("negative", chosen === "reject")}
+              className={actionClass("negative", chosen === "reject", pending)}
             >
-              <X className="size-3.5" aria-hidden />
+              {chosen === "reject" ? (
+                <Loader2 className="size-3.5 animate-spin" aria-hidden />
+              ) : (
+                <X className="size-3.5" aria-hidden />
+              )}
               Reject
             </button>
           </>
@@ -1518,24 +1539,34 @@ const ReviewRow = memo(function ReviewRow({
           <>
             <button
               type="button"
+              disabled={pending}
               onClick={() => {
                 setChosen("confirm");
                 onAct("confirm", row);
               }}
-              className={actionClass("positive", chosen === "confirm")}
+              className={actionClass("positive", chosen === "confirm", pending)}
             >
-              <Check className="size-3.5" aria-hidden />
+              {chosen === "confirm" ? (
+                <Loader2 className="size-3.5 animate-spin" aria-hidden />
+              ) : (
+                <Check className="size-3.5" aria-hidden />
+              )}
               {row.flagged ? "Actually correct" : "Correct"}
             </button>
             <button
               type="button"
+              disabled={pending}
               onClick={() => {
                 setChosen("unlink");
                 onAct("unlink", row);
               }}
-              className={actionClass("negative", chosen === "unlink")}
+              className={actionClass("negative", chosen === "unlink", pending)}
             >
-              <Unlink className="size-3.5" aria-hidden />
+              {chosen === "unlink" ? (
+                <Loader2 className="size-3.5 animate-spin" aria-hidden />
+              ) : (
+                <Unlink className="size-3.5" aria-hidden />
+              )}
               Unlink
             </button>
           </>
@@ -1544,14 +1575,19 @@ const ReviewRow = memo(function ReviewRow({
         {reviewed ? null : (
           <button
             type="button"
+            disabled={pending}
             onClick={() => {
               setChosen("retire");
               onAct("retire", row);
             }}
             title="Stop suggesting matches for this episode"
-            className={actionClass("retire", chosen === "retire")}
+            className={actionClass("retire", chosen === "retire", pending)}
           >
-            <Ban className="size-3.5" aria-hidden />
+            {chosen === "retire" ? (
+              <Loader2 className="size-3.5 animate-spin" aria-hidden />
+            ) : (
+              <Ban className="size-3.5" aria-hidden />
+            )}
             Not about a movie
           </button>
         )}
