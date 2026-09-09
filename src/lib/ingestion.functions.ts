@@ -1049,8 +1049,6 @@ export const listIngestionStats = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { fetchUnlinkedEpisodes } = await import("./ingestion-helpers.server");
-
     const awaitingByStatus = (status: "active" | "parked") =>
       supabaseAdmin
         .from("episode_movies")
@@ -1074,8 +1072,7 @@ export const listIngestionStats = createServerFn({ method: "GET" })
       { count: flaggedCount },
       { count: retiredCount },
       { count: tmdbLinkedCount },
-      unlinked,
-      unlinkedAll,
+      unlinkedCounts,
     ] = await Promise.all([
       supabaseAdmin.from("movies").select("*", { count: "exact", head: true }),
       supabaseAdmin
@@ -1110,12 +1107,14 @@ export const listIngestionStats = createServerFn({ method: "GET" })
         .select("*", { count: "exact", head: true })
         .eq("disposition", "not_about_a_movie"),
       supabaseAdmin.from("movies").select("*", { count: "exact", head: true }).not("tmdb_id", "is", null),
-      // Counted exactly the way the Unmatched episodes card counts (active shows
-      // only), so the tile and the section can never disagree.
-      fetchUnlinkedEpisodes(supabaseAdmin),
-      // Same count with parked shows included, so nothing is silently invisible.
-      fetchUnlinkedEpisodes(supabaseAdmin, { activeOnly: false }),
+      // Pass U63 — counted in Postgres with the same rules the Unmatched
+      // episodes card uses (active shows only, retired episodes excluded), so
+      // the tile and the section can never disagree and neither reads every
+      // episode into this worker.
+      supabaseAdmin.rpc("admin_unlinked_episode_counts"),
     ]);
+    if (unlinkedCounts.error) throw unlinkedCounts.error;
+    const unlinkedRow = unlinkedCounts.data?.[0];
 
 
     return {
@@ -1131,8 +1130,8 @@ export const listIngestionStats = createServerFn({ method: "GET" })
       flagged: flaggedCount ?? 0,
       retiredEpisodes: retiredCount ?? 0,
       tmdbLinked: tmdbLinkedCount ?? 0,
-      unmatchedEpisodes: unlinked.length,
-      unmatchedEpisodesAll: unlinkedAll.length,
+      unmatchedEpisodes: Number(unlinkedRow?.active_count ?? 0),
+      unmatchedEpisodesAll: Number(unlinkedRow?.all_count ?? 0),
     };
 
   });
@@ -1656,32 +1655,36 @@ export const listUnmatchedEpisodes = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { fetchUnlinkedEpisodes } = await import("./ingestion-helpers.server");
-    const [all, everything] = await Promise.all([
-      fetchUnlinkedEpisodes(supabaseAdmin, { podcastId: data.podcastId }),
-      fetchUnlinkedEpisodes(supabaseAdmin, { podcastId: data.podcastId, activeOnly: false }),
+    /**
+     * Pass U63 — search, counting and paging happen in Postgres. Paging every
+     * episode and every link into this worker to filter them in JS was a 502
+     * source; the rules (active shows, retired episodes excluded, search across
+     * episode title/description and show name/description) are unchanged.
+     */
+    const [listResult, countResult] = await Promise.all([
+      supabaseAdmin.rpc("admin_unlinked_episodes", {
+        ...(data.podcastId ? { p_podcast_id: data.podcastId } : {}),
+        ...(data.search ? { p_search: data.search } : {}),
+        p_limit: data.limit,
+      }),
+      supabaseAdmin.rpc("admin_unlinked_episode_counts"),
     ]);
-    // Search spans the episode title/description and the show's name/description,
-    // so a query matches whether you remember the episode or only the show.
-    const term = data.search?.toLowerCase() ?? "";
-    const matches = term
-      ? all.filter((ep) =>
-          [ep.title, ep.description, ep.podcastName, ep.podcastDescription].some((field) =>
-            (field ?? "").toLowerCase().includes(term),
-          ),
-        )
-      : all;
+    if (listResult.error) throw listResult.error;
+    if (countResult.error) throw countResult.error;
+    const rows = listResult.data ?? [];
+    const counts = countResult.data?.[0];
+    const first = rows[0];
     return {
-      total: all.length,
-      totalIncludingParked: everything.length,
-      matching: matches.length,
-      episodes: matches.slice(0, data.limit).map((ep) => ({
+      total: Number(first?.total_count ?? counts?.active_count ?? 0),
+      totalIncludingParked: Number(counts?.all_count ?? 0),
+      matching: Number(first?.match_count ?? 0),
+      episodes: rows.map((ep) => ({
         episodeId: ep.id,
         episodeTitle: ep.title,
-        podcastName: ep.podcastName,
-        releasedAt: ep.releasedAt,
+        podcastName: ep.podcast_name,
+        releasedAt: ep.released_at,
         // Pass U39 — enough context to judge a match without leaving the row.
-        durationSeconds: ep.durationSeconds,
+        durationSeconds: ep.duration_seconds,
         description: ep.description,
       })),
     };
