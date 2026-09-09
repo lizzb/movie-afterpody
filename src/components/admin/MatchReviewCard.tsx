@@ -67,11 +67,15 @@ const ACTION_TONES = {
   },
 } as const;
 
-function actionClass(tone: keyof typeof ACTION_TONES, active: boolean) {
+function actionClass(tone: keyof typeof ACTION_TONES, active: boolean, disabled = false) {
   const t = ACTION_TONES[tone];
-  return `inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold transition-colors ${
-    active ? t.active : t.idle
-  }`;
+  const base =
+    "inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-semibold transition-colors";
+  // Pass U33 — the pressed action keeps its filled colour for the whole
+  // operation; siblings stay visible as quiet text-on-grey while disabled.
+  if (active) return `${base} ${t.active}`;
+  if (disabled) return `${base} bg-muted text-muted-foreground opacity-60`;
+  return `${base} ${t.idle}`;
 }
 
 /**
