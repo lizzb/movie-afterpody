@@ -479,7 +479,9 @@ export const suggestEpisodeMatches = createServerFn({ method: "POST" })
       "./providers/episode-title.server"
     );
 
-    const { pageAll, fetchRejectedPairsForEpisodes } = await import("./ingestion-helpers.server");
+    const { pageAll, fetchRejectedPairsForEpisodes, fetchRejectionCountsByMovieFast } = await import(
+      "./ingestion-helpers.server"
+    );
 
     /**
      * Pass U63 — eligibility (retired / already-confirmed / signed-off) is
