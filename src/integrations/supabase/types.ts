@@ -942,6 +942,65 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_match_eligible_episodes: {
+        Args: {
+          p_exclude_confirmed?: boolean
+          p_limit?: number
+          p_offset?: number
+          p_podcast_id?: string
+        }
+        Returns: {
+          description: string
+          disposition: Database["public"]["Enums"]["episode_disposition"]
+          duration_seconds: number
+          id: string
+          matcher_strategy: Database["public"]["Enums"]["matcher_strategy"]
+          podcast_id: string
+          podcast_name: string
+          released_at: string
+          slug: string
+          title: string
+        }[]
+      }
+      admin_podcast_coverage: {
+        Args: never
+        Returns: {
+          awaiting_review: number
+          episodes_reviewed: number
+          linked: number
+          podcast_id: string
+          retired: number
+          reviewed: number
+          stored: number
+        }[]
+      }
+      admin_rejection_counts: {
+        Args: never
+        Returns: {
+          movie_id: string
+          rejections: number
+        }[]
+      }
+      admin_unlinked_episode_counts: {
+        Args: never
+        Returns: {
+          active_count: number
+          all_count: number
+        }[]
+      }
+      admin_unlinked_episodes: {
+        Args: { p_limit?: number; p_podcast_id?: string; p_search?: string }
+        Returns: {
+          description: string
+          duration_seconds: number
+          id: string
+          match_count: number
+          podcast_name: string
+          released_at: string
+          title: string
+          total_count: number
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

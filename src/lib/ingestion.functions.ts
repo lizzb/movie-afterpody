@@ -58,6 +58,13 @@ const BulkInput = z.object({
   limit: z.number().int().min(1).max(60).default(25),
 });
 
+/**
+ * Pass U63 — hard ceiling on how many episodes one suggestion request scores.
+ * The eligible pool is far smaller than this today; the cap exists so a growing
+ * catalogue can never push a single worker past its CPU/memory budget again.
+ */
+const MATCH_SCAN_CAP = 5000;
+
 const SuggestMatchesInput = z.object({
   podcastId: z.string().uuid().optional(),
   episodeId: z.string().uuid().optional(),
@@ -479,54 +486,61 @@ export const suggestEpisodeMatches = createServerFn({ method: "POST" })
       "./providers/episode-title.server"
     );
 
-    const { fetchAllEpisodes, fetchRejectionCountsByMovie, fetchReviewedEpisodeIds, pageAll } = await import(
+    const { pageAll, fetchRejectedPairsForEpisodes, fetchRejectionCountsByMovieFast } = await import(
       "./ingestion-helpers.server"
     );
 
-    // Paged: a single response is capped at 1000 rows and there are 7k+ episodes,
-    // which is why the same handful of episodes used to reappear forever.
-    let episodes = await fetchAllEpisodes(supabaseAdmin, { podcastId: data.podcastId });
+    /**
+     * Pass U63 — eligibility (retired / already-confirmed / signed-off) is
+     * decided in Postgres. Loading all ~14k episodes plus the whole
+     * episode_movies, episode_reviews and rejection tables into this worker
+     * exhausted its CPU/memory budget and returned 502s. The filters are
+     * identical to the ones this handler used to apply in JS, so the queue
+     * contents and totals are unchanged.
+     */
+    const { data: eligibleRows, error: eligibleError } = await supabaseAdmin.rpc(
+      "admin_match_eligible_episodes",
+      {
+        ...(data.podcastId ? { p_podcast_id: data.podcastId } : {}),
+        p_exclude_confirmed: true,
+        p_limit: MATCH_SCAN_CAP,
+        p_offset: 0,
+      },
+    );
+    if (eligibleError) throw eligibleError;
+    let episodes = (eligibleRows ?? []).map((row) => ({
+      id: row.id,
+      slug: row.slug,
+      title: row.title,
+      description: row.description,
+      podcast_id: row.podcast_id,
+      released_at: row.released_at,
+      duration_seconds: row.duration_seconds,
+      podcasts: { name: row.podcast_name, matcher_strategy: row.matcher_strategy },
+    }));
     if (data.episodeId) episodes = episodes.filter((ep) => ep.id === data.episodeId);
 
     const movieList = await pageAll<{ id: string; title: string; release_year: number | null; collection_id: number | null }>(
       (from, to) => supabaseAdmin.from("movies").select("id, title, release_year, collection_id").range(from, to),
     );
 
-    const [existingLinks, rejections, rejectionCountByMovie, reviewedEpisodes] = await Promise.all([
-      pageAll<{ episode_id: string; movie_id: string; match_method: string }>((from, to) =>
-        supabaseAdmin.from("episode_movies").select("episode_id, movie_id, match_method").range(from, to),
+    const [rejectedPairs, rejectionCountByMovie] = await Promise.all([
+      fetchRejectedPairsForEpisodes(
+        supabaseAdmin,
+        episodes.map((ep) => ep.id),
       ),
-      pageAll<{ episode_id: string; movie_id: string }>((from, to) =>
-        supabaseAdmin.from("episode_match_rejections").select("episode_id, movie_id").range(from, to),
-      ),
-      fetchRejectionCountsByMovie(supabaseAdmin),
-      fetchReviewedEpisodeIds(supabaseAdmin),
+      fetchRejectionCountsByMovieFast(supabaseAdmin),
     ]);
-
-    const rejectedPairs = new Set(rejections.map((r) => `${r.episode_id}:${r.movie_id}`));
-    // Confirmed = anything an admin approved or a high-confidence deterministic link.
-    const confirmedEpisodes = new Set(
-      existingLinks
-        .filter(
-          (l) =>
-            l.match_method === "manual" || l.match_method === "deterministic" || l.match_method === "seed",
-        )
-        .map((l) => l.episode_id),
-    );
 
     const term = data.search?.trim().toLowerCase();
     // Words common across this catalogue's episode titles carry no signal.
     const commonEpisodeWords = computeCommonEpisodeWords(episodes.map((ep) => ep.title));
 
+    // Retired, already-confirmed and signed-off episodes (the U8 protection) are
+    // excluded by admin_match_eligible_episodes; only title-shape checks remain.
     const all = episodes
-      .filter((ep) => ep.disposition !== "not_about_a_movie")
       .filter((ep) => hasUsableEpisodeTitle(ep.title))
       .filter((ep) => !looksNonMovieEpisode(ep.title))
-      .filter((ep) => !confirmedEpisodes.has(ep.id))
-      // A signed-off episode is settled even when it has no confirmed link.
-      // Suggestions are automated review work and must respect the same U8
-      // protection as sync, Build movies, and recheck.
-      .filter((ep) => !reviewedEpisodes.has(ep.id))
       .map((ep) => {
         const candidates = matchEpisodeToMovies(ep.title, movieList, {
           rejectionCountByMovie,
@@ -1035,8 +1049,6 @@ export const listIngestionStats = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { fetchUnlinkedEpisodes } = await import("./ingestion-helpers.server");
-
     const awaitingByStatus = (status: "active" | "parked") =>
       supabaseAdmin
         .from("episode_movies")
@@ -1060,8 +1072,7 @@ export const listIngestionStats = createServerFn({ method: "GET" })
       { count: flaggedCount },
       { count: retiredCount },
       { count: tmdbLinkedCount },
-      unlinked,
-      unlinkedAll,
+      unlinkedCounts,
     ] = await Promise.all([
       supabaseAdmin.from("movies").select("*", { count: "exact", head: true }),
       supabaseAdmin
@@ -1096,12 +1107,14 @@ export const listIngestionStats = createServerFn({ method: "GET" })
         .select("*", { count: "exact", head: true })
         .eq("disposition", "not_about_a_movie"),
       supabaseAdmin.from("movies").select("*", { count: "exact", head: true }).not("tmdb_id", "is", null),
-      // Counted exactly the way the Unmatched episodes card counts (active shows
-      // only), so the tile and the section can never disagree.
-      fetchUnlinkedEpisodes(supabaseAdmin),
-      // Same count with parked shows included, so nothing is silently invisible.
-      fetchUnlinkedEpisodes(supabaseAdmin, { activeOnly: false }),
+      // Pass U63 — counted in Postgres with the same rules the Unmatched
+      // episodes card uses (active shows only, retired episodes excluded), so
+      // the tile and the section can never disagree and neither reads every
+      // episode into this worker.
+      supabaseAdmin.rpc("admin_unlinked_episode_counts"),
     ]);
+    if (unlinkedCounts.error) throw unlinkedCounts.error;
+    const unlinkedRow = unlinkedCounts.data?.[0];
 
 
     return {
@@ -1117,8 +1130,8 @@ export const listIngestionStats = createServerFn({ method: "GET" })
       flagged: flaggedCount ?? 0,
       retiredEpisodes: retiredCount ?? 0,
       tmdbLinked: tmdbLinkedCount ?? 0,
-      unmatchedEpisodes: unlinked.length,
-      unmatchedEpisodesAll: unlinkedAll.length,
+      unmatchedEpisodes: Number(unlinkedRow?.active_count ?? 0),
+      unmatchedEpisodesAll: Number(unlinkedRow?.all_count ?? 0),
     };
 
   });
@@ -1439,13 +1452,9 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const {
-      fetchAllEpisodes,
-      fetchRejectedPairs,
-      fetchRejectionCountsByMovie,
-      fetchReviewedEpisodeIds,
-      pageAll,
-    } = await import("./ingestion-helpers.server");
+    const { fetchRejectedPairsForEpisodes, fetchRejectionCountsByMovieFast, pageAll } = await import(
+      "./ingestion-helpers.server"
+    );
     const { matchEpisodeToMovies, computeCommonEpisodeWords } = await import(
       "./providers/matching.server"
     );
@@ -1453,21 +1462,38 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
       "./providers/episode-title.server"
     );
 
-    // Reviewed episodes are out of scope for the rescan: their coverage only
-    // changes through an explicit reopen or a manual edit.
-    const reviewedEpisodes = await fetchReviewedEpisodeIds(supabaseAdmin);
-    const episodes = (
-      await fetchAllEpisodes(supabaseAdmin, { podcastId: data.podcastId })
-    ).filter(
-      (ep) =>
-        ep.disposition !== "not_about_a_movie" &&
-        !reviewedEpisodes.has(ep.id) &&
-        hasUsableEpisodeTitle(ep.title) &&
-        !looksNonMovieEpisode(ep.title),
-
+    /**
+     * Pass U63 — retired and signed-off episodes are excluded in Postgres, and
+     * the recheck now processes at most `limit` episodes per request. Scanning
+     * every episode in one worker (each with a sequential write round-trip)
+     * blew the CPU limit and returned 502s; the caller repeats the action until
+     * `remaining` is zero.
+     */
+    const { data: eligibleRows, error: eligibleError } = await supabaseAdmin.rpc(
+      "admin_match_eligible_episodes",
+      {
+        ...(data.podcastId ? { p_podcast_id: data.podcastId } : {}),
+        p_exclude_confirmed: false,
+        p_limit: MATCH_SCAN_CAP,
+        p_offset: 0,
+      },
     );
-    const rejected = await fetchRejectedPairs(supabaseAdmin);
-    const rejectionCountByMovie = await fetchRejectionCountsByMovie(supabaseAdmin);
+    if (eligibleError) throw eligibleError;
+    const pool = (eligibleRows ?? [])
+      .filter((ep) => hasUsableEpisodeTitle(ep.title) && !looksNonMovieEpisode(ep.title))
+      .map((row) => ({
+        id: row.id,
+        title: row.title,
+        description: row.description,
+        podcasts: { matcher_strategy: row.matcher_strategy },
+      }));
+    const episodes = pool.slice(0, data.limit);
+    const episodeIds = episodes.map((ep) => ep.id);
+
+    const [rejected, rejectionCountByMovie] = await Promise.all([
+      fetchRejectedPairsForEpisodes(supabaseAdmin, episodeIds),
+      fetchRejectionCountsByMovieFast(supabaseAdmin),
+    ]);
     const movieList = await pageAll<{ id: string; title: string; release_year: number | null; collection_id: number | null }>(
       (from, to) => supabaseAdmin.from("movies").select("id, title, release_year, collection_id").range(from, to),
     );
@@ -1479,21 +1505,28 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
       match_confidence: number;
       is_primary_subject: boolean;
     };
-    const linkRows = await pageAll<LinkRow>((from, to) =>
-      supabaseAdmin
-        .from("episode_movies")
-        .select("episode_id, movie_id, match_method, match_confidence, is_primary_subject")
-        .range(from, to)
-        .returns<LinkRow[]>(),
-    );
     const linksByEpisode = new Map<string, LinkRow[]>();
-    for (const row of linkRows) {
-      const list = linksByEpisode.get(row.episode_id);
-      if (list) list.push(row);
-      else linksByEpisode.set(row.episode_id, [row]);
+    const LINK_CHUNK = 300;
+    for (let i = 0; i < episodeIds.length; i += LINK_CHUNK) {
+      const slice = episodeIds.slice(i, i + LINK_CHUNK);
+      const rows = await pageAll<LinkRow>((from, to) =>
+        supabaseAdmin
+          .from("episode_movies")
+          .select("episode_id, movie_id, match_method, match_confidence, is_primary_subject")
+          .in("episode_id", slice)
+          .range(from, to)
+          .returns<LinkRow[]>(),
+      );
+      for (const row of rows) {
+        const list = linksByEpisode.get(row.episode_id);
+        if (list) list.push(row);
+        else linksByEpisode.set(row.episode_id, [row]);
+      }
     }
 
-    const commonEpisodeWords = computeCommonEpisodeWords(episodes.map((ep) => ep.title));
+    // Corpus statistic: derived from the whole eligible pool, not just this
+    // batch, so batching cannot change how an episode scores.
+    const commonEpisodeWords = computeCommonEpisodeWords(pool.map((ep) => ep.title));
 
     let linked = 0;
 
@@ -1602,7 +1635,15 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
     }
 
 
-    return { scanned: episodes.length, linked, improved, extraAdded, stillUnlinked };
+    return {
+      scanned: episodes.length,
+      linked,
+      improved,
+      extraAdded,
+      stillUnlinked,
+      pool: pool.length,
+      remaining: Math.max(0, pool.length - episodes.length),
+    };
   });
 
 /** Safety net: nothing should be invisible, so expose every episode with no movie link. */
@@ -1614,32 +1655,36 @@ export const listUnmatchedEpisodes = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { fetchUnlinkedEpisodes } = await import("./ingestion-helpers.server");
-    const [all, everything] = await Promise.all([
-      fetchUnlinkedEpisodes(supabaseAdmin, { podcastId: data.podcastId }),
-      fetchUnlinkedEpisodes(supabaseAdmin, { podcastId: data.podcastId, activeOnly: false }),
+    /**
+     * Pass U63 — search, counting and paging happen in Postgres. Paging every
+     * episode and every link into this worker to filter them in JS was a 502
+     * source; the rules (active shows, retired episodes excluded, search across
+     * episode title/description and show name/description) are unchanged.
+     */
+    const [listResult, countResult] = await Promise.all([
+      supabaseAdmin.rpc("admin_unlinked_episodes", {
+        ...(data.podcastId ? { p_podcast_id: data.podcastId } : {}),
+        ...(data.search ? { p_search: data.search } : {}),
+        p_limit: data.limit,
+      }),
+      supabaseAdmin.rpc("admin_unlinked_episode_counts"),
     ]);
-    // Search spans the episode title/description and the show's name/description,
-    // so a query matches whether you remember the episode or only the show.
-    const term = data.search?.toLowerCase() ?? "";
-    const matches = term
-      ? all.filter((ep) =>
-          [ep.title, ep.description, ep.podcastName, ep.podcastDescription].some((field) =>
-            (field ?? "").toLowerCase().includes(term),
-          ),
-        )
-      : all;
+    if (listResult.error) throw listResult.error;
+    if (countResult.error) throw countResult.error;
+    const rows = listResult.data ?? [];
+    const counts = countResult.data?.[0];
+    const first = rows[0];
     return {
-      total: all.length,
-      totalIncludingParked: everything.length,
-      matching: matches.length,
-      episodes: matches.slice(0, data.limit).map((ep) => ({
+      total: Number(first?.total_count ?? counts?.active_count ?? 0),
+      totalIncludingParked: Number(counts?.all_count ?? 0),
+      matching: Number(first?.match_count ?? 0),
+      episodes: rows.map((ep) => ({
         episodeId: ep.id,
         episodeTitle: ep.title,
-        podcastName: ep.podcastName,
-        releasedAt: ep.releasedAt,
+        podcastName: ep.podcast_name,
+        releasedAt: ep.released_at,
         // Pass U39 — enough context to judge a match without leaving the row.
-        durationSeconds: ep.durationSeconds,
+        durationSeconds: ep.duration_seconds,
         description: ep.description,
       })),
     };
@@ -1651,7 +1696,6 @@ export const listPodcastCoverage = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { pageAll } = await import("./ingestion-helpers.server");
 
     const { data: podcasts, error } = await supabaseAdmin
       .from("podcasts")
@@ -1661,70 +1705,32 @@ export const listPodcastCoverage = createServerFn({ method: "GET" })
       .order("name");
     if (error) throw error;
 
-    // One paged read of every episode + link, then counted per show — far cheaper
-    // than three count queries per podcast.
-    const episodes = await pageAll<{ id: string; podcast_id: string; disposition: string }>(
-      (from, to) =>
-        supabaseAdmin.from("podcast_episodes").select("id, podcast_id, disposition").range(from, to),
-    );
-    // Pass U8 — per-episode review records. Only records made against the show's
-    // current sync generation, and never reopened, count as current.
-    const reviewRows = await pageAll<{
-      episode_id: string;
-      sync_generation: number;
-      reopened_at: string | null;
-    }>((from, to) =>
-      supabaseAdmin
-        .from("episode_reviews")
-        .select("episode_id, sync_generation, reopened_at")
-        .range(from, to),
-    );
-    const reviewByEpisode = new Map(reviewRows.map((r) => [r.episode_id, r]));
-
-    const linkRows = await pageAll<{ episode_id: string; review_state: string }>((from, to) =>
-      supabaseAdmin.from("episode_movies").select("episode_id, review_state").range(from, to),
-    );
-    const linked = new Set(linkRows.map((l) => l.episode_id));
     /**
-     * Retired episodes ("not about a movie") are settled and are excluded from
-     * every match review queue, so a stale unconfirmed link on one of them must
-     * never be counted as outstanding work — otherwise the coverage line
-     * advertises review work the UI is designed never to show.
+     * Pass U63 — every count below is aggregated in Postgres. Reading all
+     * episodes, reviews and links into this worker exhausted its CPU/memory
+     * budget and returned 502s once the catalogue passed ~14k episodes.
+     * Definitions are unchanged: retired episodes are settled and never count
+     * as outstanding work, an episode is awaiting review while any of its links
+     * is not confirmed, and an episode counts as reviewed once it carries a
+     * review record that has not been reopened (or is retired). A feed sync is
+     * not a review reason on its own.
      */
-    const retiredEpisodeIds = new Set(
-      episodes.filter((e) => e.disposition === "not_about_a_movie").map((e) => e.id),
-    );
-    // An episode counts as reviewed once every one of its links is confirmed.
-    const openByEpisode = new Set(
-      linkRows
-        .filter((l) => l.review_state !== "confirmed" && !retiredEpisodeIds.has(l.episode_id))
-        .map((l) => l.episode_id),
+    const { data: coverageRows, error: coverageError } =
+      await supabaseAdmin.rpc("admin_podcast_coverage");
+    if (coverageError) throw coverageError;
+    const coverageByPodcast = new Map(
+      (coverageRows ?? []).map((r) => [r.podcast_id, r] as const),
     );
 
     const rows = (podcasts ?? []).map((p) => {
       const generation = p.sync_generation ?? 1;
-      const own = episodes.filter((e) => e.podcast_id === p.id);
-      // Retired episodes count as retired even if a stale link still hangs off them.
-      const retired = own.filter((e) => retiredEpisodeIds.has(e.id)).length;
-      const linkedCount = own.filter((e) => linked.has(e.id) && !retiredEpisodeIds.has(e.id)).length;
-      const awaitingReview = own.filter((e) => openByEpisode.has(e.id)).length;
-      const reviewed = own.filter(
-        (e) => (linked.has(e.id) && !openByEpisode.has(e.id)) || e.disposition === "not_about_a_movie",
-      ).length;
-      /**
-       * Pass U8 — episode-level review completeness. An episode is reviewed when
-       * it carries a review record that has not been reopened, or when it is
-       * retired ("not about a movie", already settled and excluded from every
-       * queue). A later feed sync is NOT a review reason on its own — only an
-       * actual coverage change (link added/removed/flagged) reopens a review —
-       * so `stored - episodesReviewed` equals the show's unreviewed queue size
-       * without a sync silently wiping the whole show's sign-off.
-       */
-      const episodesReviewed = own.filter((e) => {
-        if (retiredEpisodeIds.has(e.id)) return true;
-        const rec = reviewByEpisode.get(e.id);
-        return Boolean(rec && !rec.reopened_at);
-      }).length;
+      const c = coverageByPodcast.get(p.id);
+      const stored = Number(c?.stored ?? 0);
+      const retired = Number(c?.retired ?? 0);
+      const linkedCount = Number(c?.linked ?? 0);
+      const awaitingReview = Number(c?.awaiting_review ?? 0);
+      const reviewed = Number(c?.reviewed ?? 0);
+      const episodesReviewed = Number(c?.episodes_reviewed ?? 0);
 
       return {
         podcastId: p.id,
@@ -1733,7 +1739,7 @@ export const listPodcastCoverage = createServerFn({ method: "GET" })
         slug: p.slug,
         artworkUrl: p.artwork_url ?? null,
         accent: p.accent ?? null,
-        stored: own.length,
+        stored,
         feedTotal: p.episode_count ?? 0,
         curationStatus: (p.curation_status ?? "active") as "active" | "parked",
         /** Pass U4 — the named matcher strategy assigned to this show. */
@@ -1741,18 +1747,19 @@ export const listPodcastCoverage = createServerFn({ method: "GET" })
 
         linked: linkedCount,
         retired,
-        unmatched: own.length - linkedCount - retired,
+        unmatched: stored - linkedCount - retired,
         /** Links still proposed or auto-linked — the show is not fully reviewed. */
         awaitingReview,
         reviewed,
         episodesReviewed,
-        episodesUnreviewed: own.length - episodesReviewed,
+        episodesUnreviewed: stored - episodesReviewed,
         syncGeneration: generation,
         lastSyncedAt: p.last_synced_at ?? null,
-        fullyReviewed: own.length > 0 && awaitingReview === 0 && own.length - linkedCount - retired === 0,
+        fullyReviewed: stored > 0 && awaitingReview === 0 && stored - linkedCount - retired === 0,
         /** Feed reports more episodes than we stored — a sync would fetch more. */
-        incomplete: (p.episode_count ?? 0) > own.length,
-        missing: Math.max(0, (p.episode_count ?? 0) - own.length),
+        incomplete: (p.episode_count ?? 0) > stored,
+        missing: Math.max(0, (p.episode_count ?? 0) - stored),
+
 
       };
     });
