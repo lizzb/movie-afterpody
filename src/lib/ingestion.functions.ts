@@ -728,12 +728,9 @@ export const enrichMovie = createServerFn({ method: "POST" })
       : await findBestTmdbMatch(apiKey, title!, year);
     if (!match) throw new Error(`No TMDB match found for "${imdbId ?? title}"`);
 
-    // Content rating comes from the same detail call path (Pass Y).
-    const { getTmdbMovieCertification } = await import("./providers/tmdb.server");
-    const cert = await getTmdbMovieCertification(apiKey, match.tmdbId).catch(() => ({
-      certification: null,
-      system: null,
-    }));
+    // Content rating rides along on the TMDB detail request the match already
+    // made, so adding a movie no longer waits on a second round trip.
+    const cert = match.certification;
 
     const baseUpdate = {
       title: match.title,
