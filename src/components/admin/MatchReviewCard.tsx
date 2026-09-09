@@ -1094,9 +1094,14 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
 
           </div>
 
-          {selectedCount > 0 ? (
+          {/* Pass U33 — stays mounted while a bulk action runs: selecting rows
+              clears the selection optimistically, and unmounting the bar here
+              hid the pressed action instead of showing it filled. */}
+          {selectedCount > 0 || bulkBusy ? (
             <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-background p-3">
-              <span className="text-xs font-semibold">{selectedCount} selected</span>
+              <span className="text-xs font-semibold">
+                {bulkBusy ? `${bulk.variables?.pairs.length ?? 0} in progress` : `${selectedCount} selected`}
+              </span>
               {tab === "proposed" ? (
                 <>
                   <button
