@@ -1686,20 +1686,6 @@ export const listPodcastCoverage = createServerFn({ method: "GET" })
       const awaitingReview = Number(c?.awaiting_review ?? 0);
       const reviewed = Number(c?.reviewed ?? 0);
       const episodesReviewed = Number(c?.episodes_reviewed ?? 0);
-      /**
-       * Pass U8 — episode-level review completeness. An episode is reviewed when
-       * it carries a review record that has not been reopened, or when it is
-       * retired ("not about a movie", already settled and excluded from every
-       * queue). A later feed sync is NOT a review reason on its own — only an
-       * actual coverage change (link added/removed/flagged) reopens a review —
-       * so `stored - episodesReviewed` equals the show's unreviewed queue size
-       * without a sync silently wiping the whole show's sign-off.
-       */
-      const episodesReviewed = own.filter((e) => {
-        if (retiredEpisodeIds.has(e.id)) return true;
-        const rec = reviewByEpisode.get(e.id);
-        return Boolean(rec && !rec.reopened_at);
-      }).length;
 
       return {
         podcastId: p.id,
@@ -1708,7 +1694,7 @@ export const listPodcastCoverage = createServerFn({ method: "GET" })
         slug: p.slug,
         artworkUrl: p.artwork_url ?? null,
         accent: p.accent ?? null,
-        stored: own.length,
+        stored,
         feedTotal: p.episode_count ?? 0,
         curationStatus: (p.curation_status ?? "active") as "active" | "parked",
         /** Pass U4 — the named matcher strategy assigned to this show. */
@@ -1716,18 +1702,19 @@ export const listPodcastCoverage = createServerFn({ method: "GET" })
 
         linked: linkedCount,
         retired,
-        unmatched: own.length - linkedCount - retired,
+        unmatched: stored - linkedCount - retired,
         /** Links still proposed or auto-linked — the show is not fully reviewed. */
         awaitingReview,
         reviewed,
         episodesReviewed,
-        episodesUnreviewed: own.length - episodesReviewed,
+        episodesUnreviewed: stored - episodesReviewed,
         syncGeneration: generation,
         lastSyncedAt: p.last_synced_at ?? null,
-        fullyReviewed: own.length > 0 && awaitingReview === 0 && own.length - linkedCount - retired === 0,
+        fullyReviewed: stored > 0 && awaitingReview === 0 && stored - linkedCount - retired === 0,
         /** Feed reports more episodes than we stored — a sync would fetch more. */
-        incomplete: (p.episode_count ?? 0) > own.length,
-        missing: Math.max(0, (p.episode_count ?? 0) - own.length),
+        incomplete: (p.episode_count ?? 0) > stored,
+        missing: Math.max(0, (p.episode_count ?? 0) - stored),
+
 
       };
     });
