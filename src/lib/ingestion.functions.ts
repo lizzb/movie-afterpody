@@ -58,6 +58,13 @@ const BulkInput = z.object({
   limit: z.number().int().min(1).max(60).default(25),
 });
 
+/**
+ * Pass U63 — hard ceiling on how many episodes one suggestion request scores.
+ * The eligible pool is far smaller than this today; the cap exists so a growing
+ * catalogue can never push a single worker past its CPU/memory budget again.
+ */
+const MATCH_SCAN_CAP = 5000;
+
 const SuggestMatchesInput = z.object({
   podcastId: z.string().uuid().optional(),
   episodeId: z.string().uuid().optional(),
@@ -494,7 +501,7 @@ export const suggestEpisodeMatches = createServerFn({ method: "POST" })
     const { data: eligibleRows, error: eligibleError } = await supabaseAdmin.rpc(
       "admin_match_eligible_episodes",
       {
-        p_podcast_id: data.podcastId ?? undefined,
+        ...(data.podcastId ? { p_podcast_id: data.podcastId } : {}),
         p_exclude_confirmed: true,
         p_limit: MATCH_SCAN_CAP,
         p_offset: 0,
@@ -522,22 +529,18 @@ export const suggestEpisodeMatches = createServerFn({ method: "POST" })
         supabaseAdmin,
         episodes.map((ep) => ep.id),
       ),
-      fetchRejectionCountsByMovie(supabaseAdmin),
+      fetchRejectionCountsByMovieFast(supabaseAdmin),
     ]);
 
     const term = data.search?.trim().toLowerCase();
     // Words common across this catalogue's episode titles carry no signal.
     const commonEpisodeWords = computeCommonEpisodeWords(episodes.map((ep) => ep.title));
 
+    // Retired, already-confirmed and signed-off episodes (the U8 protection) are
+    // excluded by admin_match_eligible_episodes; only title-shape checks remain.
     const all = episodes
-      .filter((ep) => ep.disposition !== "not_about_a_movie")
       .filter((ep) => hasUsableEpisodeTitle(ep.title))
       .filter((ep) => !looksNonMovieEpisode(ep.title))
-      .filter((ep) => !confirmedEpisodes.has(ep.id))
-      // A signed-off episode is settled even when it has no confirmed link.
-      // Suggestions are automated review work and must respect the same U8
-      // protection as sync, Build movies, and recheck.
-      .filter((ep) => !reviewedEpisodes.has(ep.id))
       .map((ep) => {
         const candidates = matchEpisodeToMovies(ep.title, movieList, {
           rejectionCountByMovie,
