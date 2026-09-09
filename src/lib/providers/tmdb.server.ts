@@ -107,6 +107,8 @@ export interface MatchedTmdbMovie {
   imdbId: string | null;
   collectionId: number | null;
   confidence: number;
+  /** From the same detail request — no separate certification call needed. */
+  certification: TmdbCertification;
 }
 
 export async function findBestTmdbMatch(
@@ -178,6 +180,7 @@ export async function findBestTmdbMatch(
     imdbId: details.imdb_id ?? null,
     collectionId: details.belongs_to_collection?.id ?? null,
     confidence: best.confidence,
+    certification: certificationFromDetails(details),
   };
 }
 
@@ -206,6 +209,7 @@ export async function findTmdbByImdbId(apiKey: string, imdbId: string): Promise<
     imdbId: details.imdb_id ?? imdbId,
     collectionId: details.belongs_to_collection?.id ?? null,
     confidence: 100,
+    certification: certificationFromDetails(details),
   };
 }
 
