@@ -1325,6 +1325,42 @@ Separate UI/data-loading question, not matcher work: on The Rom Complex, episode
 
 
 
+### Newly filed backlog — 2026-09-09 (U64–U71)
+
+Plan: `.lovable/plan/plan-backlog-only-eight-filings-reconciled-2026-09-09.md` (full scope, reuse notes, failure semantics and verification steps). Facts established while filing: `logMatchAction` logs approve/reject/unlink/relink/confirm and `not_about_a_movie`; `setEpisodeReviewed` (mark reviewed / reopen) and undo-retirement log nothing. Availability is bulk-only today (`refreshAvailability` with `limit` + optional `staleBefore`); no single-movie entry point, no Tonight freshness gate. Nothing currently prevents retiring an episode whose links are confirmed.
+
+#### Pass U64 — Episode card status truth: "Not about a movie" badge and retirement guards — M (~3-5 credits) — extends U38, sequence after U53
+
+Lightweight non-interactive "Not about a movie" badge floated right on the "No movie linked yet" line whenever disposition is `not_about_a_movie`, including when the episode is also reviewed and only "Reopen" shows. Adds an "Add movie" action on link-less episode cards, reusing the existing "Pick another movie" picker. Retirement is blocked with a visible explanation when any current link is confirmed; unconfirmed/flagged links keep being removed on retire and restored on undo. Not a duplicate of U53. Acceptance: badge correct in all four episode states; retire refused with confirmed links; undo restores exactly the removed links; Active/Parked semantics unchanged. Verify signed-in admin on `/podcasts/$slug`, mobile + desktop.
+
+#### Pass U65 — Link related episodes (multi-part / re-release) — M (~3-5 credits)
+
+Symmetric admin-created episode↔episode relation, no relationship type in V1, shown as a short "Related:" line on the Podcast Show Details episode card (e.g. `Blank Check (1994) - Re:Issue` ↔ `Blank Check (1994)`). One new join table, ordered-pair uniqueness, admin-only writes; catalogue data, not user data. Excluded from Commentary Score for now. Acceptance: link/unlink works, both cards show it, removal is symmetric, no effect on matcher, coverage counts or review queues.
+
+#### Pass U66 — "Relationship set incomplete" signal — M (~3-5 credits) — BLOCKED on U40; NEEDS DESIGN
+
+Episode-level marker meaning "a movie is missing here", so review effort is not repeated. Explicitly not `FlagMatchButton` reuse (that needs a movie id and means "this pairing is wrong"). Before building: evaluate whether leaving the episode unreviewed, U27 goal-directed review, or a state on `episode_reviews` already covers it. Acceptance (pre-build): a written decision on whether this earns a new state at all; if yes, one admin filter, no second review queue, and a defined clearing rule.
+
+#### Pass U67 — Single-title streaming availability recheck — S (~1-2 credits) — parent: availability freshness (with U68)
+
+Targeted single-movie refresh reusing `refreshAvailability`'s provider fetch, service mapping, availability write path and `availability_checked_at` stamp. Movie Details gains a small "Recheck streaming status" control beside the existing freshness text. Build-time decision: trigger permission and rate limit (default proposal: any signed-in user, one per movie per 10 minutes, admin exempt). One TMDB call per press. Failure: keep existing availability, leave the timestamp untouched, plain error. Acceptance: only that movie's providers and freshness change; repeat presses inside the window refused politely; bulk queue behaviour unchanged.
+
+#### Pass U68 — Tonight availability freshness — M (~3-5 credits) — depends on U67
+
+Rank as today → take the bounded candidate pool feeding the short list → refresh only candidates older than the freshness window (proposed 24h, hard cap of provider calls per request, proposed 10) → finalise. Candidates not refreshed within the cap are either labelled with their real check age or dropped — decided at build time, never shown as fresh. Short-lived server-side cache so repeated loads make no new calls. Reconcile with Pass L (scheduled refresh shrinks this to a top-up), Pass X (shares freshness data), L2b (owns the candidate pool). Failure: provider outage degrades to today's behaviour plus an honest note; Tonight always renders. Acceptance: every Tonight title is fresh or honestly labelled; calls per load at or under cap; warm-load target held. Verify with instrumented call counts, a forced-stale fixture and a provider-failure path.
+
+#### Pass U69 — Episode-title jump from movie-focused cards — S (~1-2 credits) — interacts with U52
+
+On `/podcasts/$slug`, selecting the episode title in a covered-movie card's relationship row clears the episode filter/search, opens the episode section, expands "Show more" until the target renders, then scrolls with a brief highlight. Movie title and poster keep going to Movie Details; no dedicated episode page (J2 stays out). If the episode cannot be located, show a brief "couldn't find that episode" note only. Acceptance: works with a filter active, beyond the initial cap, and under each sort order; existing navigation unchanged. Verify signed-out, mobile + desktop.
+
+#### Pass U70 — Audit "Recent match decisions" coverage and naming — S (~1-2 credits)
+
+Audit first, then the smallest V1 change. Confirm per path which actions reach the history, including bulk equivalents, and where each timestamp comes from. Hold the architectural line: `episode_reviews` = current state, `match_actions` = historical decisions; no second audit system. Deliverable: a statement of what the section actually represents, a rename recommendation only if the content is genuinely broader, and a recommendation on whether review/reopen events belong in `match_actions`. Acceptance: per-action logged/not-logged table plus recommendations covering undo events, reopen events, bulk actions and relationship vs episode-level grouping.
+
+#### Pass U71 — Episode review events in the activity history — M (~3-5 credits) — depends on U70
+
+Only if U70 recommends it: log mark-reviewed, reopen and undo-retirement as historical events in the existing `match_actions` model and render them in the same chronological list with episode-level styling distinct from relationship rows. Undo stays "action marked undone", not a synthetic event. Acceptance: one correctly labelled, correctly timestamped entry per action; bulk actions produce one entry per episode; relationship undo still works; no duplicates.
+
 ### Already documented elsewhere — DO NOT create duplicate pass
 
 #### Future performance optimization notes — covered by existing L3/L4/L5
