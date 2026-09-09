@@ -36,6 +36,19 @@ The roadmap is the source of truth for current pass status. Historical plan file
 
 ## Do next
 
+### Pass U63 — Admin server functions no longer load whole tables — M — IMPLEMENTED, NOT VERIFIED (2026-09-09)
+
+Root cause of the 502s on Match Review / coverage / stats / recheck: those handlers read every episode, link, review and rejection row into one worker. Now aggregated or bounded in Postgres:
+
+- `admin_podcast_coverage()` — per-show stored/retired/linked/awaiting/reviewed counts; `listPodcastCoverage` no longer reads episodes, reviews or links.
+- `admin_match_eligible_episodes()` — retired / already-confirmed / signed-off exclusion (the U8 protection) decided in SQL; used by `suggestEpisodeMatches` and `rescanEpisodeMatches`. Full movie candidate scope preserved.
+- `admin_rejection_counts()` — rejection totals per movie aggregated in SQL; rejected pairs read only for the episode window being scored (`fetchRejectedPairsForEpisodes`).
+- `admin_unlinked_episodes()` / `admin_unlinked_episode_counts()` — unmatched list, search and counts in SQL; ingestion stats no longer page every episode twice. Counts verified against SQL: 1,912 active / 5,108 including parked.
+- Recheck now processes at most `limit` episodes per request and returns `pool` / `remaining`; the UI tells you when to run it again. Corpus word statistics still derive from the whole eligible pool, so batching cannot change scoring.
+- All new functions are `SECURITY INVOKER`, executable only by `service_role`.
+
+Acceptance: **Verified** — typecheck clean; coverage and unmatched counts match direct SQL. **Not verified** — no signed-in admin session available in this environment, so the admin screens and the recheck/suggestions actions were not exercised in the browser; confirm no 502s and that counts match on the live admin page. **Deferred** — "Build movies from episodes" and sync still read unlinked episodes and rejections broadly (bounded by their own limits); not in this pass's scope.
+
 ### Pass R2 — Episode-level noise handling — M (~3-5 credits) — Priority 1
 
 The only remaining piece of Pass R (R1 and R3 both shipped — see "Already done"). Original detail: `.lovable/plan/archive/pass-r-shrink-working-set-2026-08-20.md`.
