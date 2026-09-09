@@ -1283,6 +1283,7 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
     bulkSync
       .start(async () => {
         bulkCancel.current = false;
+        setStopRequested(false);
         setError(null);
         setSyncLog([]);
         for (const p of incompleteActive) {
