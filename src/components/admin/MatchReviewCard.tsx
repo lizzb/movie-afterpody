@@ -1427,7 +1427,7 @@ const ReviewRow = memo(function ReviewRow({
       aria-busy={pending}
       className={`rounded-xl border bg-background transition-opacity ${
         selected ? "border-primary" : "border-border"
-      } ${pending ? "pointer-events-none opacity-60" : ""}`}
+      } ${pending ? "pointer-events-none" : ""}`}
     >
       {/* Header is the selection target (comfortable on a phone), but text
           stays selectable: a click that ends a text selection is ignored. */}
@@ -1492,7 +1492,9 @@ const ReviewRow = memo(function ReviewRow({
 
       <div className="flex flex-wrap items-center gap-2 px-3 pb-3">
 
-        {pending ? (
+        {/* Pass U33 — the spinner lives inside the pressed button. Only a
+            bulk-driven pending row (no local choice) shows a separate status. */}
+        {pending && !chosen ? (
           <span role="status" className="inline-flex items-center gap-1.5 text-xs font-semibold text-teal">
             <Loader2 className="size-3.5 animate-spin" aria-hidden />
             Saving…
