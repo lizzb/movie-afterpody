@@ -1154,6 +1154,9 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
   const [syncLog, setSyncLog] = useState<{ name: string; message: string; ok: boolean }[]>([]);
   const bulkRunning = bulkSync.pending;
   const bulkCancel = useRef(false);
+  // Visible acknowledgement for "Stop after this show" — the ref alone changed
+  // nothing on screen until the current show finished.
+  const [stopRequested, setStopRequested] = useState(false);
 
   /** Pass U14 — every per-show action is a queue entry, so clicks never race. */
   const showKey = (podcastId: string, action: string) => `podcast:${podcastId}:${action}`;
@@ -1509,12 +1512,21 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
         {bulkRunning ? (
           <button
             type="button"
+            disabled={stopRequested}
             onClick={() => {
               bulkCancel.current = true;
+              // Cancelling only takes effect after the current show finishes, so
+              // acknowledge the press immediately.
+              setStopRequested(true);
             }}
-            className="rounded-full border border-border px-4 py-2 text-sm font-semibold"
+            className={`inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold ${
+              stopRequested
+                ? "bg-gold text-primary-foreground"
+                : "border border-border hover:bg-secondary"
+            }`}
           >
-            Stop after this show
+            {stopRequested ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
+            {stopRequested ? "Stopping after this show…" : "Stop after this show"}
           </button>
         ) : null}
       </div>
