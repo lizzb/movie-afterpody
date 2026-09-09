@@ -990,6 +990,9 @@ function UnmatchedEpisodesCard() {
             Rescanned {rescan.data.scanned} · newly linked {rescan.data.linked} · improved{" "}
             {rescan.data.improved} · extra films added {rescan.data.extraAdded} ·{" "}
             {rescan.data.stillUnlinked} still unmatched.
+            {rescan.data.remaining > 0
+              ? ` ${rescan.data.remaining} episodes left to check — run it again.`
+              : ""}
           </p>
         ) : null}
         {rescan.isError ? (
@@ -1190,7 +1193,7 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
         [
           {
             name,
-            message: `recheck: ${r.scanned} scanned · ${r.linked} linked · ${r.improved} improved · ${r.extraAdded} extra · ${r.stillUnlinked} still unmatched`,
+            message: `recheck: ${r.scanned} scanned · ${r.linked} linked · ${r.improved} improved · ${r.extraAdded} extra · ${r.stillUnlinked} still unmatched${r.remaining > 0 ? ` · ${r.remaining} left, run again` : ""}`,
             ok: true,
           },
           ...prev,
