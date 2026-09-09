@@ -1453,13 +1453,9 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const {
-      fetchAllEpisodes,
-      fetchRejectedPairs,
-      fetchRejectionCountsByMovie,
-      fetchReviewedEpisodeIds,
-      pageAll,
-    } = await import("./ingestion-helpers.server");
+    const { fetchRejectedPairsForEpisodes, fetchRejectionCountsByMovieFast, pageAll } = await import(
+      "./ingestion-helpers.server"
+    );
     const { matchEpisodeToMovies, computeCommonEpisodeWords } = await import(
       "./providers/matching.server"
     );
@@ -1467,21 +1463,38 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
       "./providers/episode-title.server"
     );
 
-    // Reviewed episodes are out of scope for the rescan: their coverage only
-    // changes through an explicit reopen or a manual edit.
-    const reviewedEpisodes = await fetchReviewedEpisodeIds(supabaseAdmin);
-    const episodes = (
-      await fetchAllEpisodes(supabaseAdmin, { podcastId: data.podcastId })
-    ).filter(
-      (ep) =>
-        ep.disposition !== "not_about_a_movie" &&
-        !reviewedEpisodes.has(ep.id) &&
-        hasUsableEpisodeTitle(ep.title) &&
-        !looksNonMovieEpisode(ep.title),
-
+    /**
+     * Pass U63 — retired and signed-off episodes are excluded in Postgres, and
+     * the recheck now processes at most `limit` episodes per request. Scanning
+     * every episode in one worker (each with a sequential write round-trip)
+     * blew the CPU limit and returned 502s; the caller repeats the action until
+     * `remaining` is zero.
+     */
+    const { data: eligibleRows, error: eligibleError } = await supabaseAdmin.rpc(
+      "admin_match_eligible_episodes",
+      {
+        ...(data.podcastId ? { p_podcast_id: data.podcastId } : {}),
+        p_exclude_confirmed: false,
+        p_limit: MATCH_SCAN_CAP,
+        p_offset: 0,
+      },
     );
-    const rejected = await fetchRejectedPairs(supabaseAdmin);
-    const rejectionCountByMovie = await fetchRejectionCountsByMovie(supabaseAdmin);
+    if (eligibleError) throw eligibleError;
+    const pool = (eligibleRows ?? [])
+      .filter((ep) => hasUsableEpisodeTitle(ep.title) && !looksNonMovieEpisode(ep.title))
+      .map((row) => ({
+        id: row.id,
+        title: row.title,
+        description: row.description,
+        podcasts: { matcher_strategy: row.matcher_strategy },
+      }));
+    const episodes = pool.slice(0, data.limit);
+    const episodeIds = episodes.map((ep) => ep.id);
+
+    const [rejected, rejectionCountByMovie] = await Promise.all([
+      fetchRejectedPairsForEpisodes(supabaseAdmin, episodeIds),
+      fetchRejectionCountsByMovieFast(supabaseAdmin),
+    ]);
     const movieList = await pageAll<{ id: string; title: string; release_year: number | null; collection_id: number | null }>(
       (from, to) => supabaseAdmin.from("movies").select("id, title, release_year, collection_id").range(from, to),
     );
@@ -1493,18 +1506,23 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
       match_confidence: number;
       is_primary_subject: boolean;
     };
-    const linkRows = await pageAll<LinkRow>((from, to) =>
-      supabaseAdmin
-        .from("episode_movies")
-        .select("episode_id, movie_id, match_method, match_confidence, is_primary_subject")
-        .range(from, to)
-        .returns<LinkRow[]>(),
-    );
     const linksByEpisode = new Map<string, LinkRow[]>();
-    for (const row of linkRows) {
-      const list = linksByEpisode.get(row.episode_id);
-      if (list) list.push(row);
-      else linksByEpisode.set(row.episode_id, [row]);
+    const LINK_CHUNK = 300;
+    for (let i = 0; i < episodeIds.length; i += LINK_CHUNK) {
+      const slice = episodeIds.slice(i, i + LINK_CHUNK);
+      const rows = await pageAll<LinkRow>((from, to) =>
+        supabaseAdmin
+          .from("episode_movies")
+          .select("episode_id, movie_id, match_method, match_confidence, is_primary_subject")
+          .in("episode_id", slice)
+          .range(from, to)
+          .returns<LinkRow[]>(),
+      );
+      for (const row of rows) {
+        const list = linksByEpisode.get(row.episode_id);
+        if (list) list.push(row);
+        else linksByEpisode.set(row.episode_id, [row]);
+      }
     }
 
     const commonEpisodeWords = computeCommonEpisodeWords(episodes.map((ep) => ep.title));
