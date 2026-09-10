@@ -182,6 +182,13 @@ async function readCatalog(): Promise<Catalog> {
       ),
     ]);
 
+  // Episodes are read by primary key, so scope to active shows and restore the
+  // newest-first ordering the list surfaces expect here.
+  const activeIds = new Set(activePodcastIds);
+  const activeEpisodes = episodes
+    .filter((e) => activeIds.has(e.podcast_id))
+    .sort((a, b) => (b.released_at ?? "").localeCompare(a.released_at ?? "") || a.id.localeCompare(b.id));
+
   return {
     genres,
     services,
@@ -190,7 +197,7 @@ async function readCatalog(): Promise<Catalog> {
     availability,
     podcasts,
     metrics,
-    episodes,
+    episodes: activeEpisodes,
     episodeMovies: links.map((l) => ({
       episode_id: l.episode_id,
       movie_id: l.movie_id,
