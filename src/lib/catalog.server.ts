@@ -58,6 +58,27 @@ async function fetchAllRows<T>(
   }
 }
 
+/**
+ * Keyset pagination over an id-ordered table. Deep OFFSET ranges combined with a
+ * large IN (...) list made Postgres cancel the episode read on statement timeout;
+ * walking forward on the primary key keeps every page cheap.
+ */
+async function fetchByKeyset<T extends { id: string }>(
+  page: (afterId: string, limit: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+): Promise<T[]> {
+  const out: T[] = [];
+  const LIMIT = 2000;
+  let afterId = "00000000-0000-0000-0000-000000000000";
+  for (;;) {
+    const { data, error } = await page(afterId, LIMIT);
+    if (error) throw new Error(error.message);
+    const rows = data ?? [];
+    out.push(...rows);
+    if (rows.length < LIMIT) return out;
+    afterId = rows[rows.length - 1]!.id;
+  }
+}
+
 const HOLIDAY_MATCH = "[[:<:]](christmas|santa)[[:>:]]";
 
 async function readCatalog(): Promise<Catalog> {
@@ -128,14 +149,13 @@ async function readCatalog(): Promise<Catalog> {
           ),
       activePodcastIds.length === 0
         ? Promise.resolve([] as Episode[])
-        : fetchAllRows<Episode>((from, to) =>
+        : fetchByKeyset<Episode>((afterId, limit) =>
             db
               .from("podcast_episodes")
               .select("id, podcast_id, slug, title, released_at, duration_seconds, episode_number")
-              .in("podcast_id", activePodcastIds)
-              .order("released_at", { ascending: false })
+              .gt("id", afterId)
               .order("id")
-              .range(from, to)
+              .limit(limit)
               .returns<Episode[]>(),
           ),
       activePodcastIds.length === 0
@@ -162,6 +182,13 @@ async function readCatalog(): Promise<Catalog> {
       ),
     ]);
 
+  // Episodes are read by primary key, so scope to active shows and restore the
+  // newest-first ordering the list surfaces expect here.
+  const activeIds = new Set(activePodcastIds);
+  const activeEpisodes = episodes
+    .filter((e) => activeIds.has(e.podcast_id))
+    .sort((a, b) => (b.released_at ?? "").localeCompare(a.released_at ?? "") || a.id.localeCompare(b.id));
+
   return {
     genres,
     services,
@@ -170,7 +197,7 @@ async function readCatalog(): Promise<Catalog> {
     availability,
     podcasts,
     metrics,
-    episodes,
+    episodes: activeEpisodes,
     episodeMovies: links.map((l) => ({
       episode_id: l.episode_id,
       movie_id: l.movie_id,
