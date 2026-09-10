@@ -58,6 +58,27 @@ async function fetchAllRows<T>(
   }
 }
 
+/**
+ * Keyset pagination over an id-ordered table. Deep OFFSET ranges combined with a
+ * large IN (...) list made Postgres cancel the episode read on statement timeout;
+ * walking forward on the primary key keeps every page cheap.
+ */
+async function fetchByKeyset<T extends { id: string }>(
+  page: (afterId: string, limit: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+): Promise<T[]> {
+  const out: T[] = [];
+  const LIMIT = 2000;
+  let afterId = "00000000-0000-0000-0000-000000000000";
+  for (;;) {
+    const { data, error } = await page(afterId, LIMIT);
+    if (error) throw new Error(error.message);
+    const rows = data ?? [];
+    out.push(...rows);
+    if (rows.length < LIMIT) return out;
+    afterId = rows[rows.length - 1]!.id;
+  }
+}
+
 const HOLIDAY_MATCH = "[[:<:]](christmas|santa)[[:>:]]";
 
 async function readCatalog(): Promise<Catalog> {
