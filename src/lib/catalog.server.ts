@@ -149,14 +149,13 @@ async function readCatalog(): Promise<Catalog> {
           ),
       activePodcastIds.length === 0
         ? Promise.resolve([] as Episode[])
-        : fetchAllRows<Episode>((from, to) =>
+        : fetchByKeyset<Episode>((afterId, limit) =>
             db
               .from("podcast_episodes")
               .select("id, podcast_id, slug, title, released_at, duration_seconds, episode_number")
-              .in("podcast_id", activePodcastIds)
-              .order("released_at", { ascending: false })
+              .gt("id", afterId)
               .order("id")
-              .range(from, to)
+              .limit(limit)
               .returns<Episode[]>(),
           ),
       activePodcastIds.length === 0
