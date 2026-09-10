@@ -2922,19 +2922,28 @@ export const listEpisodeReviewStates = createServerFn({ method: "POST" })
     await requireAdmin(context);
     if (data.episodeIds.length === 0) return { reviews: {} as Record<string, EpisodeReviewState> };
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const generations = await loadEpisodeGenerations(supabaseAdmin, data.episodeIds);
     const recs = new Map<
       string,
       { episode_id: string; reviewed_at: string | null; sync_generation: number; reopened_at: string | null }
     >();
-    for (const chunk of chunkIds(data.episodeIds)) {
-      const { data: rows, error } = await supabaseAdmin
-        .from("episode_reviews")
-        .select("episode_id, reviewed_at, sync_generation, reopened_at")
-        .in("episode_id", chunk);
+    // Episode metadata and review rows are independent reads: fetch both sets
+    // (and every chunk) concurrently instead of serially.
+    const [generations, reviewChunks] = await Promise.all([
+      loadEpisodeGenerations(supabaseAdmin, data.episodeIds),
+      Promise.all(
+        chunkIds(data.episodeIds).map((chunk) =>
+          supabaseAdmin
+            .from("episode_reviews")
+            .select("episode_id, reviewed_at, sync_generation, reopened_at")
+            .in("episode_id", chunk),
+        ),
+      ),
+    ]);
+    for (const { data: rows, error } of reviewChunks) {
       if (error) throw error;
       for (const row of rows ?? []) recs.set(row.episode_id, row);
     }
+
 
 
     const reviews: Record<string, EpisodeReviewState> = {};
