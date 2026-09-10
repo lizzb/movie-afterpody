@@ -2804,8 +2804,12 @@ type EpisodeGenerationRow = {
   podcasts: { sync_generation: number | null };
 };
 
-/** Supabase `.in()` filters travel in the URL, so batch ids to keep it short. */
-const EPISODE_ID_CHUNK = 50;
+/**
+ * Supabase `.in()` filters travel in the URL, so batch ids to keep it short.
+ * 200 uuids is roughly 7KB of query string — well inside limits, and it cuts a
+ * 255-episode show from 6 round trips to 2 per read.
+ */
+const EPISODE_ID_CHUNK = 200;
 
 function chunkIds(ids: string[]): string[][] {
   const out: string[][] = [];
@@ -2818,17 +2822,23 @@ async function loadEpisodeGenerations(
   episodeIds: string[],
 ): Promise<Map<string, EpisodeGenerationRow>> {
   const map = new Map<string, EpisodeGenerationRow>();
-  for (const chunk of chunkIds(episodeIds)) {
-    const { data, error } = await admin
-      .from("podcast_episodes")
-      .select("id, podcast_id, disposition, podcasts!inner(sync_generation)")
-      .in("id", chunk)
-      .returns<EpisodeGenerationRow[]>();
+  // Chunks are independent, so run them together instead of one after another.
+  const results = await Promise.all(
+    chunkIds(episodeIds).map((chunk) =>
+      admin
+        .from("podcast_episodes")
+        .select("id, podcast_id, disposition, podcasts!inner(sync_generation)")
+        .in("id", chunk)
+        .returns<EpisodeGenerationRow[]>(),
+    ),
+  );
+  for (const { data, error } of results) {
     if (error) throw error;
     for (const row of data ?? []) map.set(row.id, row);
   }
   return map;
 }
+
 
 
 /** Mark reviewed / Reopen, one episode or a bulk selection, verified per episode. */
