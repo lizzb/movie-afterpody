@@ -67,14 +67,18 @@ async function fetchByKeyset<T extends { id: string }>(
   page: (afterId: string, limit: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
 ): Promise<T[]> {
   const out: T[] = [];
-  const LIMIT = 2000;
+  // Keep the request at/below the server row cap: asking for more than the cap
+  // returns a short page, which a "short page means done" check misreads as the
+  // end of the table (that truncated the episode feed to the first 1000 rows).
+  const LIMIT = 1000;
   let afterId = "00000000-0000-0000-0000-000000000000";
   for (;;) {
     const { data, error } = await page(afterId, LIMIT);
     if (error) throw new Error(error.message);
     const rows = data ?? [];
     out.push(...rows);
-    if (rows.length < LIMIT) return out;
+    // Only an empty page proves the walk is finished.
+    if (rows.length === 0) return out;
     afterId = rows[rows.length - 1]!.id;
   }
 }
