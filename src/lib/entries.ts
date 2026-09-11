@@ -194,6 +194,18 @@ export function applyFilters(
       if (filters.hideWatched && e.watched) return false;
       if (filters.commentaryOnly && e.episodes.length === 0) return false;
       if (filters.preferredOnly && !e.episodes.some((ep) => ep.preferred)) return false;
+      // Pass U45 — podcast coverage. Derived from the episodes already on the
+      // entry, so there is no extra query and no new full-table read.
+      if (coverageWanted.size > 0) {
+        const shows = new Set(e.episodes.map((ep) => ep.podcast.slug));
+        const hit =
+          filters.coverageMode === "all"
+            ? [...coverageWanted].every((slug) => shows.has(slug))
+            : [...coverageWanted].some((slug) => shows.has(slug));
+        if (!hit) return false;
+        if (filters.plusOtherPodcast && ![...shows].some((slug) => !coverageWanted.has(slug)))
+          return false;
+      }
       if (hideNotInterested && e.notInterested) return false;
       // Pass H8 — holiday exclusion; the match now happens in the query (Pass L2a).
       if (filters.excludeHoliday && e.isHoliday) return false;
