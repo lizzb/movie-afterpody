@@ -82,6 +82,7 @@ function MoviesPage() {
             filters={prefs.movieFilters}
             genres={facets.genres}
             services={facets.services}
+            podcasts={facets.podcasts}
             mySlugs={prefs.serviceSlugs}
             resultCount={total}
             totalCount={catalogTotal}
