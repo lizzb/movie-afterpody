@@ -44,6 +44,16 @@ export interface Filters {
   /** Pass H8 — exclude standalone Santa/Christmas titles (keyword rule). */
   excludeHoliday: boolean;
   sortBy: SortKey;
+
+  /**
+   * Pass U45 — podcast coverage as a movie filter. Empty list = no coverage
+   * criteria at all, so existing saved filters keep behaving identically.
+   */
+  coveredByPodcastSlugs: string[];
+  /** How multiple chosen shows combine. */
+  coverageMode: "any" | "all";
+  /** Require ≥1 distinct show outside the chosen set. Ignored when none chosen. */
+  plusOtherPodcast: boolean;
 }
 
 export interface LocalList {
