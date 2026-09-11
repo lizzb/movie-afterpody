@@ -31,6 +31,7 @@ export function useFacets() {
   return {
     genres: query.data?.genres ?? [],
     services: query.data?.services ?? [],
+    podcasts: query.data?.podcasts ?? [],
     availabilityCount: query.data?.availabilityCount ?? 0,
     movieCount: query.data?.movieCount ?? 0,
     isLoading: query.isLoading,
