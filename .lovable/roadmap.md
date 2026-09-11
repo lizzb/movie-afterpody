@@ -699,7 +699,11 @@ Relationship:
 
 Likely sequencing: revisit with O2/O3 rather than implementing independently now.
 
-#### Pass U45 — Podcast coverage as a Movies filter — M (~3-5 credits) — PLAN/backlog only
+#### Pass U45 — Podcast coverage as a Movies filter — M (~3-5 credits) — SHIPPED / VERIFIED 2026-09-11
+
+Podcast coverage is now a filter group inside Advanced Filters on Movies and Tonight: searchable show chips, Any/All of these, and "Also covered by another show". Filtering happens in the existing `applyFilters` (src/lib/entries.ts) using episodes already on each entry — no new server function or query; the show list rides along on `getCatalogFacets`. Verified in-app: HDTGM alone 217 of 2616; HDTGM + That Aged Well any 517, all 25, any + another show 472; reset restores the 2534 unfiltered baseline exactly. Plan: `.lovable/plan/pass-u45-podcast-coverage-as-a-movies-filter-2026-09-11.md`.
+
+Original specification:
 
 Recurring movie-discovery use case:
 

@@ -23,6 +23,8 @@ export interface Facets {
   services: StreamingService[];
   availabilityCount: number;
   movieCount: number;
+  /** Pass U45 — show list for the podcast-coverage filter picker. */
+  podcasts: { slug: string; name: string }[];
 }
 
 export interface ShowPage {
@@ -56,6 +58,9 @@ export const getCatalogFacets = createServerFn({ method: "GET" }).handler(async 
     services: catalog.services,
     availabilityCount: catalog.availability.length,
     movieCount: catalog.movies.length,
+    podcasts: catalog.podcasts
+      .map((p) => ({ slug: p.slug, name: p.name }))
+      .sort((a, b) => a.name.localeCompare(b.name)),
   };
 });
 

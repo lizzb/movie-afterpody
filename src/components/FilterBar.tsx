@@ -20,6 +20,8 @@ interface Props {
   filters: Filters;
   genres: Genre[];
   services: StreamingService[];
+  /** Pass U45 — shows available in the podcast-coverage picker. */
+  podcasts?: { slug: string; name: string }[];
   mySlugs: string[];
   resultCount: number;
   variant?: "tonight" | "movies";
@@ -142,6 +144,7 @@ export function FilterBar({
   filters,
   genres,
   services,
+  podcasts = [],
   mySlugs,
   resultCount,
   variant = "tonight",
@@ -154,6 +157,7 @@ export function FilterBar({
   const [sheetOpen, setSheetOpen] = useState(false);
   const [term, setTerm] = useState("");
   const [draft, setDraft] = useState<Filters>(filters);
+  const [showTerm, setShowTerm] = useState("");
   const [expanded, setExpanded] = useState(false);
 
   // Re-seed the draft whenever the applied filters change from elsewhere
@@ -205,6 +209,24 @@ export function FilterBar({
         ? draft.genreSlugs.filter((s) => s !== slug)
         : [...draft.genreSlugs, slug],
     });
+
+  const coverageSlugs = draft.coveredByPodcastSlugs ?? [];
+  const chosenShows = podcasts.filter((p) => coverageSlugs.includes(p.slug));
+  const showNeedle = showTerm.trim().toLowerCase();
+  const showOptions = showNeedle
+    ? podcasts
+        .filter((p) => !coverageSlugs.includes(p.slug) && p.name.toLowerCase().includes(showNeedle))
+        .slice(0, 8)
+    : [];
+  const toggleShow = (slug: string) => {
+    const next = coverageSlugs.includes(slug)
+      ? coverageSlugs.filter((s) => s !== slug)
+      : [...coverageSlugs, slug];
+    patch({
+      coveredByPodcastSlugs: next,
+      ...(next.length === 0 ? { plusOtherPodcast: false } : {}),
+    });
+  };
 
   const trigger = collapsible ? (
     <button
@@ -571,6 +593,79 @@ export function FilterBar({
                 </p>
               </div>
 ) : null}
+
+            {/* Pass U45 — podcast coverage as a movie filter. */}
+            <div className="mt-5">
+              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
+                Podcast coverage
+              </p>
+              {chosenShows.length > 0 ? (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {chosenShows.map((p) => (
+                    <button
+                      key={p.slug}
+                      type="button"
+                      onClick={() => toggleShow(p.slug)}
+                      aria-label={`Remove ${p.name}`}
+                      className="inline-flex items-center gap-1 rounded-full border border-transparent bg-coral-soft px-2.5 py-1 text-[11px] font-semibold text-coral"
+                    >
+                      {p.name}
+                      <X className="size-3" aria-hidden />
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+              <label className="relative mt-2 block">
+                <Search
+                  className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+                  aria-hidden
+                />
+                <input
+                  value={showTerm}
+                  onChange={(e) => setShowTerm(e.target.value)}
+                  placeholder="Search podcast shows"
+                  aria-label="Search podcast shows"
+                  className="w-full rounded-full border border-border bg-background py-2 pl-9 pr-4 text-base sm:text-sm"
+                />
+              </label>
+              {showOptions.length > 0 ? (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {showOptions.map((p) => (
+                    <Chip key={p.slug} active={false} onClick={() => toggleShow(p.slug)}>
+                      {p.name}
+                    </Chip>
+                  ))}
+                </div>
+              ) : showNeedle ? (
+                <p className="mt-2 text-[11px] text-muted-foreground">No shows match.</p>
+              ) : null}
+              {coverageSlugs.length > 0 ? (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  <Chip
+                    active={draft.coverageMode === "any"}
+                    onClick={() => patch({ coverageMode: "any" })}
+                  >
+                    Any of these
+                  </Chip>
+                  <Chip
+                    active={draft.coverageMode === "all"}
+                    onClick={() => patch({ coverageMode: "all" })}
+                  >
+                    All of these
+                  </Chip>
+                  <Chip
+                    active={draft.plusOtherPodcast}
+                    onClick={() => patch({ plusOtherPodcast: !draft.plusOtherPodcast })}
+                  >
+                    Also covered by another show
+                  </Chip>
+                </div>
+              ) : (
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  Pick one or more shows to see only the movies they cover.
+                </p>
+              )}
+            </div>
 
             <div className="mt-5">
               <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
