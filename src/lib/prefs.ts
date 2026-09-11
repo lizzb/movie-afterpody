@@ -132,6 +132,9 @@ export const NO_FILTERS: Filters = {
   hideNotInterested: false,
   excludeHoliday: false,
   sortBy: "title",
+  coveredByPodcastSlugs: [],
+  coverageMode: "any",
+  plusOtherPodcast: false,
 };
 
 export const DEFAULT_PREFS: Prefs = {
@@ -224,6 +227,9 @@ filters: {
     hideNotInterested: true,
     excludeHoliday: defaultHolidayExclusion(),
     sortBy: "commentary",
+    coveredByPodcastSlugs: [],
+    coverageMode: "any",
+    plusOtherPodcast: false,
   },
   movieFilters: NO_FILTERS,
 
