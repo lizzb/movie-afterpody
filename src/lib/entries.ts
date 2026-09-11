@@ -173,6 +173,7 @@ export function applyFilters(
 ): MovieEntry[] {
   const genreWanted = new Set(filters.genreSlugs);
   const serviceWanted = new Set(filters.serviceSlugs);
+  const coverageWanted = new Set(filters.coveredByPodcastSlugs ?? []);
   const hideNotInterested = options.alwaysHideNotInterested || filters.hideNotInterested;
 
   return entries
