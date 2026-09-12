@@ -693,7 +693,11 @@ Use:
 - only where there is meaningful parent context.
 - Do not add a meaningless back button where Setup was entered as a top-level destination.
 
-#### Pass U44 — Listen Later — M (~3-5 credits) — backlog, defer until watchlist/list work is deeper
+#### Pass U44 — Listen Later — V1 SHIPPED / VERIFIED 2026-09-12 (V2 backlog below)
+
+V1 reconciliation: Listen Later is an extension of the existing list model, not a parallel subsystem. `LocalList` gained `kind: "movies" | "episodes"` plus `episodeSlugs`, so user-created listenlists are possible later with no new type. One implicit list (`LISTEN_LATER_ID`), created lazily on first save. Movie-detail episode cards swapped the upper-right headphone control for a bookmark Listen Later toggle with undo toast; Lists gained a Listen Later tab (show, title, date, duration, artwork, listening state when set, external Listen ↗, remove). Listening state and Listened history are untouched. Account sync stays with O3; watchlist interaction reliability stays with O2. Verified in-app: saving from /movies/three-amigos surfaced the episode under Lists → Listen Later (1) with no console errors.
+
+Remaining V2 backlog (not built): user-created listenlists, inline dropdown creation, list management UI, ordering, embedded playback, auto-removal when listened.
 
 Feature: "Listen Later" (Movie Watchlist equivalent for podcast episodes).
 
