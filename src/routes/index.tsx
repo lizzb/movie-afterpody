@@ -38,7 +38,7 @@ function TonightPage() {
 
   // Pass L2b — ranked on the server over the full candidate set; Tonight never
   // suggests "Not interested" titles, regardless of the filter.
-  const { rows: visibleResults, total, isLoading } = useMoviePage({
+  const { rows: visibleResults, total, isLoading, error, refetch } = useMoviePage({
     filters: prefs.filters,
     limit: visibleCount,
     tonight: true,
