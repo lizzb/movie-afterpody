@@ -4,6 +4,7 @@ import { Heart, Mic, Search, Star } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { PageHeader } from "@/components/PageHeader";
 import { CatalogAddCard } from "@/components/CatalogAddCard";
+import { ListErrorNotice } from "@/components/ListErrorNotice";
 import { Artwork } from "@/components/Artwork";
 import { BrandBadge } from "@/components/BrandBadge";
 import { ViewToggle } from "@/components/ViewToggle";
