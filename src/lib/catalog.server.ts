@@ -253,22 +253,40 @@ async function readCatalog(): Promise<Catalog> {
 }
 
 const TTL_MS = 60_000;
+/**
+ * Stale-while-revalidate. Previously every request arriving after the 60s TTL
+ * expired had to wait on the whole catalogue read (measured ~16s), so list
+ * surfaces intermittently rendered with no rows at all. Now the last good
+ * catalogue is served immediately while the refresh runs behind it, and a
+ * failed refresh falls back to that same data instead of emptying the lists.
+ */
+const MAX_STALE_MS = 15 * 60_000;
 let cached: { at: number; value: Catalog } | null = null;
 let inFlight: Promise<Catalog> | null = null;
 
 export async function loadCatalog(): Promise<Catalog> {
-  if (cached && Date.now() - cached.at < TTL_MS) return cached.value;
+  const age = cached ? Date.now() - cached.at : Number.POSITIVE_INFINITY;
+  if (cached && age < TTL_MS) return cached.value;
   if (!inFlight) {
     inFlight = readCatalog()
       .then((value) => {
         cached = { at: Date.now(), value };
         return value;
       })
+      .catch((err: unknown) => {
+        console.error("[catalog] read failed", err);
+        throw err;
+      })
       .finally(() => {
         inFlight = null;
       });
   }
-  return inFlight;
+  const refresh = inFlight;
+  if (cached && age < MAX_STALE_MS) {
+    void refresh.catch(() => undefined);
+    return cached.value;
+  }
+  return refresh;
 }
 
 function prefsFrom(taste: Taste): Prefs {
