@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Sparkles } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { FilterBar } from "@/components/FilterBar";
+import { ListErrorNotice } from "@/components/ListErrorNotice";
 import { MovieCard } from "@/components/MovieCard";
 import { PageHeader } from "@/components/PageHeader";
 import { ViewToggle } from "@/components/ViewToggle";
@@ -87,13 +88,17 @@ function TonightPage() {
           <ViewToggle surface="tonight" value={view} />
         </div>
 
+        <div className="mt-3">
+          <ListErrorNotice error={error} onRetry={refetch} />
+        </div>
+
         {isLoading ? (
           <ul className="mt-3 space-y-2.5">
             {Array.from({ length: 4 }).map((_, i) => (
               <li key={i} className="h-24 animate-pulse rounded-2xl bg-muted" />
             ))}
           </ul>
-        ) : total === 0 ? (
+        ) : error ? null : total === 0 ? (
           <p className="mt-8 rounded-2xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
             Nothing matches those parameters. Loosen the runtime or era, or{" "}
             <Link to="/settings" className="font-semibold text-coral">
