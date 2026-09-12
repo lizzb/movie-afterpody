@@ -488,3 +488,8 @@ export function toUserData(catalog: Catalog | undefined, prefs: Prefs): UserData
       .map((movie_id) => ({ id: movie_id, movie_id, watched_on: "" })),
   };
 }
+
+/** Episode slugs saved to Listen Later (empty until the list is first used). */
+export function listenLaterSlugs(prefs: Prefs): string[] {
+  return prefs.lists.find((l) => l.id === LISTEN_LATER_ID)?.episodeSlugs ?? [];
+}
