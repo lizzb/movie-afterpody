@@ -40,7 +40,7 @@ function MoviesPage() {
 
   // Pass L2b — filtering, sorting, scoring and counting happen on the server
   // over the whole catalogue; only this page of results is transferred.
-  const { rows, total, catalogTotal, showMatches, isLoading } = useMoviePage({
+  const { rows, total, catalogTotal, showMatches, isLoading, error, refetch } = useMoviePage({
     filters: prefs.movieFilters,
     term,
     limit,
