@@ -4,6 +4,7 @@ import { AppShell } from "@/components/AppShell";
 import { Artwork } from "@/components/Artwork";
 import { BrandBadge } from "@/components/BrandBadge";
 import { PageHeader } from "@/components/PageHeader";
+import { PartialDataNotice } from "@/components/PartialDataNotice";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -33,7 +34,7 @@ export const Route = createFileRoute("/settings")({
 });
 
 function SettingsPage() {
-  const { catalog, prefs, user, isLoading } = useDiscovery();
+  const { catalog, prefs, user, isLoading, partial } = useDiscovery();
   const { userId: authUserId, user: authUser } = useAuth();
 
   const podcasts = (catalog?.podcasts ?? [])
@@ -58,6 +59,7 @@ function SettingsPage() {
           title="Settings"
           actions={<ThemeToggle className="shrink-0" />}
         />
+        <PartialDataNotice show={partial} />
 
         <section className="mt-5 rounded-2xl border border-border bg-card p-4 shadow-card">
           <h2 className="text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground">

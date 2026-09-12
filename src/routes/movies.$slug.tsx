@@ -77,7 +77,7 @@ type ExternalRatings = { imdb?: number | null; rottenTomatoes?: number | null };
 
 function MovieDetailPage() {
   const { slug } = Route.useParams();
-  const { entries, prefs, isLoading } = useDiscovery();
+  const { entries, prefs, isLoading, partial } = useDiscovery();
   const entry = entries.find((e) => e.movie.slug === slug);
   const [notesOpen, setNotesOpen] = useState(false);
   const reviewStates = useEpisodeReviewStates(entry?.episodes.map((ep) => ep.episode.id) ?? []);
