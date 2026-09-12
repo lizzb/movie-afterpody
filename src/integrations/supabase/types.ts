@@ -432,6 +432,7 @@ export type Database = {
           created_at: string
           id: string
           imdb_id: string | null
+          is_holiday: boolean | null
           media_type: Database["public"]["Enums"]["media_type"]
           poster_url: string | null
           release_date: string | null
@@ -454,6 +455,7 @@ export type Database = {
           created_at?: string
           id?: string
           imdb_id?: string | null
+          is_holiday?: boolean | null
           media_type?: Database["public"]["Enums"]["media_type"]
           poster_url?: string | null
           release_date?: string | null
@@ -476,6 +478,7 @@ export type Database = {
           created_at?: string
           id?: string
           imdb_id?: string | null
+          is_holiday?: boolean | null
           media_type?: Database["public"]["Enums"]["media_type"]
           poster_url?: string | null
           release_date?: string | null

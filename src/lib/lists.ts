@@ -22,7 +22,7 @@ export interface HistoryEntry {
 
 /** Lists + watch history, joined from the catalog and local prefs. */
 export function useLists() {
-  const { entries, prefs, isLoading, error } = useDiscovery();
+  const { entries, prefs, isLoading, error, partial } = useDiscovery();
 
   const bySlug = useMemo(
     () => new Map(entries.map((e) => [e.movie.slug, e])),
@@ -56,7 +56,7 @@ export function useLists() {
     [prefs.watchedMovieSlugs, prefs.watchedDates, bySlug],
   );
 
-  return { lists, history, isLoading, error };
+  return { lists, history, isLoading, error, partial };
 }
 
 export function formatWatchedOn(date: string | null): string {

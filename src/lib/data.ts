@@ -34,21 +34,59 @@ const PAGE = 1000;
  * Fetch pages in parallel waves instead, stopping at the first short page.
  */
 const WAVE = 6;
+/** Pass U79 — a timed-out page is retried in smaller slices before giving up. */
+const RETRY_PAGE = 250;
 
-async function fetchAllRows<T>(
-  page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
-): Promise<T[]> {
+type PageFn<T> = (
+  from: number,
+  to: number,
+) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>;
+
+/** Re-read one failed window in smaller slices; null means it failed again. */
+async function retrySmaller<T>(page: PageFn<T>, from: number, to: number): Promise<T[] | null> {
+  const out: T[] = [];
+  for (let start = from; start <= to; start += RETRY_PAGE) {
+    const result = await page(start, Math.min(start + RETRY_PAGE - 1, to)).then(
+      (r) => r,
+      (err: unknown) => ({ data: null, error: { message: String(err) } }),
+    );
+    if (result.error) return null;
+    const rows = result.data ?? [];
+    out.push(...rows);
+    if (rows.length < RETRY_PAGE) break;
+  }
+  return out;
+}
+
+
+async function fetchAllRows<T>(page: PageFn<T>, onPartial?: (message: string) => void): Promise<T[]> {
   const out: T[] = [];
   for (let start = 0; ; start += PAGE * WAVE) {
     const wave = await Promise.all(
       Array.from({ length: WAVE }, (_, i) => {
         const from = start + i * PAGE;
-        return page(from, from + PAGE - 1);
+        return page(from, from + PAGE - 1).then(
+          (r) => r,
+          (err: unknown) => ({ data: null, error: { message: String(err) } }),
+        );
       }),
     );
     let done = false;
-    for (const { data, error } of wave) {
-      if (error) throw new Error(error.message);
+    for (let i = 0; i < wave.length; i += 1) {
+      const { data, error } = wave[i]!;
+      const from = start + i * PAGE;
+      if (error) {
+        const recovered = await retrySmaller(page, from, from + PAGE - 1);
+        if (recovered === null) {
+          // Degrade to a partial catalogue rather than blanking the page.
+          if (!onPartial) throw new Error(error.message);
+          onPartial(error.message);
+          return out;
+        }
+        out.push(...recovered);
+        if (recovered.length < PAGE) done = true;
+        continue;
+      }
       const rows = data ?? [];
       out.push(...rows);
       if (rows.length < PAGE) done = true;
@@ -58,16 +96,23 @@ async function fetchAllRows<T>(
 }
 
 
+
 /**
  * Pass L2a — the catalogue read now carries only what list surfaces render.
  * Episode descriptions (5.8 MB), movie synopses and every platform source row
  * are fetched per show / per movie by `useEpisodeDetails` and `useMovieSynopsis`
  * instead, and parked shows are excluded in the query rather than in the browser.
  */
-const HOLIDAY_MATCH = "[[:<:]](christmas|santa)[[:>:]]";
 
 async function fetchCatalog(): Promise<Catalog> {
-  const podcasts = await fetchAllRows<Podcast>((from, to) =>
+  let partial = false;
+  const markPartial = (message: string) => {
+    partial = true;
+    console.warn(`Catalogue page failed after retry, loading partial data: ${message}`);
+  };
+  const pages = <T,>(page: PageFn<T>) => fetchAllRows<T>(page, markPartial);
+
+  const podcasts = await pages<Podcast>((from, to) =>
     supabase
       .from("podcasts")
       .select(
@@ -84,10 +129,10 @@ async function fetchCatalog(): Promise<Catalog> {
 
   const [genres, services, movies, movieGenres, availability, metrics, episodes, links, holiday] =
     await Promise.all([
-      fetchAllRows<Genre>((from, to) =>
+      pages<Genre>((from, to) =>
         supabase.from("genres").select(sel("id, slug, name")).order("name").range(from, to).returns<Genre[]>(),
       ),
-      fetchAllRows<StreamingService>((from, to) =>
+      pages<StreamingService>((from, to) =>
         supabase
           .from("streaming_services")
           .select(sel("id, slug, name, short_name, accent, sort_order"))
@@ -95,7 +140,7 @@ async function fetchCatalog(): Promise<Catalog> {
           .range(from, to)
           .returns<StreamingService[]>(),
       ),
-      fetchAllRows<Movie>((from, to) =>
+      pages<Movie>((from, to) =>
         supabase
           .from("movies")
           .select(
@@ -107,7 +152,7 @@ async function fetchCatalog(): Promise<Catalog> {
           .range(from, to)
           .returns<Movie[]>(),
       ),
-      fetchAllRows<MovieGenre>((from, to) =>
+      pages<MovieGenre>((from, to) =>
         supabase
           .from("movie_genres")
           .select(sel("movie_id, genre_id"))
@@ -115,7 +160,7 @@ async function fetchCatalog(): Promise<Catalog> {
           .range(from, to)
           .returns<MovieGenre[]>(),
       ),
-      fetchAllRows<MovieAvailability>((from, to) =>
+      pages<MovieAvailability>((from, to) =>
         supabase
           .from("movie_availability")
           .select(sel("id, movie_id, service_id, offer_type, deep_link"))
@@ -125,7 +170,7 @@ async function fetchCatalog(): Promise<Catalog> {
       ),
       activePodcastIds.length === 0
         ? Promise.resolve([] as PodcastMetric[])
-        : fetchAllRows<PodcastMetric>((from, to) =>
+        : pages<PodcastMetric>((from, to) =>
             supabase
               .from("podcast_external_metrics")
               .select(sel("podcast_id, platform, rating, rating_count, external_url"))
@@ -136,7 +181,7 @@ async function fetchCatalog(): Promise<Catalog> {
           ),
       activePodcastIds.length === 0
         ? Promise.resolve([] as Episode[])
-        : fetchAllRows<Episode>((from, to) =>
+        : pages<Episode>((from, to) =>
             supabase
               .from("podcast_episodes")
               .select(sel("id, podcast_id, slug, title, released_at, duration_seconds, episode_number"))
@@ -152,7 +197,7 @@ async function fetchCatalog(): Promise<Catalog> {
        */
       activePodcastIds.length === 0
         ? Promise.resolve([] as EpisodeMovie[])
-        : fetchAllRows<EpisodeMovie>((from, to) =>
+        : pages<EpisodeMovie>((from, to) =>
             supabase
               .from("episode_movies")
               .select(
@@ -165,11 +210,15 @@ async function fetchCatalog(): Promise<Catalog> {
               .range(from, to)
               .returns<EpisodeMovie[]>(),
           ),
-      fetchAllRows<{ id: string }>((from, to) =>
+      /**
+       * Pass U79 — holiday titles come from the stored, indexed `is_holiday`
+       * flag instead of a full-synopsis regex scan (the old query timed out).
+       */
+      pages<{ id: string }>((from, to) =>
         supabase
           .from("movies")
           .select(sel("id"))
-          .or(`title.imatch."${HOLIDAY_MATCH}",synopsis.imatch."${HOLIDAY_MATCH}"`)
+          .eq("is_holiday", true)
           .order("id")
           .range(from, to)
           .returns<{ id: string }[]>(),
@@ -193,6 +242,7 @@ async function fetchCatalog(): Promise<Catalog> {
       review_state: l.review_state,
     })),
     holidayMovieIds: holiday.map((h) => h.id),
+    partial,
   };
 }
 

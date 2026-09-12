@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Bookmark, CalendarCheck, Headphones, Plus, Trash2 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { PageHeader } from "@/components/PageHeader";
+import { PartialDataNotice } from "@/components/PartialDataNotice";
 import { Artwork } from "@/components/Artwork";
 import { BrandBadge } from "@/components/BrandBadge";
 import { accentFor, accentSoft, toAccent } from "@/lib/accents";
@@ -41,7 +42,7 @@ export const Route = createFileRoute("/lists/")({
 type Tab = "lists" | "history" | "listened";
 
 function ListsPage() {
-  const { lists, history, isLoading } = useLists();
+  const { lists, history, isLoading, partial } = useLists();
   const { listened } = useListened();
   const prefs = usePrefs();
   const [tab, setTab] = useState<Tab>("lists");
@@ -51,6 +52,7 @@ function ListsPage() {
     <AppShell>
       <main className="mx-auto w-full max-w-3xl px-4 pb-16 pt-4">
         <PageHeader icon={Bookmark} eyebrow="Lists" title="Watchlists & History" />
+        <PartialDataNotice show={partial} />
 
         <div className="mt-5 flex gap-1.5">
           {(

@@ -28,6 +28,7 @@ import { useEpisodeDetails, useMovieSynopsis, EMPTY_EPISODE_DETAIL, type Episode
 import { useEpisodeReviewStates } from "@/lib/episode-reviews";
 
 
+import { PartialDataNotice } from "@/components/PartialDataNotice";
 import { useDiscovery, type EpisodeEntry } from "@/lib/discovery";
 import { isUnrated, ratingLabel } from "@/lib/ratings";
 import { prefsActions } from "@/lib/prefs";
@@ -77,7 +78,7 @@ type ExternalRatings = { imdb?: number | null; rottenTomatoes?: number | null };
 
 function MovieDetailPage() {
   const { slug } = Route.useParams();
-  const { entries, prefs, isLoading } = useDiscovery();
+  const { entries, prefs, isLoading, partial } = useDiscovery();
   const entry = entries.find((e) => e.movie.slug === slug);
   const [notesOpen, setNotesOpen] = useState(false);
   const reviewStates = useEpisodeReviewStates(entry?.episodes.map((ep) => ep.episode.id) ?? []);
@@ -100,7 +101,10 @@ function MovieDetailPage() {
     return (
       <AppShell>
         <main className="mx-auto w-full max-w-3xl px-4 py-16 text-center">
-          <h1 className="font-display text-2xl font-bold">We don&rsquo;t have that movie yet</h1>
+          <PartialDataNotice show={partial} />
+          <h1 className="font-display text-2xl font-bold">
+            {partial ? "We couldn’t load that movie" : "We don’t have that movie yet"}
+          </h1>
           <Link to="/movies" className="mt-4 inline-block text-sm font-semibold text-coral">
             Back to all movies
           </Link>
@@ -116,6 +120,7 @@ function MovieDetailPage() {
     <AppShell>
       <main className="mx-auto w-full max-w-3xl px-4 pb-16 pt-4">
         <BackLink fallbackTo="/movies" fallbackLabel="Movies" />
+        <PartialDataNotice show={partial} />
 
         {/* Poster left, movie properties right, our own score set apart top-right. */}
         <header className="mt-3 flex items-start gap-4">

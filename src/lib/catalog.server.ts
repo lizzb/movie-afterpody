@@ -83,7 +83,6 @@ async function fetchByKeyset<T extends { id: string }>(
   }
 }
 
-const HOLIDAY_MATCH = "[[:<:]](christmas|santa)[[:>:]]";
 
 async function readCatalog(): Promise<Catalog> {
   const db = client();
@@ -179,7 +178,7 @@ async function readCatalog(): Promise<Catalog> {
         db
           .from("movies")
           .select("id")
-          .or(`title.imatch."${HOLIDAY_MATCH}",synopsis.imatch."${HOLIDAY_MATCH}"`)
+          .eq("is_holiday", true)
           .order("id")
           .range(from, to)
           .returns<{ id: string }[]>(),

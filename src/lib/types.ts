@@ -137,7 +137,13 @@ export interface Catalog {
   episodeMovies: EpisodeMovie[];
   /** Movie ids whose title or synopsis names a holiday, matched server-side. */
   holidayMovieIds: string[];
+  /**
+   * Pass U79 — true when at least one page of the read failed even after a
+   * smaller-page retry, so surfaces can warn instead of showing a blank page.
+   */
+  partial?: boolean;
 }
+
 
 export interface UserData {
   serviceIds: string[];
