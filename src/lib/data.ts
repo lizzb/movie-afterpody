@@ -46,14 +46,18 @@ type PageFn<T> = (
 async function retrySmaller<T>(page: PageFn<T>, from: number, to: number): Promise<T[] | null> {
   const out: T[] = [];
   for (let start = from; start <= to; start += RETRY_PAGE) {
-    const { data, error } = await page(start, Math.min(start + RETRY_PAGE - 1, to));
-    if (error) return null;
-    const rows = data ?? [];
+    const result = await page(start, Math.min(start + RETRY_PAGE - 1, to)).then(
+      (r) => r,
+      (err: unknown) => ({ data: null, error: { message: String(err) } }),
+    );
+    if (result.error) return null;
+    const rows = result.data ?? [];
     out.push(...rows);
     if (rows.length < RETRY_PAGE) break;
   }
   return out;
 }
+
 
 async function fetchAllRows<T>(page: PageFn<T>, onPartial?: (message: string) => void): Promise<T[]> {
   const out: T[] = [];
