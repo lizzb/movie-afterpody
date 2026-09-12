@@ -31,7 +31,9 @@ export function useLists() {
 
   const lists = useMemo<ListView[]>(
     () =>
-      prefs.lists.map((list) => {
+      prefs.lists
+        .filter((list) => (list.kind ?? "movies") === "movies")
+        .map((list) => {
         const items = list.movieSlugs
           .map((slug) => bySlug.get(slug))
           .filter((e): e is MovieEntry => Boolean(e));
