@@ -56,7 +56,7 @@ export function useLists() {
     [prefs.watchedMovieSlugs, prefs.watchedDates, bySlug],
   );
 
-  return { lists, history, isLoading, error };
+  return { lists, history, isLoading, error, partial };
 }
 
 export function formatWatchedOn(date: string | null): string {
