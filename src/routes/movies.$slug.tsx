@@ -19,7 +19,7 @@ import { FlagMatchButton } from "@/components/FlagMatchButton";
 import { ConfirmMatchButton } from "@/components/ConfirmMatchButton";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 import { EpisodeAdminActions } from "@/components/EpisodeAdminActions";
-import { MarkListenedButton } from "@/components/MarkListenedButton";
+import { ListenLaterButton } from "@/components/ListenLaterButton";
 import { PlatformBadges } from "@/components/PlatformBadges";
 import { ExpandableText } from "@/components/ExpandableText";
 import { EpisodeNotesFooter } from "@/components/EpisodeNotesFooter";
@@ -31,7 +31,7 @@ import { useEpisodeReviewStates } from "@/lib/episode-reviews";
 import { PartialDataNotice } from "@/components/PartialDataNotice";
 import { useDiscovery, type EpisodeEntry } from "@/lib/discovery";
 import { isUnrated, ratingLabel } from "@/lib/ratings";
-import { prefsActions } from "@/lib/prefs";
+import { listenLaterSlugs, prefsActions } from "@/lib/prefs";
 import type { EpisodeRating, ListeningStatus, ProductionQuality } from "@/lib/types";
 
 export const Route = createFileRoute("/movies/$slug")({
@@ -80,6 +80,7 @@ function MovieDetailPage() {
   const { slug } = Route.useParams();
   const { entries, prefs, isLoading, partial } = useDiscovery();
   const entry = entries.find((e) => e.movie.slug === slug);
+  const savedForLater = new Set(listenLaterSlugs(prefs));
   const [notesOpen, setNotesOpen] = useState(false);
   const reviewStates = useEpisodeReviewStates(entry?.episodes.map((ep) => ep.episode.id) ?? []);
   // Pass L2a — synopsis and episode text load for this page only.
@@ -307,6 +308,7 @@ function MovieDetailPage() {
                   rating={prefs.ratings[ep.episode.slug] ?? null}
                   listening={prefs.listening[ep.episode.slug] ?? "not_started"}
                   quality={prefs.quality[ep.episode.slug] ?? null}
+                  savedForLater={savedForLater.has(ep.episode.slug)}
                 />
               ))}
             </ul>
@@ -335,6 +337,7 @@ function EpisodeRow({
   rating,
   listening,
   quality,
+  savedForLater,
 }: {
   entry: EpisodeEntry;
   detail: EpisodeDetail;
@@ -345,6 +348,7 @@ function EpisodeRow({
   rating: EpisodeRating | null;
   listening: ListeningStatus;
   quality: ProductionQuality | null;
+  savedForLater: boolean;
 }) {
   const { episode, podcast, preferred, alsoCovers } = entry;
   const isAdmin = useIsAdmin();
@@ -356,7 +360,11 @@ function EpisodeRow({
       <CardControls>
         <ConfirmMatchButton episodeId={episode.id} movieId={movieId} />
         <FlagMatchButton episodeId={episode.id} movieId={movieId} />
-        <MarkListenedButton episodeSlug={episode.slug} listening={listening} />
+        <ListenLaterButton
+          episodeSlug={episode.slug}
+          episodeTitle={episode.title}
+          saved={savedForLater}
+        />
       </CardControls>
 
 
