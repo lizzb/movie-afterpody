@@ -95,3 +95,25 @@ When a user message begins with `TRIAGE:`:
 4. Use **Not about a movie** for ads, interviews, mailbags, trailers, and non-film episodes.
 5. Run **Score the matcher** before and after matcher-rule changes.
 6. When the queue looks stale after a major rule change, use a future guarded replay tool rather than manually refreshing the same weak historical links.
+
+## Verification sweep workflow (added 2026-09-09)
+
+Two keywords, separate from `BUILD` because neither starts by writing product code.
+
+### Workflow keyword: VERIFY SWEEP
+
+Documentation only. When a message begins with `VERIFY SWEEP`:
+
+1. List every roadmap item currently labelled **IMPLEMENTED, NOT VERIFIED** or **NEEDS FOLLOW-UP**.
+2. For each, write the concrete test that would settle it: route, viewport, data precondition, expected observation.
+3. Sort them into: verifiable now; verifiable only with a forced-failure harness; blocked on an environmental dependency (e.g. admin identity — Pass U76); no realistic path to verification. For the last group, state why and recommend accept-as-is / retire / re-scope.
+4. File the testable ones as scoped `V*` verification passes with credit estimates in `.lovable/roadmap.md`.
+5. No code, no status promotions, no new product scope.
+
+This is low priority by design — expect it to run only when credits are in surplus.
+
+### Workflow keyword: VERIFY: <PASS_ID>
+
+Execute one filed verification pass against the running app, then update the roadmap: promote to **VERIFIED** with date and evidence, or leave the label and name the blocker. Move the entry to its correct section in the same edit. A small defect found mid-run follows the `TRIAGE` rules; it does not expand the verification pass.
+
+Use `BUILD` only when product code is expected to change.

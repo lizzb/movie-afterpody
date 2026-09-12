@@ -948,7 +948,7 @@ This is an architecture/operations audit only.
 
 Update the roadmap or documentation only if needed to record the current, corrected workflow.
 
-#### Pass U49 — TRIAGE: Sync reporting/count inconsistencies — S — Triaged 2026-09-07; quick fixes shipped (see outcome below)
+#### Pass U49 — TRIAGE: Sync reporting/count inconsistencies — S — Triaged 2026-09-07; quick fixes IMPLEMENTED, NOT VERIFIED (re-confirmed 2026-09-09 — a smoke run of one show sync, reading the warned/failed split and the top skip reasons, is still desirable; leave open until then)
 
 TRIAGE: Sync reporting/count inconsistencies / ingestion accounting / truthfulness
 
@@ -1087,77 +1087,15 @@ Traced `syncPodcast`, `resolveUnmatchedEpisodes`, `listPodcastCoverage` and the 
 No further backlog item is needed: the only remaining substantive issue (stored-count truthfulness) is already **Pass U17 — S**.
 
 
-#### Pass U50 — RECONCILE / ROADMAP EDIT ONLY — <estimateTBD>
+#### Pass U50 — RECONCILE / ROADMAP EDIT ONLY — RESOLVED 2026-09-09
 
-Existing roadmap items that just need an edit/addendum
-E2/E3/U28, J2, H6/status-control grammar.
+Executed as documentation only. Its three instructions were folded into the existing items and no duplicate passes were created:
 
-RECONCILE / ROADMAP EDIT ONLY — NO CODE
+- Commentary Score disclosure + shared-component/duration clarifications → **Pass E2** and **Pass E3**, with the layering against **Pass U28** stated in all three.
+- "Body-click instinct: there must be a deeper object here" → **Pass J2** rationale.
+- Movie-card status-control grammar (three semantic categories, no Not-interested under the poster, no arbitrary per-content placement) → **Pass H6**.
 
-Please make these additions to the existing roadmap items rather than creating duplicate passes.
-
-### Existing Commentary Score work
-
-Reconcile Pass E2, Pass E3, and Pass U28:
-
-There should eventually be a way to select/click the Commentary Score itself and/or an adjacent info affordance to get a concise explanation of:
-
-- what the score means;
-- what factors contribute to it;
-- ideally the score breakdown.
-
-Design preference: unobtrusive disclosure rather than permanent explanatory text.
-
-E2 remains about formatting consistency.
-E3 remains about explanation copy.
-U28 remains the deeper "Why this?" rationale and score decomposition.
-
-Also clarify in E2 that:
-
-- Commentary Score should use one shared component, potentially with a compact variant.
-- Duration should use one shared semantic component/treatment, with compact/full variants.
-- Semantic meaning and interaction should be consistent.
-- Visual density can be contextual.
-- Use the same component with a compact variant rather than completely different implementations.
-
-Do not create a new pass for this.
-
-### Existing J2 — Dedicated episode pages
-
-Add the following to the existing J2 rationale:
-
-"Body-click instinct: there must be a deeper object here."
-
-Treat the instinct to click the episode body as evidence that the content has a latent deeper object / Episode Details page. This supports the eventual Dedicated Episode Details page rather than being treated as a strange or invalid interaction instinct.
-
-Do not implement this now and do not create a new pass.
-
-### Existing Not Interested / status-control grammar
-
-Add this to the existing Not Interested / iconography work (H6) rather than creating a standalone pass.
-
-Tonight > movie card:
-
-- The top-right status controls currently feel heavy.
-- Do NOT move Not Interested underneath the poster art on movie cards. That space is associated with a different action grammar.
-- Avoid arbitrary per-content placement.
-- Establish a general action grammar, while recognizing that semantically equivalent controls do not necessarily need identical physical placement.
-
-The intended semantic categories are:
-
-- Positive/content-state controls: watchlist / watched
-- Negative/exclusion action: not interested
-- Podcast preference: preferred
-
-Think in terms of:
-
-- primary positive preference action;
-- negative/exclusion action;
-- status/list actions.
-
-The goal is a coherent placement/interaction grammar, not forcing every control into the same physical position.
-
-No code changes in this pass.
+Nothing further to build under U50.
 
 #### Pass U51 — Small UI cleanup only — <estimateTBD>
 
@@ -1498,6 +1436,33 @@ Expand from movies-only to both `movie` and `tv` catalog items using the existin
 
 # Already done
 
+Note (2026-09-09): passes verified in this review that live in a themed section above — U18, K1–K6, U39 — keep their entries in place with a `VERIFIED 2026-09-09` stamp so the card-system and admin-curation groups stay readable as a set. They are done; only their location differs.
+
+### Verification review — 2026-09-09
+
+Items verified in the running app on 2026-09-09: **U18**, **K1**, **K3**, **K4**, **K5**, **K6**, **U24**, **U14** (two rapid admin actions queue correctly), **U39**, **U42a**, the podcast-detail "Last episode" header label, and **Pass E** resolved as superseded by K3 + E4. **K2** and **L1** were accepted on code/measurement evidence rather than bespoke runtime tests.
+
+Left IMPLEMENTED, NOT VERIFIED by decision (not by oversight): **U4**, **U8**, **U32**, **U33** (+ its 2026-09-09 fix), **U38**, **U49**, **U63**, **J1**, **J3**, **L2b**, and the Shows cap inside the L1 cap change. Reasons are recorded on each entry; the recurring blockers are (a) no realistic failure harness and (b) no repeatable signed-in admin identity — **Pass U76**. Scheduling these is a `VERIFY SWEEP` job, not per-pass reopening.
+
+### U42a — Confirm/Flag relationship action visual consistency — shipped 2026-09-07 — VERIFIED 2026-09-09
+
+Confirm was visually heavier than the adjacent Flag control. Both now share one lightweight icon-button grammar reusing the existing treatment and tokens — Flag lightweight blue, Confirm lightweight green — applied everywhere the pair appears (movie detail relationship rows, podcast-page linked-movie rows). Icons, actions, state semantics, permissions, size, placement and API calls unchanged. Verified in-app 2026-09-09. The rest of Pass U42 remains open.
+
+### Podcast detail header — "Last episode" replaces "Active" — shipped 2026-09-07 — VERIFIED 2026-09-09 (partial delivery of U40D)
+
+The consumer-facing podcast detail header no longer shows the admin-only "Active" word. It shows the most recent stored episode's date: `Last episode: August 24` when under six months old, `Last episode: February 2026` at six months or older, and a minimal empty state when the show has no stored episode. Uses episode data already on the page; admin Active/Parked semantics untouched. The remaining U40 header/view work stays open under Pass U40.
+
+### Triage fixes — 2026-09-09 (all four: fix shipped, IMPLEMENTED, NOT VERIFIED)
+
+Filed under their owning passes rather than as new passes; verification of the admin-only ones is blocked on **U76**.
+
+1. **U33 bulk action button visual state** — recorded on the U33 entry above.
+2. **Unmatched Episodes search responsiveness** — results now stay on screen with an inline "Searching…" state instead of being replaced by skeletons on every keystroke, and the parked-count RPC is skipped during an active search. Live check that day: 10 "craft" matches out of 1,887 active unmatched in ~1.34 s.
+3. **Adding a movie from TMDB is slow** — the separate certification request was folded into the existing TMDB call, removing one round trip per add.
+4. **"Stop after this show"** — the control now gives immediate feedback ("Stopping after this show…") instead of only setting an internal flag.
+
+
+
 ### Triage fix — "Not about a movie" is now reversible from the episode row — shipped 2026-09-04 (QUICK FIX)
 
 Finding: the retirement always _was_ a reversible per-episode state (`podcast_episodes.disposition`), and undo existed only inside Recent match decisions, where it required undoing two separate records (the `not_about_a_movie` entry plus one `unlink` per removed link) and became unfindable once the log scrolled. The row control was write-only.
@@ -1529,7 +1494,7 @@ Counts are honest: the `Math.max(rows.length, rawTotal - done)` fudge is gone �
 Verified 2026-09-02 (code review): `busy` derives from the explicit `intent` state (search/filter/page), never from `isFetching`; per-row `pending` keeps acted-on rows visible and dims only those rows; failures call `unmarkDone` to return the row; pending/selection cleared on scope change.
 Busy state in `MatchReviewCard` is now driven by an explicit `intent` (search submit, confidence band / review state / page size change, explicit Refresh, automatic page advance) rather than `isFetching`, so background refetches, window refocus and unrelated invalidations no longer spin the header or disable Search; the intent clears once its fetch settles. Row actions get their own pending state: an acted-on row stays listed and dimmed with a "Saving…" indicator while its request is in flight, its own controls (including relink) are the only ones disabled, a failure returns the row to the queue with the error, and bulk actions mark every affected row pending. Stale pending keys are cleared with `done`/selection when the query scope changes. Follow-ups: U13 (reliability sweep), U14 (serialised admin actions).
 
-### Pass U24 — Episode description in match review — built 2026-09-03 (implemented, not verified) - IMPLEMENTED, NOT VERIFIED (as of 2026-09-06)
+### Pass U24 — Episode description in match review — built 2026-09-03 — VERIFIED 2026-09-09 (in-app)
 
 Acceptance checklist against `.lovable/plan/acceptance-criteria-u8-u24-u4-p-u23-2026-09-02.md`:
 
@@ -1540,7 +1505,9 @@ Acceptance checklist against `.lovable/plan/acceptance-criteria-u8-u24-u4-p-u23-
 - **Implemented, not verified** — 390px mobile viewport screenshot of an expanded long description (desktop showed no overflow and the row uses `break-anywhere`), and the null/empty-description empty state (no episode with an empty description surfaced in the sampled rows).
 - **Deferred** — description truncation / "Show more" (explicitly out of V1 scope), fuzzy or alternate-title highlighting.
 
-### Pass U8 — Episode-level "review complete" — built 2026-09-02 (partially verified) - IMPLEMENTED, NOT VERIFIED (as of 2026-09-06)
+### Pass U8 — Episode-level "review complete" — built 2026-09-02 — IMPLEMENTED, NOT VERIFIED (re-confirmed 2026-09-09)
+
+**Status as of 2026-09-09:** core single-episode mark/reopen is verified (see the 2026-09-03 line below). Outstanding: bulk mark/reopen across a multi-select, the "Hide reviewed episodes" empty state, mark/reopen on the unmatched list, 390px rendering of these controls, and the three needs-follow-up arithmetic items. The 2026-09-10 triage entry below (U8D — refetch-cascade investigation) shipped a real fix but its own conclusion is reported, not verified; the multi-minute placeholder state was never reproduced and stays open pending a captured failing request. Blocked on **U76** for a repeatable admin session.
 
 **Triage fix shipped 2026-09-04 — podcast-page review state above 400 episodes and full matcher protection.** The podcast detail hook silently sorted and truncated episode IDs to 400 before reading review state. Both affected shows exceed that size, and all 14 reported episodes fell beyond the cutoff even though their `episode_reviews` rows had persisted with `reopened_at = null`. The hook now submits the complete show episode set (up to the 1,000-episode ingestion ceiling plus headroom), while the server retains 50-ID database batches. The audit also found that the Proposed queue's `suggestEpisodeMatches` path did not exclude reviewed episodes; it now shares the same reviewed-episode guard as sync, Build movies, and recheck. These were existing U8 completeness defects, not a new pass.
 
