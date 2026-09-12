@@ -56,13 +56,27 @@ export interface Filters {
   plusOtherPodcast: boolean;
 }
 
+/**
+ * Pass U44 — one list model, two kinds of member.
+ *
+ * Movie watchlists keep using `movieSlugs`; podcast "listenlists" use
+ * `episodeSlugs`. V1 ships a single implicit episode list ("Listen Later"), but
+ * the shape already allows user-created listenlists later without a second
+ * subsystem. `kind` defaults to "movies" so existing stored lists are unchanged.
+ */
 export interface LocalList {
   id: string;
   name: string;
   accent: string;
   movieSlugs: string[];
   createdAt: string;
+  kind?: "movies" | "episodes";
+  episodeSlugs?: string[];
 }
+
+/** The single implicit listenlist in V1. */
+export const LISTEN_LATER_ID = "list-listen-later";
+export const LISTEN_LATER_NAME = "Listen Later";
 
 export type ThemeMode = "system" | "light" | "dark";
 export type ViewMode = "rows" | "tiles";
