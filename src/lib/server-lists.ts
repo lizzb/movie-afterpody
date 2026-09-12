@@ -60,6 +60,7 @@ export function useMoviePage(args: {
     isLoading: query.isLoading,
     isFetching: query.isFetching,
     error: query.error,
+    refetch: () => void query.refetch(),
   };
 }
 
@@ -83,6 +84,7 @@ export function useShowPage(args: {
     total: query.data?.total ?? 0,
     isLoading: query.isLoading,
     error: query.error,
+    refetch: () => void query.refetch(),
   };
 }
 

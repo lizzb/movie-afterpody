@@ -4,6 +4,7 @@ import { Heart, Mic, Search, Star } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { PageHeader } from "@/components/PageHeader";
 import { CatalogAddCard } from "@/components/CatalogAddCard";
+import { ListErrorNotice } from "@/components/ListErrorNotice";
 import { Artwork } from "@/components/Artwork";
 import { BrandBadge } from "@/components/BrandBadge";
 import { ViewToggle } from "@/components/ViewToggle";
@@ -49,7 +50,7 @@ function PodcastsPage() {
 
   // Pass L2b — ranked and filtered on the server across every active show,
   // against the live taste profile so services and hearts always apply.
-  const { rows: results, total, isLoading } = useShowPage({ term, mode, limit });
+  const { rows: results, total, isLoading, error, refetch } = useShowPage({ term, mode, limit });
 
   useEffect(() => {
     setLimit(50);
@@ -97,13 +98,17 @@ function PodcastsPage() {
           ))}
         </div>
 
+        <div className="mt-4">
+          <ListErrorNotice error={error} onRetry={refetch} />
+        </div>
+
         {isLoading ? (
           <ul className="mt-4 space-y-2.5">
             {Array.from({ length: 5 }).map((_, i) => (
               <li key={i} className="h-24 animate-pulse rounded-2xl bg-muted" />
             ))}
           </ul>
-        ) : results.length === 0 ? (
+        ) : error ? null : results.length === 0 ? (
           term.trim() ? (
             <CatalogAddCard kind="podcast" term={term.trim()} />
           ) : (

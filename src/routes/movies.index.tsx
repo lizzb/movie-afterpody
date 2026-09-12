@@ -4,6 +4,7 @@ import { Clapperboard, Mic, Search } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { CatalogAddCard } from "@/components/CatalogAddCard";
 import { FilterBar } from "@/components/FilterBar";
+import { ListErrorNotice } from "@/components/ListErrorNotice";
 import { MovieCard } from "@/components/MovieCard";
 import { PageHeader } from "@/components/PageHeader";
 import { ViewToggle } from "@/components/ViewToggle";
@@ -40,7 +41,7 @@ function MoviesPage() {
 
   // Pass L2b — filtering, sorting, scoring and counting happen on the server
   // over the whole catalogue; only this page of results is transferred.
-  const { rows, total, catalogTotal, showMatches, isLoading } = useMoviePage({
+  const { rows, total, catalogTotal, showMatches, isLoading, error, refetch } = useMoviePage({
     filters: prefs.movieFilters,
     term,
     limit,
@@ -57,7 +58,11 @@ function MoviesPage() {
           icon={Clapperboard}
           eyebrow="Movies"
           title="Browse all movies"
-          subtitle={`${catalogTotal} title${catalogTotal === 1 ? "" : "s"} in the catalogue`}
+          subtitle={
+            isLoading
+              ? "Loading the catalogue…"
+              : `${catalogTotal} title${catalogTotal === 1 ? "" : "s"} in the catalogue`
+          }
         />
 
         <div className="mt-4 flex items-center gap-2">
@@ -116,13 +121,17 @@ function MoviesPage() {
           </section>
         ) : null}
 
+        <div className="mt-5">
+          <ListErrorNotice error={error} onRetry={refetch} />
+        </div>
+
         {isLoading ? (
           <ul className="mt-6 space-y-3">
             {Array.from({ length: 5 }).map((_, i) => (
               <li key={i} className="h-28 animate-pulse rounded-2xl bg-muted" />
             ))}
           </ul>
-        ) : rows.length === 0 ? (
+        ) : error ? null : rows.length === 0 ? (
           term.trim() ? (
             <CatalogAddCard kind="movie" term={term.trim()} />
           ) : (
