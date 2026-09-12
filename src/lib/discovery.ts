@@ -38,5 +38,5 @@ export function useDiscovery() {
     return getCachedEntries(catalog, user, prefs);
   }, [catalog, user, prefs]);
 
-  return { catalog, entries, prefs, user, isLoading, error };
+  return { catalog, entries, prefs, user, isLoading, error, partial: catalog?.partial ?? false };
 }
