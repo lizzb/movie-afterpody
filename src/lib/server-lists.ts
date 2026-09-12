@@ -84,6 +84,7 @@ export function useShowPage(args: {
     total: query.data?.total ?? 0,
     isLoading: query.isLoading,
     error: query.error,
+    refetch: () => void query.refetch(),
   };
 }
 
