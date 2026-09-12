@@ -30,13 +30,22 @@ When a verification blocker is environmental (for example, an admin-only UI cann
 
 The roadmap is the source of truth for current pass status. Historical plan files remain historical.
 
+## Verification workflow keywords (added 2026-09-09)
+
+Two keywords, deliberately separate from `BUILD` because neither writes product code first:
+
+- **`VERIFY SWEEP`** — documentation-only sweep. (1) List every roadmap item currently labelled IMPLEMENTED, NOT VERIFIED or NEEDS FOLLOW-UP. (2) For each, write the concrete test that would settle it (route, viewport, data precondition, expected observation). (3) Separate them into: verifiable now, verifiable only with a forced-failure harness, blocked on an environmental dependency (e.g. admin identity — Pass U76), or with no realistic path to verification — and for the last group recommend accept-as-is / retire / re-scope. (4) File the testable ones as scoped `V*` verification passes with credit estimates in this roadmap. No code, no status promotions.
+- **`VERIFY: <PASS_ID>`** — execute one filed verification pass against the running app, then update this roadmap: status promoted to VERIFIED (with date and evidence) or left labelled with the blocker named, and the entry moved to its correct section. Small fixes discovered mid-run follow the `TRIAGE` rules rather than expanding the verification pass.
+
+Use `BUILD` only when product code is expected to change. Expect `VERIFY SWEEP` to be run when credits are in surplus; it is a low-priority hygiene action, not a release gate.
+
 ---
 
 # Not yet done
 
 ## Do next
 
-### Pass U63 — Admin server functions no longer load whole tables — M — IMPLEMENTED, NOT VERIFIED (2026-09-09)
+### Pass U63 — Admin server functions no longer load whole tables — M — IMPLEMENTED, NOT VERIFIED (status re-confirmed 2026-09-09; blocked on U76)
 
 Root cause of the 502s on Match Review / coverage / stats / recheck: those handlers read every episode, link, review and rejection row into one worker. Now aggregated or bounded in Postgres:
 
@@ -82,6 +91,8 @@ The D/O/T5/G/H/Y repair pass is verified and closed (see "Already done"). The re
 #### Not interested and iconography — Priority 3b
 
 - **Pass H6 — Not interested copy, icons and recovery — M (~3-5 credits) — NEEDS DESIGN.** Clearer copy, softer snackbar language, icon options for both "Unwatched" and "Not interested" before any metaphor change.
+
+  **Status-control grammar (folded in from Pass U50, 2026-09-09 — do not file separately).** H6 also owns the placement/interaction grammar for movie-card status controls. Constraints: the Tonight movie-card top-right controls currently feel heavy; **do not** move Not interested underneath the poster art (that space carries a different action grammar); avoid arbitrary per-content placement. Establish a general grammar across three semantic categories — positive/content-state (watchlist, watched), negative/exclusion (not interested), podcast preference (preferred) — thought of as primary positive preference action / negative-exclusion action / status-list actions. Semantically equivalent controls need consistent meaning and interaction, not identical physical position. Goal is a coherent grammar, not forced uniformity.
 - **Pass H7 — Hidden / Not interested management screen — M (~3-5 credits).** Review-and-restore list for hidden titles. Depends on H6.
 
 #### Lists, watched state and sync — Priority 3c
@@ -97,7 +108,12 @@ The D/O/T5/G/H/Y repair pass is verified and closed (see "Already done"). The re
 #### Consistency and copy — Priority 4
 
 - **Pass E2 — Commentary Score formatting consistency — S (~1-2 credits).** One score component everywhere (Tonight uses icon + label + accent badge; Lists uses a bare shaded numeric badge). Pick one canonical treatment with an explicit compact variant.
+
+  **Clarified 2026-09-09 (folded in from Pass U50 — no new pass):** Commentary Score uses one shared component with a compact variant, never parallel implementations. Duration likewise uses one shared semantic treatment with compact/full variants. Semantic meaning and interaction stay consistent; visual density may be contextual.
+
 - **Pass E3 — Commentary Score explanation copy — S (~1-2 credits) — NEEDS COPY.** Distinguish deterministic scoring from user preference changes that intentionally change the inputs.
+
+  **Clarified 2026-09-09 (folded in from Pass U50 — no new pass):** the eventual end state is that the Commentary Score itself, and/or an adjacent info affordance, can be selected to reveal a concise explanation of what the score means, which factors contribute, and ideally the breakdown. Design preference is unobtrusive disclosure rather than permanent explanatory text. E2 owns formatting, E3 owns the concise copy and the disclosure affordance, **U28 owns the deeper "Why this?" rationale and full score decomposition** — three layers of the same feature, not duplicates.
 - \*\*Pass E4 — Commentary badge alternatives (NEEDS DESIGN):
 
 1. Popcorn icon + number only, label revealed on tap/hover.
@@ -120,7 +136,7 @@ The D/O/T5/G/H/Y repair pass is verified and closed (see "Already done"). The re
 
 - **Pass T6 — Show curation sort direction toggle — S (~1-2 credits).** Ascending/descending on every sort property in "Episode coverage and show curation".
 - **Pass T7 — Sort shows by highest external rating — S (~1-2 credits) — blocked on Pass M** landing a per-show ratings cache.
-- **Pass J3 — Podcast page episode sort and filter — M (~3-5 credits). IMPLEMENTED 2026-09-03. NOT VERIFIED (as of 2026-09-06) ** Episode feed on `/podcasts/$slug` now has title search, match filter (All episodes / Matched / Unmatched), admin-only review filter (Any review state / Reviewed / Unreviewed), sort control (newest, oldest, most/fewest linked movies, longest/shortest, title A–Z/Z–A) and a live "X of Y episodes" result count. Default order remains newest first. Acceptance: Verified in preview at 659px — sort options render, Unmatched filter narrowed 403 → 43, "Most linked movies" reorders, count updates, no horizontal overflow. Implemented, not verified: Reviewed/Unreviewed chip filtering exercised only via code path, not a completed runtime click assertion.
+- **Pass J3 — Podcast page episode sort and filter — M (~3-5 credits) — IMPLEMENTED, NOT VERIFIED (re-confirmed 2026-09-09; the remaining reviewed/unreviewed runtime assertion is not worth credits now — leave as-is until a `VERIFY SWEEP` schedules it).** Episode feed on `/podcasts/$slug` now has title search, match filter (All episodes / Matched / Unmatched), admin-only review filter (Any review state / Reviewed / Unreviewed), sort control (newest, oldest, most/fewest linked movies, longest/shortest, title A–Z/Z–A) and a live "X of Y episodes" result count. Default order remains newest first. Acceptance: Verified in preview at 659px — sort options render, Unmatched filter narrowed 403 → 43, "Most linked movies" reorders, count updates, no horizontal overflow. Implemented, not verified: Reviewed/Unreviewed chip filtering exercised only via code path, not a completed runtime click assertion.
 
 ### Pass G2 — Truly lock the layout — SHIPPED 2026-08-27
 
@@ -151,7 +167,7 @@ Pass G2's `.layout-locked` hardening is now scoped to touch-primary viewports: o
 
 - **Pass U2 — Multi-movie episode editor — L (~6-10 credits).** Handle double features, trilogies, franchises and "covered in passing" vs "primary subject" by letting one episode link to multiple movies with a coverage role; UI to add/remove/reorder links per episode.
 - **Pass U3 — Curated blocklist/allowlist — M (~3-5 credits).** Admin-managed high-noise phrase lists (ad/promo/joke titles) and per-title allowlist overrides feeding the matcher's keyword suppression.
-- **Pass U4 — Per-podcast matcher tuning — IMPLEMENTED, NOT VERIFIED — 2026-09-06.** Six named matcher strategies (`src/lib/matcher-strategies.ts`): clean-title (default, reproduces pre-U4 behaviour), year-aware, noisy-title + description, actor/name corroboration, special-word suppression, stricter threshold. Each is a named configuration of the existing deterministic signals in `matching.server.ts` — no new scoring model, no new data source. Per-show assignment stored on `podcasts.matcher_strategy` (default `clean_title`; all 53 shows started there), editable from the show curation row selector, used by Recheck/Resolve for that show. "Score the matcher" accepts an optional strategy and show scope. **Acceptance classification:** Verified — DB persistence + default assignment; selector visible/persists across reload (desktop + mobile 390px); per-strategy scoring (default threshold 25, precision 0.501 / recall 0.979 — unchanged from the pre-U4 baseline; stricter-threshold run at 45 gives precision 0.696); confirmed links and rejection records untouched (no resolve run, no writes outside `podcasts.matcher_strategy`). Implemented, not verified — a non-default show re-resolve proposal diff (skipped to avoid spending TMDB/ingest budget). Deferred — actor/name corroboration is limited to the existing description/year corroboration signals because no cast cache exists; true cast-mention matching remains Pass P → U23. **Wording note (2026-09-07):** "actor/name corroboration" is year/description corroboration only today; genuine cast-based behaviour arrives in Pass U4A below.
+- **Pass U4 — Per-podcast matcher tuning — IMPLEMENTED, NOT VERIFIED — 2026-09-06; re-confirmed 2026-09-09.** (2026-09-09: strategy persistence was re-exercised in the app — change one show's strategy, refresh, it persisted. The only outstanding item is a non-default re-resolve proposal diff, which needs a realistic failure/ingest test; leave IMPLEMENTED, NOT VERIFIED until one exists.) Six named matcher strategies (`src/lib/matcher-strategies.ts`): clean-title (default, reproduces pre-U4 behaviour), year-aware, noisy-title + description, actor/name corroboration, special-word suppression, stricter threshold. Each is a named configuration of the existing deterministic signals in `matching.server.ts` — no new scoring model, no new data source. Per-show assignment stored on `podcasts.matcher_strategy` (default `clean_title`; all 53 shows started there), editable from the show curation row selector, used by Recheck/Resolve for that show. "Score the matcher" accepts an optional strategy and show scope. **Acceptance classification:** Verified — DB persistence + default assignment; selector visible/persists across reload (desktop + mobile 390px); per-strategy scoring (default threshold 25, precision 0.501 / recall 0.979 — unchanged from the pre-U4 baseline; stricter-threshold run at 45 gives precision 0.696); confirmed links and rejection records untouched (no resolve run, no writes outside `podcasts.matcher_strategy`). Implemented, not verified — a non-default show re-resolve proposal diff (skipped to avoid spending TMDB/ingest budget). Deferred — actor/name corroboration is limited to the existing description/year corroboration signals because no cast cache exists; true cast-mention matching remains Pass P → U23. **Wording note (2026-09-07):** "actor/name corroboration" is year/description corroboration only today; genuine cast-based behaviour arrives in Pass U4A below.
 - **Pass U5 — Training/evaluation dashboard — M (~3-5 credits).** Turn "Score the matcher" scorecard output into recommended rule changes with before/after evals (extends `matcher-eval.server.ts`).
 - **Pass U6 — Low-confidence link maintenance — S (~1-2 credits).** A safe "clear low-confidence auto links and rerun the current engine" maintenance action with a dry-run preview, guarding manual/confirmed links and parked shows (related to Pass Z).
 
@@ -181,7 +197,7 @@ Recommendation: build X1 first — it is free, needs no new vendor, and answers 
 
 ### New backlog passes (approved 2026-08-31, not scheduled)
 
-#### Pass U18 — Cover art on show curation rows — S (~1-2 credits) — Shipped 2026-09-04
+#### Pass U18 — Cover art on show curation rows — S (~1-2 credits) — SHIPPED 2026-09-04 — VERIFIED 2026-09-09 (in-app)
 
 Each show card/row in "Podcast show curation & episode coverage" gets the podcast's cover art as a left thumbnail (reuse `Artwork` with `shape="cover"`, accent fallback for shows without art), so shows are recognisable at a glance instead of read line by line. Tapping the thumbnail opens that show's page.
 
@@ -237,6 +253,8 @@ Reframe admin work from "clean the database" to "unlock the thing you actually w
 
 #### Pass U28 — "Why this?" rationale and score decomposition — M (~3-5 credits) — Priority 2
 
+Reconciled 2026-09-09 (from Pass U50): U28 is the deepest of three layers over the same score — E2 formatting, E3 concise explanation copy + unobtrusive disclosure affordance, U28 full rationale and decomposition. Keep them distinct; do not open a fourth item for "explain the score".
+
 Two levels of explanation over the existing deterministic score in `src/lib/scoring.ts` (which already returns `reasons`, currently only partly surfaced):
 
 - **User level:** one unobtrusive line per recommendation — `Why this? 3 podcasts you follow covered it · similar to movies you've liked · available tonight`.
@@ -257,14 +275,16 @@ Make the primary product metric measurable: per matcher change and per review se
 
 ### Match Review UX and filter feedback (filed 2026-09-02, backlog only — full detail in `.lovable/plan/match-review-ux-filter-feedback-backlog-2026-09-02.md`)
 
-#### Pass U32 — Verify single-row unlink like bulk unlink — S (~1-2 credits) — IMPLEMENTED, NOT VERIFIED 2026-09-07
+#### Pass U32 — Verify single-row unlink like bulk unlink — S (~1-2 credits) — IMPLEMENTED, NOT VERIFIED 2026-09-07 (re-confirmed 2026-09-09: leave as-is until a realistic forced-delete-failure harness exists — no path to verification through normal UI use)
 
 `relinkEpisodeMovie` now deletes with `.select()`, re-reads the pair when zero rows come back, and returns `{ ok: false, error }` without recording a rejection or logging an action when the link is still there. Match Review turns that into a thrown error, so the row is restored (`unmarkDone`) and the message is shown instead of the row silently vanishing.
 
 - **Verified:** typecheck passes; both single-unlink and relink call sites check `ok`.
 - **Implemented, not verified:** a forced failing delete was not exercised in the running app (admin-only surface; test browser signed out).
 
-#### Pass U33 — Bulk action button visual states — S (~1-2 credits) — IMPLEMENTED, NOT VERIFIED 2026-09-07
+#### Pass U33 — Bulk action button visual states — S (~1-2 credits) — IMPLEMENTED, NOT VERIFIED 2026-09-07; follow-up fix 2026-09-09 also IMPLEMENTED, NOT VERIFIED
+
+**TRIAGE 2026-09-09 (fix reported, not verified).** The shipped behaviour did not match the spec: the bulk action bar could unmount while optimistic selection cleared, and per-row actions dimmed whole rows. Fix shipped the same day — the bulk bar persists with an "N in progress" readout, only the pressed button fills and spins, siblings stay muted text-on-grey, rows no longer dim. Destructive bulk mutations were not exercised in a signed-in session, so both the original pass and this fix stay IMPLEMENTED, NOT VERIFIED; blocked on U76.
 
 Bulk buttons now use a `bulkClass()` helper built on the same `ACTION_TONES` tokens as the row actions: Approve/Confirm teal text on muted grey, Reject/Unlink destructive text on grey, Not about a movie gold text on grey, Mark reviewed/Reopen neutral outline. Only the pressed action fills (white on colour) and carries the spinner for the whole operation; siblings stay text-on-grey and go quiet while disabled. The separate "Applying…" spinner label was removed as redundant.
 
@@ -294,7 +314,9 @@ Y2's rating range is accepted; this pass addresses the broader filtering-feedbac
 
 ## Worth doing soon
 
-#### Pass L1 — Catalogue read is too heavy for a cold page load — M (~3-5 credits) — SHIPPED 2026-09-05
+#### Pass L1 — Catalogue read is too heavy for a cold page load — M (~3-5 credits) — SHIPPED 2026-09-05 — accepted on code/measurement evidence 2026-09-09 (no further bespoke runtime test planned)
+
+**L1 rendered-item cap change — shipped 2026-09-07, partially verified 2026-09-09.** The client-side "Show more" caps were raised: Movies 40 → 100 (**verified**), Shows 30 → 50 (**not verified** — only 28 active shows exist, so the cap cannot currently be reached), podcast-detail episodes 30 → 150 (**verified**), podcast-detail covered movies 24 → 70 (**needs follow-up, accepted** — the server still returns `COVERED_CAP = 60` per group, so the 70 cap is unreachable without a server-side change owned by L2c; larger covered lists are desirable as long as they cost no measurable performance). "Show more" behaviour, truthful totals and the L2b server contract are unchanged.
 
 Urgent triage removed the two browser-freezing costs: catalogue rows now load in parallel page waves, and movie discovery uses indexed one-pass joins/scoring instead of rescanning every link, genre and availability row once per movie. Movies renders 40 cards initially, Shows renders 30, and podcast detail renders 24 movies plus 30 episodes, with explicit load-more controls. Derived movie entries are reused during navigation while the catalogue/preferences are unchanged.
 
@@ -309,7 +331,7 @@ Audit finding: no consumer page is _incorrect_ — filters, sorts, counts and Co
 - **Pass L2a — Stop transferring what is never shown — SHIPPED (PARTIAL) 2026-09-05, reconciled 2026-09-06.** What the code actually does: episode `description`, movie `synopsis` and the global `episode_sources` read left the catalogue read and now load for visible rows / the open movie via `src/lib/details.ts`; parked _shows and their episodes_ are excluded at query time (`.neq('curation_status','parked')` + `.in('podcast_id', activeIds)`); the two keyless `invalidateQueries()` calls in `episode-reviews.ts` are now a targeted key list. Acceptance: **Verified** — catalogue payload 8.0 MB decoded (was ~14 MB), `episode_sources` catalogue requests gone, descriptions/synopses/Listen links still render, first content 5-6 s dev-cold on `/movies`, `/podcasts`, show detail. **Implemented, not verified:** nothing outstanding. **Deferred (moved to L2a-follow-up, below):** scope item 2 is only half done — `episode_movies` is still read in full and parked links (~1,561 rows) are dropped client-side; scope item 3 is incomplete — `link-review.ts` still invalidates `["catalog"]` on Confirm, so that one admin action still reloads the catalogue. **Intentional, not gaps:** scope item 4's "primary source only" wording was wrong for this UI — episode cards render `PlatformBadges` for every platform, so `useEpisodeDetails` correctly fetches all source rows for visible episodes; the wording is corrected here rather than the code. **Intentional scope addition:** moving the holiday exclusion test to a server-side word-boundary match (`holidayMovieIds`) was not one of the four original L2a items and is recorded as an addition, not an acceptance criterion. **Target correction:** the documented ~2-3 MB expectation was unreachable within L2a's scope and is retired; the accurate measured expectation for L2a is **~8 MB** (episodes 3.2 / links 1.7 / availability 1.5 / movies 1.0 / genres 0.7). That residue is structurally necessary while the browser is the query engine: filters, sorts, counts and Commentary Score evaluate the full candidate set client-side, so every active movie, link, genre and availability row must be present. Only L2b removes it; the ~2-3 MB figure belongs to L2b, not L2a.
 - **Pass L2a follow-up — remaining source-side filtering and targeted invalidation — S — SHIPPED 2026-09-06.** (1) `episode_movies` is now filtered at query time through an inner join on the episode's show (`podcast_episodes!inner(podcast_id)` + `.in('podcast_episodes.podcast_id', activePodcastIds)`) in `src/lib/data.ts`; the client-side `activeEpisodeIds` filter is gone. (2) Confirm no longer invalidates `["catalog"]`: `src/lib/link-review.ts` keeps this session's confirmations on a dedicated `["link-confirmations"]` cache key which `useConfirmedLinks` layers over the catalogue's `review_state`, and invalidates only `["episode-flags"]` / `["episode-links"]`.
   Acceptance: **Verified** — filtered link count 7,838 matches the previous client-filtered count against a live SQL/REST exact count (unfiltered 9,399), so scoring inputs are unchanged; `/movies` renders 2,606 titles with episode/show counts and no console errors; typecheck clean. **Intentional, not a gap:** `CatalogAddCard.tsx` keeps its `["catalog"]` invalidation — it adds brand-new movies/shows to the catalogue, so a catalogue refresh is the correct and only way to surface them, and it is a rare explicit admin action.
-- **Pass L2b — Server-side list architecture — L (~6-10 credits) — IMPLEMENTED, NOT VERIFIED 2026-09-06.** Ranking logic was extracted, unchanged, into two pure modules (`src/lib/entries.ts`, `src/lib/podcast-entries.ts`) imported by both the browser and the server, so there is exactly one definition of filtering, sorting, Commentary Score and show scoring. `src/lib/catalog.server.ts` reads the catalogue server-side (60 s isolate cache, per-taste derived-entry cache) and `src/lib/catalog-lists.functions.ts` exposes `listMoviePage`, `listShowPage`, `getShowDetail` and `getCatalogFacets`, each ranking over the FULL candidate set and returning only the rendered rows plus honest totals. Tonight, Movies, Shows and show detail now read those pages through `src/lib/server-lists.ts`; `useDiscovery` remains for movie detail, Lists and Settings. Taste travels with the request as a compact slug-keyed profile (`src/lib/taste.ts`).
+- **Pass L2b — Server-side list architecture — L (~6-10 credits) — IMPLEMENTED, NOT VERIFIED 2026-09-06; re-confirmed 2026-09-09.** Outstanding verification is exactly one signed-in Confirm/Flag assertion on an admin surface — **blocked on Pass U76 (repeatable admin verification identity)**; do not retry authenticated testing before U76 lands. Known architectural gaps are owned by L2c, not by re-opening L2b. Ranking logic was extracted, unchanged, into two pure modules (`src/lib/entries.ts`, `src/lib/podcast-entries.ts`) imported by both the browser and the server, so there is exactly one definition of filtering, sorting, Commentary Score and show scoring. `src/lib/catalog.server.ts` reads the catalogue server-side (60 s isolate cache, per-taste derived-entry cache) and `src/lib/catalog-lists.functions.ts` exposes `listMoviePage`, `listShowPage`, `getShowDetail` and `getCatalogFacets`, each ranking over the FULL candidate set and returning only the rendered rows plus honest totals. Tonight, Movies, Shows and show detail now read those pages through `src/lib/server-lists.ts`; `useDiscovery` remains for movie detail, Lists and Settings. Taste travels with the request as a compact slug-keyed profile (`src/lib/taste.ts`).
   Acceptance: **Verified** — per-page transfer on the list surfaces fell from ~8 MB to 163 KB (`/movies`), 100 KB (`/`), 40 KB (`/podcasts`), 983 KB (a 419-episode / 395-movie show detail); zero Supabase catalogue REST bytes remain on those routes; warm first content 1.2-1.9 s and dev-cold 5.8 s at 390 px; no console errors; totals truthful and full-scope (2,606 catalogue titles, 2,523 after the saved browse filter, 160 Tonight matches, show detail 395 movies / 419 episodes); load-more requests a larger bounded page rather than a whole-catalogue reload; Shows freezes its ranking snapshot for the visit so cards cannot jump mid-tap. **Verified (by construction):** filter/sort/score parity — the server calls the same `buildEntries`/`applyFilters`/`scoreAllMovies` code the browser used, moved not rewritten. **Scope addition:** `useConfirmedLinks` no longer derives confirmed pairs from a full catalogue read; it fetches confirmed pairs only, and only for admins. **Implemented, not verified:** admin-only controls on the new server-page surfaces (Confirm/Flag rows) were not exercised — the verification browser session was signed out. **Needs follow-up:** movie detail, Lists and Settings still load the full catalogue via `useDiscovery` (filed as L2c below); show-detail payload (~1 MB on the largest show) can be trimmed by slimming covered-movie entries. **Deferred:** cross-device taste sync — taste is still device-local and sent with each request, so server ranking is catalogue-wide but not yet account-portable (filed as L2c).
   **Verification gap (clarified 2026-09-07, reconciliation):** the only open L2b acceptance item is exercising admin-only Confirm/Flag controls on Tonight, Movies, Shows and show detail in a _signed-in admin_ session. This is an L2b verification gap, **not** L2c implementation scope, and it does not reopen L2b's implementation. Blocker: the verification browser session is signed out; do not re-attempt authenticated browser runs while that remains true, and do not relabel these controls **Verified** until they are actually tapped in a signed-in admin session. Cheapest path: one manual tap by the signed-in owner on a movie-detail episode row and a podcast-detail linked-movie row.
 - **Pass L2c — Finish the server-side migration — L (~6-10 credits) — backlog, depends on L2b. Estimate raised from M on 2026-09-07 after reconciliation.** Scope unchanged and confirmed to fully cover every follow-up L2b identified — no new pass is warranted:
@@ -327,37 +349,39 @@ Stability gate before card passes resume: first content within ~2s warm / ~4s co
 
 One shared card grammar (thumbnail / header h1 + h2 + upper-right controls / badge subheader / body rows / footer left-float + trailing text / optional expand-collapse footer) across the Movies list card, movie-detail episode card, podcast-page movie card and podcast-page episode card. Reference mockup is layout-only; Cinema Neon styling is authoritative. Suggested order K1 → K2 → K3 → K5 → K6 → K4, ~14-20 credits total.
 
-#### Pass K1 — Shared flag control, circular everywhere — S — SHIPPED 2026-09-04
+#### Pass K1 — Shared flag control, circular everywhere — S — SHIPPED 2026-09-04 — VERIFIED 2026-09-09 (in-app)
 
 `FlagMatchButton`'s `inline` pill variant retired; one circular 32px control on every surface.
 Acceptance: Verified — podcast-page covered-movie rows and movie-detail episode cards use the same component/shape; no `variant="inline"` call sites remain.
 
-#### Pass K2 — Card shell primitives — S — SHIPPED 2026-09-04
+#### Pass K2 — Card shell primitives — S — SHIPPED 2026-09-04 — accepted 2026-09-09 on code evidence (no bespoke runtime test)
+
+Decision 2026-09-09: the shared primitives are demonstrably present and every K3/K5/K6 card renders through them, so a design-system primitive does not warrant its own runtime test unless something looks wrong. Closed rather than left IMPLEMENTED, NOT VERIFIED.
 
 `src/components/card/Card.tsx` provides `CardShell` / `CardControls` / `CardHeader` (eyebrow + inline muted h2) / `CardBadges` / `CardBody` / `CardBodyRow` / `CardFooter` / `CardExpand`; `Artwork` gained a `circle` shape. Shared `ExpandableText`, `PlatformBadges`, `MarkListenedButton`, `EpisodeNotesFooter` sit on top.
 Acceptance: Verified — K5/K6 cards render entirely through the primitives at 390px with zero horizontal overflow. Deferred — re-expressing the Movies list card through the shell; K3 will do that with its own layout change. Design options were not surfaced separately; defaults chosen were eyebrow for episode cards and circular cover art per the K5 spec.
 
-#### Pass K3 — Movies list card to spec — S — SHIPPED 2026-09-05 — supersedes Pass E
+#### Pass K3 — Movies list card to spec — S — SHIPPED 2026-09-05 — VERIFIED 2026-09-09 (in-app) — supersedes Pass E
 
 Drop the redundant "Watched" badge, shrink the commentary badge, body = cover art + total episode count then unique podcast coverage text, footer = service badges (icon + name) then bullet-separated genres. Re-expressed through the K2 primitives.
 Acceptance: Verified at 390px on `/movies` — cards render through `CardShell`/`CardHeader`/`CardBadges`/`CardBody`/`CardFooter`, no "Watched" badge, compact commentary pill, "N episodes across M shows" coverage line, service badges then genres, zero horizontal overflow.
 
-#### Pass K4 — Podcast-page movie card — M — IMPLEMENTED 2026-09-05 - NOT VERIFIED (as of 2026-09-06)
+#### Pass K4 — Podcast-page movie card — M — SHIPPED 2026-09-05 — VERIFIED 2026-09-09 (in-app)
 
 Poster, title + muted inline year, one body row per episode link (`YYYY-MM-DD: title (XhYm)`, 2-line clamp) with an admin-only circular confirm control left of the circular flag, footer = icon-only service badges then genres. New `src/lib/link-review.ts` reads confirmed links from the catalogue (`episode_movies.review_state`) and calls `confirmEpisodeMatch`.
 Acceptance: Verified — typecheck clean; card built entirely on K2 primitives. Implemented, not verified — runtime render of the show page: headless Chromium crashed (EPIPE/OOM) on these data-heavy show pages, and the admin-only confirm control plus the flag control need a signed-in admin session to appear.
 
-#### Pass K5 — Movie-detail episode card — M — IMPLEMENTED 2026-09-04 — carries J1's row work for this surface - NOT VERIFIED (as of 2026-09-06)
+#### Pass K5 — Movie-detail episode card — M — SHIPPED 2026-09-04 — VERIFIED 2026-09-09 (in-app) — carries J1's row work for this surface
 
 Circular cover with prefer-show heart beneath, small-caps show name over episode title, upper-right circular flag + mark-listened, date/duration subheader, 2-line description with expand, footer = Listen ↗ then platform badges with admin actions trailing, expand-collapse rate/listened/quality footer.
 Acceptance: Verified at 390px on `/movies/titanic` — 11 episode cards, round cover + heart, eyebrow show name, description clamped with Show more, Listen, rating footer opens listening/quality controls, zero overflow, no console errors. Implemented, not verified — the circular flag control (renders only for signed-in viewers; the headless session is signed out) and platform badges (this data set has no per-episode platform listings beyond the primary source).
 
-#### Pass K6 — Podcast-page episode card — M — IMPLEMENTED 2026-09-04 — carries the rest of J1's row work - NOT VERIFIED (as of 2026-09-06)
+#### Pass K6 — Podcast-page episode card — M — SHIPPED 2026-09-04 — VERIFIED 2026-09-09 (in-app) — carries the rest of J1's row work
 
 No thumbnail, small-caps date over episode title, mark-listened upper-right, duration subheader, one body row per linked movie (title + year, circular flag right), same footer and rating footer as K5. Episode listen URL + platform sources added to `PodcastEpisodeRow`.
 Acceptance: Verified at 390px on `/podcasts/that-aged-well` — 403 episode cards with date eyebrow, duration, linked-movie rows, Listen, rating footer, existing J3 search/filter/sort/count intact, zero overflow. Implemented, not verified — circular per-link flag (signed-in only) and platform badges (no extra listings in this data).
 
-### Pass E — Card cleanup — superseded 2026-09-04 by Pass K3
+### Pass E — Card cleanup — RESOLVED 2026-09-09 — superseded 2026-09-04 by Pass K3 (+ E4 for badge alternatives)
 
 Original scope (drop the redundant "Watched" badge, shrink the commentary badge to icon + number) is now inside Pass K3. Do not build separately.
 
@@ -369,7 +393,7 @@ Confirmation dialog before deleting a watchlist plus an undo snackbar (~8 second
 
 Admin-only maintenance action that purges current non-manual proposed/weak saved links from active shows, keeps human labels (`match_actions`, `episode_match_rejections`, `not_about_a_movie`) intact, then reruns the current matcher over the now-unmatched active episodes. Best practice: dry-run first with counts by link type and confidence band, require a confirmation phrase, never delete manual/confirmed links, never touch parked shows unless explicitly opted in, and log a single maintenance action for audit/undo context. Useful after major matcher changes, but risky enough to keep behind a guarded tool rather than a routine workflow.
 
-### Pass J1 — Episode row presentation — narrowed 2026-09-04 — S (~1-2 credits) — Priority 9
+### Pass J1 — Episode row presentation — narrowed 2026-09-04 — S (~1-2 credits) — Priority 9 — IMPLEMENTED, NOT VERIFIED (2026-09-09: effectively a decomposed/historical container; its row work is VERIFIED under K5/K6, and only the segmented movie/episode view remains as real scope)
 
 Remaining scope is only the podcast-page segmented control for movie-focused vs episode-focused views. Truncated descriptions with expand and consistent title/date/duration/controls moved to Passes K5 and K6.
 
@@ -379,6 +403,8 @@ Remaining scope is only the podcast-page segmented control for movie-focused vs 
 
 Dedicated per-episode pages are deferred until external ratings/comments or similar episode-level social/context data exists.
 
+**Rationale addition 2026-09-09 (from Pass U50 — no new pass, no implementation now):** "Body-click instinct: there must be a deeper object here." The urge to click the episode card body is evidence that the content has a latent deeper object — an Episode Details page — rather than an invalid interaction instinct. It supports eventually building J2 instead of suppressing the affordance.
+
 ## Backlog (wider-audience or large-volume — hold until the engine is trustworthy)
 
 NEW BACKLOG ADDITIONS - REVIEWED 2026.09.06 832AM
@@ -387,7 +413,7 @@ NEW BACKLOG ADDITIONS - REVIEWED 2026.09.06 832AM
 
 ### TO SEND NOW / next after current stability gate
 
-#### Pass U38 — Episode relationship action cleanup — M (~3-5 credits) — IMPLEMENTED, NOT VERIFIED — 2026-09-06
+#### Pass U38 — Episode relationship action cleanup — M (~3-5 credits) — IMPLEMENTED, NOT VERIFIED — 2026-09-06; re-confirmed 2026-09-09 (leave as-is unless one of the remaining acceptance points becomes worth a test; U42F still owns inline placement)
 
 Acceptance: Implemented, not verified (admin surfaces could not be signed into during this pass; re-verify in app).
 
@@ -418,7 +444,7 @@ Relationship moderation principle: (not yet being abided to in this item - goal 
 - Keep relationship-level controls with the relationship they moderate.
 - Episode-level review controls belong in episode-centric/admin contexts, not a relationship-only card.
 
-#### Pass U39 — Unmatched Episodes episode context — S (~1-2 credits) — IMPLEMENTED, NOT VERIFIED — 2026-09-06
+#### Pass U39 — Unmatched Episodes episode context — S (~1-2 credits) — SHIPPED 2026-09-06 — VERIFIED 2026-09-09 (in-app)
 
 Acceptance: Implemented, not verified (admin-only surface; re-verify in app).
 
