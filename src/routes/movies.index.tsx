@@ -57,7 +57,11 @@ function MoviesPage() {
           icon={Clapperboard}
           eyebrow="Movies"
           title="Browse all movies"
-          subtitle={`${catalogTotal} title${catalogTotal === 1 ? "" : "s"} in the catalogue`}
+          subtitle={
+            isLoading
+              ? "Loading the catalogue…"
+              : `${catalogTotal} title${catalogTotal === 1 ? "" : "s"} in the catalogue`
+          }
         />
 
         <div className="mt-4 flex items-center gap-2">
