@@ -97,13 +97,17 @@ function PodcastsPage() {
           ))}
         </div>
 
+        <div className="mt-4">
+          <ListErrorNotice error={error} onRetry={refetch} />
+        </div>
+
         {isLoading ? (
           <ul className="mt-4 space-y-2.5">
             {Array.from({ length: 5 }).map((_, i) => (
               <li key={i} className="h-24 animate-pulse rounded-2xl bg-muted" />
             ))}
           </ul>
-        ) : results.length === 0 ? (
+        ) : error ? null : results.length === 0 ? (
           term.trim() ? (
             <CatalogAddCard kind="podcast" term={term.trim()} />
           ) : (
