@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { Bookmark, CalendarCheck, Headphones, Plus, Trash2 } from "lucide-react";
+import { Bookmark, CalendarCheck, ExternalLink, Headphones, Plus, Trash2 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { PageHeader } from "@/components/PageHeader";
 import { PartialDataNotice } from "@/components/PartialDataNotice";
@@ -12,9 +12,11 @@ import {
   formatWatchedOn,
   LISTENING_LABEL,
   RATING_LABEL,
+  useListenLater,
   useListened,
   useLists,
 } from "@/lib/lists";
+import { useEpisodeDetails, EMPTY_EPISODE_DETAIL } from "@/lib/details";
 import { prefsActions, usePrefs } from "@/lib/prefs";
 
 
@@ -39,11 +41,13 @@ export const Route = createFileRoute("/lists/")({
   component: ListsPage,
 });
 
-type Tab = "lists" | "history" | "listened";
+type Tab = "lists" | "later" | "history" | "listened";
 
 function ListsPage() {
   const { lists, history, isLoading, partial } = useLists();
   const { listened } = useListened();
+  const { episodes: listenLater } = useListenLater();
+  const { details } = useEpisodeDetails(listenLater.map((e) => e.episode.id));
   const prefs = usePrefs();
   const [tab, setTab] = useState<Tab>("lists");
   const [name, setName] = useState("");
@@ -58,6 +62,7 @@ function ListsPage() {
           {(
             [
               { value: "lists", label: `Lists (${lists.length})` },
+              { value: "later", label: `Listen Later (${listenLater.length})` },
               { value: "history", label: `Watched (${history.length})` },
               { value: "listened", label: `Listened (${listened.length})` },
             ] as const
@@ -195,6 +200,85 @@ function ListsPage() {
               })}
             </ul>
           </>
+        ) : tab === "later" ? (
+          <ul className="mt-6 space-y-2">
+            {listenLater.length === 0 ? (
+              <li className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                Nothing saved yet. Tap the bookmark on any episode card to keep it for later.
+              </li>
+            ) : null}
+            {listenLater.map((item) => {
+              const detail = details[item.episode.id] ?? EMPTY_EPISODE_DETAIL;
+              const listenUrl = detail.listenUrl ?? item.podcast.website_url ?? null;
+              const duration = item.episode.duration_seconds
+                ? `${Math.round(item.episode.duration_seconds / 60)} min`
+                : null;
+              return (
+                <li
+                  key={item.episode.id}
+                  className="rounded-2xl border border-border bg-card p-3 shadow-card"
+                >
+                  <div className="flex items-start gap-3">
+                    <Link to="/podcasts/$slug" params={{ slug: item.podcast.slug }} className="shrink-0">
+                      <Artwork
+                        src={item.podcast.artwork_url}
+                        title={item.podcast.name}
+                        seed={item.podcast.slug}
+                        accent={item.podcast.accent}
+                        shape="circle"
+                        className="w-12 text-base"
+                      />
+                    </Link>
+                    <div className="min-w-0 flex-1">
+                      <p className="break-anywhere text-sm font-semibold leading-snug">
+                        {item.episode.title}
+                      </p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {item.podcast.name}
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-muted-foreground">
+                        {[formatEpisodeDate(item.episode.released_at), duration]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </p>
+                      {item.movieTitles.length > 0 ? (
+                        <p className="mt-1 truncate text-xs text-muted-foreground">
+                          {item.movieTitles.join(", ")}
+                        </p>
+                      ) : null}
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px]">
+                        {listenUrl ? (
+                          <a
+                            href={listenUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary px-2.5 py-1 font-semibold text-secondary-foreground"
+                          >
+                            Listen
+                            <ExternalLink className="size-3" aria-hidden />
+                          </a>
+                        ) : null}
+                        {item.status !== "not_started" ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-1 font-semibold text-muted-foreground">
+                            <Headphones className="size-3" aria-hidden />
+                            {LISTENING_LABEL[item.status]}
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      aria-label={`Remove ${item.episode.title} from Listen Later`}
+                      onClick={() => prefsActions.toggleListenLater(item.episode.slug, false)}
+                      className="inline-flex size-8 shrink-0 items-center justify-center rounded-full border border-border text-muted-foreground transition-colors hover:text-coral"
+                    >
+                      <Trash2 className="size-4" aria-hidden />
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
         ) : tab === "history" ? (
           <ul className="mt-6 space-y-2">
             {history.length === 0 ? (
