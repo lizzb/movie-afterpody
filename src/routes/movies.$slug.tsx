@@ -103,7 +103,7 @@ function MovieDetailPage() {
         <main className="mx-auto w-full max-w-3xl px-4 py-16 text-center">
           <PartialDataNotice show={partial} />
           <h1 className="font-display text-2xl font-bold">
-            {partial ? "We couldn&rsquo;t load that movie" : "We don&rsquo;t have that movie yet"}
+            {partial ? "We couldn’t load that movie" : "We don’t have that movie yet"}
           </h1>
           <Link to="/movies" className="mt-4 inline-block text-sm font-semibold text-coral">
             Back to all movies
