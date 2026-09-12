@@ -107,7 +107,13 @@ async function fetchByKeyset<T extends { id: string }>(
   const LIMIT = 1000;
   let afterId = "00000000-0000-0000-0000-000000000000";
   for (;;) {
-    const { data, error } = await page(afterId, LIMIT);
+    let result = await page(afterId, LIMIT);
+    for (let attempt = 0; result.error && attempt < 3; attempt += 1) {
+      console.error(`[catalog] keyset page after ${afterId} failed: ${result.error.message}`);
+      await sleep(200 * (attempt + 1));
+      result = await page(afterId, LIMIT);
+    }
+    const { data, error } = result;
     if (error) throw new Error(error.message);
     const rows = data ?? [];
     out.push(...rows);
