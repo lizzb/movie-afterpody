@@ -120,13 +120,17 @@ function MoviesPage() {
           </section>
         ) : null}
 
+        <div className="mt-5">
+          <ListErrorNotice error={error} onRetry={refetch} />
+        </div>
+
         {isLoading ? (
           <ul className="mt-6 space-y-3">
             {Array.from({ length: 5 }).map((_, i) => (
               <li key={i} className="h-28 animate-pulse rounded-2xl bg-muted" />
             ))}
           </ul>
-        ) : rows.length === 0 ? (
+        ) : error ? null : rows.length === 0 ? (
           term.trim() ? (
             <CatalogAddCard kind="movie" term={term.trim()} />
           ) : (
