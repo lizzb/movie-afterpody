@@ -117,3 +117,20 @@ This is low priority by design — expect it to run only when credits are in sur
 Execute one filed verification pass against the running app, then update the roadmap: promote to **VERIFIED** with date and evidence, or leave the label and name the blocker. Move the entry to its correct section in the same edit. A small defect found mid-run follows the `TRIAGE` rules; it does not expand the verification pass.
 
 Use `BUILD` only when product code is expected to change.
+
+## Admin verification identity (Pass U76, added 2026-09-11)
+
+Admin-only surfaces must be verified through the real path — JWT → `requireSupabaseAuth` → RLS → `has_role` — never by weakening a policy or a client guard.
+
+Standing procedure (credential-free; nothing stored in source):
+
+1. `lovable auth-session --json` mints a short-lived real session for the project's sole auth user (`x.lizzb@gmail.com`, id `176b1ada-673a-426e-a40e-946fb9e2420a`, which holds the `admin` row in `user_roles`). With several auth users use `--self`, or `--user <uuid>` for a named account.
+2. `python3 scripts/verify-admin-session.py [/admin/ingest]` restores that session (SSR cookies + supabase-js localStorage key) into Playwright and reports whether the admin surface loads. Exit 0 = usable admin session.
+3. Run the pass's own assertion in the same restored context. Confirm/Flag pattern: open a show detail, click **Confirm this link is correct**, expect the "Link confirmed" toast, then click the undo state so no data is left changed.
+4. Signed-out control: the same route in a fresh context must show zero Confirm controls and the server function must refuse (HTTP 403).
+
+A no-second-identity decision was taken deliberately: creating an extra `verify-admin@…` auth user would make every mint require `--user <uuid>` with per-run user approval, adding friction without adding safety. The existing sole admin account is already non-shared and its tokens are short-lived.
+
+**Labelling rule:** an admin-only item may only be labelled "IMPLEMENTED, NOT VERIFIED" *for session reasons* after this procedure has actually been run and failed, with the failure output quoted on the roadmap entry.
+
+Verified 2026-09-11: `/admin/ingest` loads with the full ingest dashboard and no console errors; 6 Confirm controls present on a show detail; Confirm wrote and undid successfully; signed out, 0 controls and `confirmEpisodeMatch` returned 403.
