@@ -270,7 +270,11 @@ function hydrate() {
         ...parsed,
         watchedDates: { ...(parsed.watchedDates ?? {}) },
         viewModes: { ...(parsed.viewModes ?? {}) },
-        lists: parsed.lists ?? DEFAULT_PREFS.lists,
+        lists: (parsed.lists ?? DEFAULT_PREFS.lists).map((l) => ({
+          ...l,
+          movieSlugs: l.movieSlugs ?? [],
+          episodeSlugs: l.episodeSlugs ?? [],
+        })),
         notInterestedSlugs: parsed.notInterestedSlugs ?? [],
         filters: { ...DEFAULT_PREFS.filters, ...(parsed.filters ?? {}) },
         movieFilters: { ...NO_FILTERS, ...(parsed.movieFilters ?? {}) },
@@ -377,6 +381,39 @@ export const prefsActions = {
   },
   deleteList(id: string) {
     write({ ...current, lists: current.lists.filter((l) => l.id !== id) });
+  },
+  /**
+   * Pass U44 — Listen Later. Same list model as watchlists, episode members.
+   * The list is created lazily on first save so nothing appears until used.
+   */
+  toggleListenLater(episodeSlug: string, on?: boolean) {
+    const existing = current.lists.find((l) => l.id === LISTEN_LATER_ID);
+    const members = existing?.episodeSlugs ?? [];
+    const next = toggle(members, episodeSlug, on);
+    if (existing) {
+      write({
+        ...current,
+        lists: current.lists.map((l) =>
+          l.id === LISTEN_LATER_ID ? { ...l, episodeSlugs: next } : l,
+        ),
+      });
+      return;
+    }
+    write({
+      ...current,
+      lists: [
+        ...current.lists,
+        {
+          id: LISTEN_LATER_ID,
+          name: LISTEN_LATER_NAME,
+          accent: "teal",
+          kind: "episodes" as const,
+          movieSlugs: [],
+          episodeSlugs: next,
+          createdAt: new Date().toISOString().slice(0, 10),
+        },
+      ],
+    });
   },
   toggleListMovie(id: string, movieSlug: string, on?: boolean) {
     write({
