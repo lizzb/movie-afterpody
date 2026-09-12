@@ -49,7 +49,7 @@ function PodcastsPage() {
 
   // Pass L2b — ranked and filtered on the server across every active show,
   // against the live taste profile so services and hearts always apply.
-  const { rows: results, total, isLoading } = useShowPage({ term, mode, limit });
+  const { rows: results, total, isLoading, error, refetch } = useShowPage({ term, mode, limit });
 
   useEffect(() => {
     setLimit(50);
