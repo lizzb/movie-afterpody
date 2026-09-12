@@ -60,6 +60,7 @@ export function useMoviePage(args: {
     isLoading: query.isLoading,
     isFetching: query.isFetching,
     error: query.error,
+    refetch: () => void query.refetch(),
   };
 }
 
