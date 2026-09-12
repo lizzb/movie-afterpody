@@ -34,21 +34,55 @@ const PAGE = 1000;
  * Fetch pages in parallel waves instead, stopping at the first short page.
  */
 const WAVE = 6;
+/** Pass U79 — a timed-out page is retried in smaller slices before giving up. */
+const RETRY_PAGE = 250;
 
-async function fetchAllRows<T>(
-  page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
-): Promise<T[]> {
+type PageFn<T> = (
+  from: number,
+  to: number,
+) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>;
+
+/** Re-read one failed window in smaller slices; null means it failed again. */
+async function retrySmaller<T>(page: PageFn<T>, from: number, to: number): Promise<T[] | null> {
+  const out: T[] = [];
+  for (let start = from; start <= to; start += RETRY_PAGE) {
+    const { data, error } = await page(start, Math.min(start + RETRY_PAGE - 1, to));
+    if (error) return null;
+    const rows = data ?? [];
+    out.push(...rows);
+    if (rows.length < RETRY_PAGE) break;
+  }
+  return out;
+}
+
+async function fetchAllRows<T>(page: PageFn<T>, onPartial?: (message: string) => void): Promise<T[]> {
   const out: T[] = [];
   for (let start = 0; ; start += PAGE * WAVE) {
     const wave = await Promise.all(
       Array.from({ length: WAVE }, (_, i) => {
         const from = start + i * PAGE;
-        return page(from, from + PAGE - 1);
+        return page(from, from + PAGE - 1).then(
+          (r) => r,
+          (err: unknown) => ({ data: null, error: { message: String(err) } }),
+        );
       }),
     );
     let done = false;
-    for (const { data, error } of wave) {
-      if (error) throw new Error(error.message);
+    for (let i = 0; i < wave.length; i += 1) {
+      const { data, error } = wave[i]!;
+      const from = start + i * PAGE;
+      if (error) {
+        const recovered = await retrySmaller(page, from, from + PAGE - 1);
+        if (recovered === null) {
+          // Degrade to a partial catalogue rather than blanking the page.
+          if (!onPartial) throw new Error(error.message);
+          onPartial(error.message);
+          return out;
+        }
+        out.push(...recovered);
+        if (recovered.length < PAGE) done = true;
+        continue;
+      }
       const rows = data ?? [];
       out.push(...rows);
       if (rows.length < PAGE) done = true;
@@ -56,6 +90,7 @@ async function fetchAllRows<T>(
     if (done) return out;
   }
 }
+
 
 
 /**
