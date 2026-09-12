@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useDiscovery, type MovieEntry } from "./discovery";
-import type { LocalList } from "./prefs";
+import { listenLaterSlugs, type LocalList } from "./prefs";
 import type {
   Episode,
   EpisodeRating,
@@ -145,3 +145,54 @@ export const RATING_LABEL: Record<EpisodeRating, string> = {
   meh: "Meh",
   disliked: "Didn’t like it",
 };
+
+export interface ListenLaterEntry {
+  episode: Episode;
+  podcast: Podcast;
+  /** Listening state is shown for context only; U44 never changes it. */
+  status: ListeningStatus;
+  movieTitles: string[];
+}
+
+/**
+ * Pass U44 — the implicit "Listen Later" listenlist, resolved against the
+ * catalog. Saved order is preserved (newest saves last), so the list reads like
+ * a queue rather than re-sorting under the user.
+ */
+export function useListenLater(): { episodes: ListenLaterEntry[]; isLoading: boolean } {
+  const { catalog, prefs, isLoading } = useDiscovery();
+  const slugs = listenLaterSlugs(prefs);
+
+  const episodes = useMemo<ListenLaterEntry[]>(() => {
+    if (!catalog) return [];
+    const podcastById = new Map(catalog.podcasts.map((p) => [p.id, p]));
+    const episodeBySlug = new Map(catalog.episodes.map((e) => [e.slug, e]));
+    const movieById = new Map(catalog.movies.map((m) => [m.id, m]));
+    const titlesByEpisode = new Map<string, string[]>();
+    for (const link of catalog.episodeMovies) {
+      const title = movieById.get(link.movie_id)?.title;
+      if (!title) continue;
+      titlesByEpisode.set(link.episode_id, [
+        ...(titlesByEpisode.get(link.episode_id) ?? []),
+        title,
+      ]);
+    }
+
+    return slugs
+      .map((slug) => {
+        const episode = episodeBySlug.get(slug);
+        if (!episode) return null;
+        const podcast = podcastById.get(episode.podcast_id);
+        if (!podcast) return null;
+        return {
+          episode,
+          podcast,
+          status: prefs.listening[slug] ?? "not_started",
+          movieTitles: titlesByEpisode.get(episode.id) ?? [],
+        };
+      })
+      .filter((e): e is ListenLaterEntry => Boolean(e));
+  }, [catalog, slugs, prefs.listening]);
+
+  return { episodes, isLoading };
+}
