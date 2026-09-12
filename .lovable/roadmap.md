@@ -45,7 +45,7 @@ Use `BUILD` only when product code is expected to change. Expect `VERIFY SWEEP` 
 
 ## Do next
 
-### Pass U63 — Admin server functions no longer load whole tables — M — IMPLEMENTED, NOT VERIFIED (2026-09-09)
+### Pass U63 — Admin server functions no longer load whole tables — M — IMPLEMENTED, NOT VERIFIED (status re-confirmed 2026-09-09; blocked on U76)
 
 Root cause of the 502s on Match Review / coverage / stats / recheck: those handlers read every episode, link, review and rejection row into one worker. Now aggregated or bounded in Postgres:
 
@@ -91,6 +91,8 @@ The D/O/T5/G/H/Y repair pass is verified and closed (see "Already done"). The re
 #### Not interested and iconography — Priority 3b
 
 - **Pass H6 — Not interested copy, icons and recovery — M (~3-5 credits) — NEEDS DESIGN.** Clearer copy, softer snackbar language, icon options for both "Unwatched" and "Not interested" before any metaphor change.
+
+  **Status-control grammar (folded in from Pass U50, 2026-09-09 — do not file separately).** H6 also owns the placement/interaction grammar for movie-card status controls. Constraints: the Tonight movie-card top-right controls currently feel heavy; **do not** move Not interested underneath the poster art (that space carries a different action grammar); avoid arbitrary per-content placement. Establish a general grammar across three semantic categories — positive/content-state (watchlist, watched), negative/exclusion (not interested), podcast preference (preferred) — thought of as primary positive preference action / negative-exclusion action / status-list actions. Semantically equivalent controls need consistent meaning and interaction, not identical physical position. Goal is a coherent grammar, not forced uniformity.
 - **Pass H7 — Hidden / Not interested management screen — M (~3-5 credits).** Review-and-restore list for hidden titles. Depends on H6.
 
 #### Lists, watched state and sync — Priority 3c
@@ -106,7 +108,12 @@ The D/O/T5/G/H/Y repair pass is verified and closed (see "Already done"). The re
 #### Consistency and copy — Priority 4
 
 - **Pass E2 — Commentary Score formatting consistency — S (~1-2 credits).** One score component everywhere (Tonight uses icon + label + accent badge; Lists uses a bare shaded numeric badge). Pick one canonical treatment with an explicit compact variant.
+
+  **Clarified 2026-09-09 (folded in from Pass U50 — no new pass):** Commentary Score uses one shared component with a compact variant, never parallel implementations. Duration likewise uses one shared semantic treatment with compact/full variants. Semantic meaning and interaction stay consistent; visual density may be contextual.
+
 - **Pass E3 — Commentary Score explanation copy — S (~1-2 credits) — NEEDS COPY.** Distinguish deterministic scoring from user preference changes that intentionally change the inputs.
+
+  **Clarified 2026-09-09 (folded in from Pass U50 — no new pass):** the eventual end state is that the Commentary Score itself, and/or an adjacent info affordance, can be selected to reveal a concise explanation of what the score means, which factors contribute, and ideally the breakdown. Design preference is unobtrusive disclosure rather than permanent explanatory text. E2 owns formatting, E3 owns the concise copy and the disclosure affordance, **U28 owns the deeper "Why this?" rationale and full score decomposition** — three layers of the same feature, not duplicates.
 - \*\*Pass E4 — Commentary badge alternatives (NEEDS DESIGN):
 
 1. Popcorn icon + number only, label revealed on tap/hover.
@@ -129,7 +136,7 @@ The D/O/T5/G/H/Y repair pass is verified and closed (see "Already done"). The re
 
 - **Pass T6 — Show curation sort direction toggle — S (~1-2 credits).** Ascending/descending on every sort property in "Episode coverage and show curation".
 - **Pass T7 — Sort shows by highest external rating — S (~1-2 credits) — blocked on Pass M** landing a per-show ratings cache.
-- **Pass J3 — Podcast page episode sort and filter — M (~3-5 credits). IMPLEMENTED 2026-09-03. NOT VERIFIED (as of 2026-09-06) ** Episode feed on `/podcasts/$slug` now has title search, match filter (All episodes / Matched / Unmatched), admin-only review filter (Any review state / Reviewed / Unreviewed), sort control (newest, oldest, most/fewest linked movies, longest/shortest, title A–Z/Z–A) and a live "X of Y episodes" result count. Default order remains newest first. Acceptance: Verified in preview at 659px — sort options render, Unmatched filter narrowed 403 → 43, "Most linked movies" reorders, count updates, no horizontal overflow. Implemented, not verified: Reviewed/Unreviewed chip filtering exercised only via code path, not a completed runtime click assertion.
+- **Pass J3 — Podcast page episode sort and filter — M (~3-5 credits) — IMPLEMENTED, NOT VERIFIED (re-confirmed 2026-09-09; the remaining reviewed/unreviewed runtime assertion is not worth credits now — leave as-is until a `VERIFY SWEEP` schedules it).** Episode feed on `/podcasts/$slug` now has title search, match filter (All episodes / Matched / Unmatched), admin-only review filter (Any review state / Reviewed / Unreviewed), sort control (newest, oldest, most/fewest linked movies, longest/shortest, title A–Z/Z–A) and a live "X of Y episodes" result count. Default order remains newest first. Acceptance: Verified in preview at 659px — sort options render, Unmatched filter narrowed 403 → 43, "Most linked movies" reorders, count updates, no horizontal overflow. Implemented, not verified: Reviewed/Unreviewed chip filtering exercised only via code path, not a completed runtime click assertion.
 
 ### Pass G2 — Truly lock the layout — SHIPPED 2026-08-27
 
@@ -160,7 +167,7 @@ Pass G2's `.layout-locked` hardening is now scoped to touch-primary viewports: o
 
 - **Pass U2 — Multi-movie episode editor — L (~6-10 credits).** Handle double features, trilogies, franchises and "covered in passing" vs "primary subject" by letting one episode link to multiple movies with a coverage role; UI to add/remove/reorder links per episode.
 - **Pass U3 — Curated blocklist/allowlist — M (~3-5 credits).** Admin-managed high-noise phrase lists (ad/promo/joke titles) and per-title allowlist overrides feeding the matcher's keyword suppression.
-- **Pass U4 — Per-podcast matcher tuning — IMPLEMENTED, NOT VERIFIED — 2026-09-06.** Six named matcher strategies (`src/lib/matcher-strategies.ts`): clean-title (default, reproduces pre-U4 behaviour), year-aware, noisy-title + description, actor/name corroboration, special-word suppression, stricter threshold. Each is a named configuration of the existing deterministic signals in `matching.server.ts` — no new scoring model, no new data source. Per-show assignment stored on `podcasts.matcher_strategy` (default `clean_title`; all 53 shows started there), editable from the show curation row selector, used by Recheck/Resolve for that show. "Score the matcher" accepts an optional strategy and show scope. **Acceptance classification:** Verified — DB persistence + default assignment; selector visible/persists across reload (desktop + mobile 390px); per-strategy scoring (default threshold 25, precision 0.501 / recall 0.979 — unchanged from the pre-U4 baseline; stricter-threshold run at 45 gives precision 0.696); confirmed links and rejection records untouched (no resolve run, no writes outside `podcasts.matcher_strategy`). Implemented, not verified — a non-default show re-resolve proposal diff (skipped to avoid spending TMDB/ingest budget). Deferred — actor/name corroboration is limited to the existing description/year corroboration signals because no cast cache exists; true cast-mention matching remains Pass P → U23. **Wording note (2026-09-07):** "actor/name corroboration" is year/description corroboration only today; genuine cast-based behaviour arrives in Pass U4A below.
+- **Pass U4 — Per-podcast matcher tuning — IMPLEMENTED, NOT VERIFIED — 2026-09-06; re-confirmed 2026-09-09.** (2026-09-09: strategy persistence was re-exercised in the app — change one show's strategy, refresh, it persisted. The only outstanding item is a non-default re-resolve proposal diff, which needs a realistic failure/ingest test; leave IMPLEMENTED, NOT VERIFIED until one exists.) Six named matcher strategies (`src/lib/matcher-strategies.ts`): clean-title (default, reproduces pre-U4 behaviour), year-aware, noisy-title + description, actor/name corroboration, special-word suppression, stricter threshold. Each is a named configuration of the existing deterministic signals in `matching.server.ts` — no new scoring model, no new data source. Per-show assignment stored on `podcasts.matcher_strategy` (default `clean_title`; all 53 shows started there), editable from the show curation row selector, used by Recheck/Resolve for that show. "Score the matcher" accepts an optional strategy and show scope. **Acceptance classification:** Verified — DB persistence + default assignment; selector visible/persists across reload (desktop + mobile 390px); per-strategy scoring (default threshold 25, precision 0.501 / recall 0.979 — unchanged from the pre-U4 baseline; stricter-threshold run at 45 gives precision 0.696); confirmed links and rejection records untouched (no resolve run, no writes outside `podcasts.matcher_strategy`). Implemented, not verified — a non-default show re-resolve proposal diff (skipped to avoid spending TMDB/ingest budget). Deferred — actor/name corroboration is limited to the existing description/year corroboration signals because no cast cache exists; true cast-mention matching remains Pass P → U23. **Wording note (2026-09-07):** "actor/name corroboration" is year/description corroboration only today; genuine cast-based behaviour arrives in Pass U4A below.
 - **Pass U5 — Training/evaluation dashboard — M (~3-5 credits).** Turn "Score the matcher" scorecard output into recommended rule changes with before/after evals (extends `matcher-eval.server.ts`).
 - **Pass U6 — Low-confidence link maintenance — S (~1-2 credits).** A safe "clear low-confidence auto links and rerun the current engine" maintenance action with a dry-run preview, guarding manual/confirmed links and parked shows (related to Pass Z).
 
@@ -190,7 +197,7 @@ Recommendation: build X1 first — it is free, needs no new vendor, and answers 
 
 ### New backlog passes (approved 2026-08-31, not scheduled)
 
-#### Pass U18 — Cover art on show curation rows — S (~1-2 credits) — Shipped 2026-09-04
+#### Pass U18 — Cover art on show curation rows — S (~1-2 credits) — SHIPPED 2026-09-04 — VERIFIED 2026-09-09 (in-app)
 
 Each show card/row in "Podcast show curation & episode coverage" gets the podcast's cover art as a left thumbnail (reuse `Artwork` with `shape="cover"`, accent fallback for shows without art), so shows are recognisable at a glance instead of read line by line. Tapping the thumbnail opens that show's page.
 
@@ -246,6 +253,8 @@ Reframe admin work from "clean the database" to "unlock the thing you actually w
 
 #### Pass U28 — "Why this?" rationale and score decomposition — M (~3-5 credits) — Priority 2
 
+Reconciled 2026-09-09 (from Pass U50): U28 is the deepest of three layers over the same score — E2 formatting, E3 concise explanation copy + unobtrusive disclosure affordance, U28 full rationale and decomposition. Keep them distinct; do not open a fourth item for "explain the score".
+
 Two levels of explanation over the existing deterministic score in `src/lib/scoring.ts` (which already returns `reasons`, currently only partly surfaced):
 
 - **User level:** one unobtrusive line per recommendation — `Why this? 3 podcasts you follow covered it · similar to movies you've liked · available tonight`.
@@ -266,14 +275,16 @@ Make the primary product metric measurable: per matcher change and per review se
 
 ### Match Review UX and filter feedback (filed 2026-09-02, backlog only — full detail in `.lovable/plan/match-review-ux-filter-feedback-backlog-2026-09-02.md`)
 
-#### Pass U32 — Verify single-row unlink like bulk unlink — S (~1-2 credits) — IMPLEMENTED, NOT VERIFIED 2026-09-07
+#### Pass U32 — Verify single-row unlink like bulk unlink — S (~1-2 credits) — IMPLEMENTED, NOT VERIFIED 2026-09-07 (re-confirmed 2026-09-09: leave as-is until a realistic forced-delete-failure harness exists — no path to verification through normal UI use)
 
 `relinkEpisodeMovie` now deletes with `.select()`, re-reads the pair when zero rows come back, and returns `{ ok: false, error }` without recording a rejection or logging an action when the link is still there. Match Review turns that into a thrown error, so the row is restored (`unmarkDone`) and the message is shown instead of the row silently vanishing.
 
 - **Verified:** typecheck passes; both single-unlink and relink call sites check `ok`.
 - **Implemented, not verified:** a forced failing delete was not exercised in the running app (admin-only surface; test browser signed out).
 
-#### Pass U33 — Bulk action button visual states — S (~1-2 credits) — IMPLEMENTED, NOT VERIFIED 2026-09-07
+#### Pass U33 — Bulk action button visual states — S (~1-2 credits) — IMPLEMENTED, NOT VERIFIED 2026-09-07; follow-up fix 2026-09-09 also IMPLEMENTED, NOT VERIFIED
+
+**TRIAGE 2026-09-09 (fix reported, not verified).** The shipped behaviour did not match the spec: the bulk action bar could unmount while optimistic selection cleared, and per-row actions dimmed whole rows. Fix shipped the same day — the bulk bar persists with an "N in progress" readout, only the pressed button fills and spins, siblings stay muted text-on-grey, rows no longer dim. Destructive bulk mutations were not exercised in a signed-in session, so both the original pass and this fix stay IMPLEMENTED, NOT VERIFIED; blocked on U76.
 
 Bulk buttons now use a `bulkClass()` helper built on the same `ACTION_TONES` tokens as the row actions: Approve/Confirm teal text on muted grey, Reject/Unlink destructive text on grey, Not about a movie gold text on grey, Mark reviewed/Reopen neutral outline. Only the pressed action fills (white on colour) and carries the spinner for the whole operation; siblings stay text-on-grey and go quiet while disabled. The separate "Applying…" spinner label was removed as redundant.
 
