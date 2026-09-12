@@ -30,6 +30,15 @@ When a verification blocker is environmental (for example, an admin-only UI cann
 
 The roadmap is the source of truth for current pass status. Historical plan files remain historical.
 
+## Verification workflow keywords (added 2026-09-09)
+
+Two keywords, deliberately separate from `BUILD` because neither writes product code first:
+
+- **`VERIFY SWEEP`** — documentation-only sweep. (1) List every roadmap item currently labelled IMPLEMENTED, NOT VERIFIED or NEEDS FOLLOW-UP. (2) For each, write the concrete test that would settle it (route, viewport, data precondition, expected observation). (3) Separate them into: verifiable now, verifiable only with a forced-failure harness, blocked on an environmental dependency (e.g. admin identity — Pass U76), or with no realistic path to verification — and for the last group recommend accept-as-is / retire / re-scope. (4) File the testable ones as scoped `V*` verification passes with credit estimates in this roadmap. No code, no status promotions.
+- **`VERIFY: <PASS_ID>`** — execute one filed verification pass against the running app, then update this roadmap: status promoted to VERIFIED (with date and evidence) or left labelled with the blocker named, and the entry moved to its correct section. Small fixes discovered mid-run follow the `TRIAGE` rules rather than expanding the verification pass.
+
+Use `BUILD` only when product code is expected to change. Expect `VERIFY SWEEP` to be run when credits are in surplus; it is a low-priority hygiene action, not a release gate.
+
 ---
 
 # Not yet done
