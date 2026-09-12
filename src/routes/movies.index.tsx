@@ -4,6 +4,7 @@ import { Clapperboard, Mic, Search } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { CatalogAddCard } from "@/components/CatalogAddCard";
 import { FilterBar } from "@/components/FilterBar";
+import { ListErrorNotice } from "@/components/ListErrorNotice";
 import { MovieCard } from "@/components/MovieCard";
 import { PageHeader } from "@/components/PageHeader";
 import { ViewToggle } from "@/components/ViewToggle";
