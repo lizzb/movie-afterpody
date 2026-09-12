@@ -36,6 +36,42 @@ function client() {
 const PAGE = 1000;
 const WAVE = 6;
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * One range read with retries. A transient statement timeout or dropped
+ * connection used to abort the whole catalogue read (and therefore every list
+ * surface); retrying the single window, then the window in smaller slices,
+ * keeps a blip from emptying the catalogue. A window that still fails throws,
+ * so a truncated catalogue is never presented as complete.
+ */
+async function readWindow<T>(
+  page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+  from: number,
+  to: number,
+): Promise<T[]> {
+  let last = "";
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const { data, error } = await page(from, to);
+    if (!error) return data ?? [];
+    last = error.message;
+    console.error(`[catalog] range ${from}-${to} failed (attempt ${attempt + 1}): ${error.message}`);
+    await sleep(200 * (attempt + 1));
+  }
+  // Last resort: the same window in smaller slices, which is cheaper per query.
+  const rows: T[] = [];
+  const SLICE = 250;
+  for (let start = from; start <= to; start += SLICE) {
+    const end = Math.min(to, start + SLICE - 1);
+    const { data, error } = await page(start, end);
+    if (error) throw new Error(`${last || error.message} (slice ${start}-${end}: ${error.message})`);
+    const got = data ?? [];
+    rows.push(...got);
+    if (got.length < end - start + 1) break;
+  }
+  return rows;
+}
+
 async function fetchAllRows<T>(
   page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
 ): Promise<T[]> {
@@ -44,13 +80,11 @@ async function fetchAllRows<T>(
     const wave = await Promise.all(
       Array.from({ length: WAVE }, (_, i) => {
         const from = start + i * PAGE;
-        return page(from, from + PAGE - 1);
+        return readWindow(page, from, from + PAGE - 1);
       }),
     );
     let done = false;
-    for (const { data, error } of wave) {
-      if (error) throw new Error(error.message);
-      const rows = data ?? [];
+    for (const rows of wave) {
       out.push(...rows);
       if (rows.length < PAGE) done = true;
     }
