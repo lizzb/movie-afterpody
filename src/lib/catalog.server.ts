@@ -93,35 +93,40 @@ async function fetchAllRows<T>(
 }
 
 /**
- * Keyset pagination over an id-ordered table. Deep OFFSET ranges combined with a
- * large IN (...) list made Postgres cancel the episode read on statement timeout;
- * walking forward on the primary key keeps every page cheap.
+ * Episodes, read per active show with bounded concurrency.
+ *
+ * A single id-ordered keyset walk over the whole table was the dominant cost of
+ * a cold catalogue read (~12s of ~14s) and also transferred parked-show episodes
+ * that are filtered out again in memory (Pass U80). Reading each active show's
+ * episodes separately restores the source-side active-show filter, is fully
+ * parallelisable, and completes in ~3s.
  */
-async function fetchByKeyset<T extends { id: string }>(
-  page: (afterId: string, limit: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
-): Promise<T[]> {
-  const out: T[] = [];
-  // Keep the request at/below the server row cap: asking for more than the cap
-  // returns a short page, which a "short page means done" check misreads as the
-  // end of the table (that truncated the episode feed to the first 1000 rows).
-  const LIMIT = 1000;
-  let afterId = "00000000-0000-0000-0000-000000000000";
-  for (;;) {
-    let result = await page(afterId, LIMIT);
-    for (let attempt = 0; result.error && attempt < 3; attempt += 1) {
-      console.error(`[catalog] keyset page after ${afterId} failed: ${result.error.message}`);
-      await sleep(200 * (attempt + 1));
-      result = await page(afterId, LIMIT);
-    }
-    const { data, error } = result;
-    if (error) throw new Error(error.message);
-    const rows = data ?? [];
-    out.push(...rows);
-    // Only an empty page proves the walk is finished.
-    if (rows.length === 0) return out;
-    afterId = rows[rows.length - 1]!.id;
+async function fetchEpisodesByPodcast(
+  db: ReturnType<typeof client>,
+  podcastIds: string[],
+): Promise<Episode[]> {
+  const CONCURRENCY = 8;
+  const out: Episode[] = [];
+  for (let i = 0; i < podcastIds.length; i += CONCURRENCY) {
+    const chunk = podcastIds.slice(i, i + CONCURRENCY);
+    const waves = await Promise.all(
+      chunk.map((podcastId) =>
+        fetchAllRows<Episode>((from, to) =>
+          db
+            .from("podcast_episodes")
+            .select("id, podcast_id, slug, title, released_at, duration_seconds, episode_number")
+            .eq("podcast_id", podcastId)
+            .order("id")
+            .range(from, to)
+            .returns<Episode[]>(),
+        ),
+      ),
+    );
+    for (const rows of waves) out.push(...rows);
   }
+  return out;
 }
+
 
 
 async function readCatalog(): Promise<Catalog> {
