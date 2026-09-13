@@ -93,6 +93,7 @@ The D/O/T5/G/H/Y repair pass is verified and closed (see "Already done"). The re
 - **Pass H6 — Not interested copy, icons and recovery — M (~3-5 credits) — NEEDS DESIGN.** Clearer copy, softer snackbar language, icon options for both "Unwatched" and "Not interested" before any metaphor change.
 
   **Status-control grammar (folded in from Pass U50, 2026-09-09 — do not file separately).** H6 also owns the placement/interaction grammar for movie-card status controls. Constraints: the Tonight movie-card top-right controls currently feel heavy; **do not** move Not interested underneath the poster art (that space carries a different action grammar); avoid arbitrary per-content placement. Establish a general grammar across three semantic categories — positive/content-state (watchlist, watched), negative/exclusion (not interested), podcast preference (preferred) — thought of as primary positive preference action / negative-exclusion action / status-list actions. Semantically equivalent controls need consistent meaning and interaction, not identical physical position. Goal is a coherent grammar, not forced uniformity.
+
 - **Pass H7 — Hidden / Not interested management screen — M (~3-5 credits).** Review-and-restore list for hidden titles. Depends on H6.
 
 #### Lists, watched state and sync — Priority 3c
@@ -114,6 +115,7 @@ The D/O/T5/G/H/Y repair pass is verified and closed (see "Already done"). The re
 - **Pass E3 — Commentary Score explanation copy — S (~1-2 credits) — NEEDS COPY.** Distinguish deterministic scoring from user preference changes that intentionally change the inputs.
 
   **Clarified 2026-09-09 (folded in from Pass U50 — no new pass):** the eventual end state is that the Commentary Score itself, and/or an adjacent info affordance, can be selected to reveal a concise explanation of what the score means, which factors contribute, and ideally the breakdown. Design preference is unobtrusive disclosure rather than permanent explanatory text. E2 owns formatting, E3 owns the concise copy and the disclosure affordance, **U28 owns the deeper "Why this?" rationale and full score decomposition** — three layers of the same feature, not duplicates.
+
 - \*\*Pass E4 — Commentary badge alternatives (NEEDS DESIGN):
 
 1. Popcorn icon + number only, label revealed on tap/hover.
@@ -294,7 +296,6 @@ Bulk buttons now use a `bulkClass()` helper built on the same `ACTION_TONES` tok
 **2026-09-10 triage fix.** The reported "buttons disappear during an action" was a rendering bug, not a styling mismatch: `markDone()` clears the selection before `bulk.mutate()`, and the bulk bar was gated on `selectedCount > 0`, so it unmounted the instant an action started and the filled pressed state was never visible. The bar now renders while `bulkBusy` too and shows "N in progress". Per-row actions had a second defect: the pending row was rendered `opacity-60` with a separate "Saving…" label, so the pressed button was dimmed and did not carry the spinner. Rows now keep full opacity, the pressed button holds its filled colour plus the spinner, and sibling actions go muted grey and disabled (matching `bulkClass`). `actionClass()` gained a `disabled` argument.
 
 **2026-09-10 related triage (same turn, no new pass needed).** Unmatched-episode search: the SQL is ~70ms, so latency was client/round-trip shaped. The full result area was replaced by a skeleton on every keystroke; it now keeps previous rows via `placeholderData` with a small inline "Searching…" indicator, and the redundant Clear button was dropped (native `type=search` clear). `listUnmatchedEpisodes` skips the parked-count RPC while a search term is present, halving per-keystroke queries. Measured 1.34s end to end including the 250ms debounce, with prior rows on screen throughout. TMDB add: certification now rides on the existing detail request via `append_to_response=release_dates` (`certificationFromDetails`), removing one blocking TMDB round trip from `enrichMovie`; the certification backfill path is unchanged. "Stop after this show" only set a ref, so it never acknowledged the press; it now sets `stopRequested` and shows a filled "Stopping after this show…" state until the current show finishes.
-
 
 #### Pass U34 — Mobile action-button sizing — S (~1-2 credits) — Priority 1b — NEEDS DESIGN APPROVAL
 
@@ -1080,16 +1081,15 @@ Traced `syncPodcast`, `resolveUnmatchedEpisodes`, `listPodcastCoverage` and the 
    - `stored` = successful upserts in this run (inserts **and** updates), not new rows.
    - `fetched > feed reported` and `stored > feed reported` are both legitimate: the provider's count lags the item list, and stored rows accumulate across syncs (including episodes later dropped from the feed). `complete` is `episode_count <= stored`, so `stored > feed` reads complete — correct under this definition.
    - Caveat: because `stored` counts upsert successes, slug collisions inflate it relative to real rows. That is exactly **Pass U17**; no duplicate work filed.
-   - Row Sync result and coverage row use *different* denominators by design (one is this-run counts, the other is stored-vs-feed). Canonical interpretation recorded above; no code change.
+   - Row Sync result and coverage row use _different_ denominators by design (one is this-run counts, the other is stored-vs-feed). Canonical interpretation recorded above; no code change.
 
-2. **"1 failed" — BUG, QUICK FIX (done).** Episodes with no feed-provided title were pushed into the same `episodeErrors` array *after* being stored successfully, so a stored-with-caveat episode was reported as a storage failure and flipped the sync log to not-ok. Now split into `episodesFailed`/`episodeErrors` (genuine upsert failures) and `episodesWarned`/`episodeWarnings` (stored, untitled, skipped for matching), with truthful wording in both the ingest card and the per-show sync log.
+2. **"1 failed" — BUG, QUICK FIX (done).** Episodes with no feed-provided title were pushed into the same `episodeErrors` array _after_ being stored successfully, so a stored-with-caveat episode was reported as a storage failure and flipped the sync log to not-ok. Now split into `episodesFailed`/`episodeErrors` (genuine upsert failures) and `episodesWarned`/`episodeWarnings` (stored, untitled, skipped for matching), with truthful wording in both the ingest card and the per-show sync log.
 
 3. **Per-show Build reporting — MISLEADING / UX REPORTING ISSUE, QUICK FIX (done).** `resolveUnmatchedEpisodes` already returns `skipReasons` with labels, counts and examples; the row-level handler discarded them. The row message now names the top two reasons; full detail stays in the page-level section.
 
 4. **"0 linked · 0 created · N skipped" — DOCUMENTATION (no code).** Every attempted episode lands in exactly one bucket: `not_about_a_movie` (title heuristic), `no_title_extracted`, `no_tmdb_match`, `already_rejected`, `below_strategy_threshold` (U4 stricter strategies), `error`. The build pool excludes linked episodes, retired episodes, parked shows and admin-reviewed episodes, so a fully reviewed show legitimately returns all zeros. Duplicate links are impossible — links upsert on `(episode_id, movie_id)` — and rejected pairs are checked immediately before every write, so they are never resurrected.
 
 No further backlog item is needed: the only remaining substantive issue (stored-count truthfulness) is already **Pass U17 — S**.
-
 
 #### Pass U50 — RECONCILE / ROADMAP EDIT ONLY — RESOLVED 2026-09-09
 
@@ -1257,7 +1257,6 @@ Requirements: reuse U23's `castMention` (no duplicate cast-name matching); cache
 
 Non-goals: cast ingestion/caching (Pass P), `castMention` implementation (Pass U23), automatic strategy assignment, broad matcher replay or recheck.
 
-
 ### Matcher evidence hierarchy (U55–U61) — parent initiative — filed 2026-09-08
 
 Plan: `.lovable/plan/plan-backlog-only-matcher-evidence-hierarchy-false-positive-2026-09-08.md` (full root-cause analysis, evidence architecture, and the complete regression example set). One matcher, one scoring path; Pass W keeps ownership of family/collection collapse; U4 stays configuration only. Two shared stages are added ahead of scoring: a conservative episode-title **parse** stage (roles: prefix / primary title / extra title / subtitle / guest / chatter) and an **evidence** stage (token distinctiveness by IDF over catalogue titles, sentence-scoped description title+year mentions, content-type cues). Every new rule surfaces an explainable signal on the link. Cross-cutting non-goals: a second matcher, ML/embeddings/new APIs, per-show one-off exceptions, optimizing for more links, treating rising match counts as success, and any broad replay/recheck (replay is a separate, later, explicitly guarded operation with a stated consumer-facing benefit). Cross-cutting protections: no writes to confirmed links, rejection records or review states; rejected pairs never resurrected. Every pass is accepted only when its own regression cases pass **and** `scoreMatcher` shows precision up with recall not materially down — a recall drop above 2 points at threshold 25 blocks the pass.
@@ -1266,7 +1265,7 @@ Sequence: U55 → U56 → U57 → U58 → U60 → U59 → U61, scoring the match
 
 #### Pass U55 — Episode-title parsing stage — M (~3-5 credits) — no dependencies
 
-Deterministic structural parser producing role-labelled segments before scoring. Guest segments (` with `, ` w/ `, ` featuring `, ` feat. `) stop contributing title evidence; conservative splitting only, and `with` stays intact when the whole string matches a catalogue title, so genuine titles are not broken. Regression: `88: Human Nature with Colby Day` ≠ `Disclosure Day`; `56: Road to Perdition with Blake Howard` ≠ `Howard the Duck`; `FELICITY FRIDAYS: "Ancient History" w/ Danette Chavez & Amy Smart` ≠ `Chasing Amy`; `209: Felicia's Journey w/ Billy Ray Brewton` and `220: For the Love of the Game w/ Billy Ray Brewton & Amanda Smith` ≠ `Billy Madison`.
+Deterministic structural parser producing role-labelled segments before scoring. Guest segments (`with`, `w/`, `featuring`, `feat.`) stop contributing title evidence; conservative splitting only, and `with` stays intact when the whole string matches a catalogue title, so genuine titles are not broken. Regression: `88: Human Nature with Colby Day` ≠ `Disclosure Day`; `56: Road to Perdition with Blake Howard` ≠ `Howard the Duck`; `FELICITY FRIDAYS: "Ancient History" w/ Danette Chavez & Amy Smart` ≠ `Chasing Amy`; `209: Felicia's Journey w/ Billy Ray Brewton` and `220: For the Love of the Game w/ Billy Ray Brewton & Amanda Smith` ≠ `Billy Madison`.
 
 #### Pass U56 — Token distinctiveness and missing-token penalty — M (~3-5 credits) — depends on U55
 
@@ -1282,7 +1281,7 @@ A pre-pass ahead of W's family collapse, not a second sequel system: a bare `II`
 
 #### Pass U59 — Multi-title extraction — M (~3-5 credits) — depends on U55
 
-Detect multiple title segments (` & `, ` and `) only when both sides independently resolve to plausible catalogue titles, then evaluate each candidate independently through the normal rules with per-relationship confirm/reject behaviour unchanged. Extraction only — Pass U2 still owns multi-movie editing and coverage roles; no UI work here. Regression: `18. Waitress & Off the Menu: …` yields independent `Waitress` and `Off the Menu`; `30. Forever My Girl & The Road Less Traveled: …` yields both titles. **Band flag:** if independent per-candidate linking touches the write path more than expected this reaches L — stop and report rather than expand.
+Detect multiple title segments (`&`, `and`) only when both sides independently resolve to plausible catalogue titles, then evaluate each candidate independently through the normal rules with per-relationship confirm/reject behaviour unchanged. Extraction only — Pass U2 still owns multi-movie editing and coverage roles; no UI work here. Regression: `18. Waitress & Off the Menu: …` yields independent `Waitress` and `Off the Menu`; `30. Forever My Girl & The Road Less Traveled: …` yields both titles. **Band flag:** if independent per-candidate linking touches the write path more than expected this reaches L — stop and report rather than expand.
 
 #### Pass U60 — Contextual non-movie content-type exclusion — S (~1-2 credits) — independent
 
@@ -1297,9 +1296,6 @@ Derived from existing decision history — `episode_match_rejections` + `match_a
 Separate UI/data-loading question, not matcher work: on The Rom Complex, episode descriptions appear truncated in the expansion workflow, including the full text needed to inspect cases such as `18. Waitress & Off the Menu`. Determine whether the description is truncated at fetch, at storage, or only in display, then report; no matcher change belongs here.
 
 **Ownership boundaries for this initiative.** High-noise phrase/allowlist curation stays **Pass U3**. Per-show sensitivity stays **Pass U4** — a later `strict_evidence` strategy may raise U55–U58 sensitivities, but none of these fixes ship as a strategy, because every pattern is general. Director/people evidence (e.g. "Nora Ephron's directorial debut" wrongly suggesting `Life Is Ruff`) stays deferred: extend **U23**'s `castMention` to director names over **Pass P**'s cached credits, consumed by **U4A**'s strategy — no new people subsystem, no duplicate cast ingestion, no matcher-time network calls. Franchise/collection collapse remains **Pass W**'s.
-
-
-
 
 ### Newly filed backlog — 2026-09-09 (U64–U71)
 
@@ -1371,7 +1367,7 @@ Turns the supplied show observations into the initiative's standing regression c
 
 Root cause of the recurring "IMPLEMENTED, NOT VERIFIED" labels: admin access is real at every layer (`user_roles` + `has_role`, RLS policies, server-side `Forbidden: admin required` after `requireSupabaseAuth`, with `useIsAdmin` only gating render), and the verification browser reported `signed_out`. Decision held: keep the production model, do **not** weaken permissions (Option 1 rejected). Shipped the credential-free variant of Option 2 — mint a short-lived real Supabase session with `lovable auth-session --json`, restore it (SSR cookies + supabase-js localStorage key) into Playwright via the new repeatable harness `scripts/verify-admin-session.py`, so every check travels the real JWT → `requireSupabaseAuth` → RLS → `has_role` path. No stored credential, no bypass, no new test subsystem.
 
-**Deviation from the filed plan (deliberate):** no separate `verify-admin@…` auth user was created. The project has exactly one auth user, which already holds the `admin` role; adding a second would force every mint to use `--user <uuid>` with per-run user approval — more friction, no extra safety. Identity, procedure and the labelling rule are recorded in `workflow-documentation.md` ("Admin verification identity"): an admin-only item may only be labelled "IMPLEMENTED, NOT VERIFIED" *for session reasons* after that procedure has actually been run and failed, with the failure output quoted.
+**Deviation from the filed plan (deliberate):** no separate `verify-admin@…` auth user was created. The project has exactly one auth user, which already holds the `admin` role; adding a second would force every mint to use `--user <uuid>` with per-run user approval — more friction, no extra safety. Identity, procedure and the labelling rule are recorded in `workflow-documentation.md` ("Admin verification identity"): an admin-only item may only be labelled "IMPLEMENTED, NOT VERIFIED" _for session reasons_ after that procedure has actually been run and failed, with the failure output quoted.
 
 **Acceptance — all verified 2026-09-11.** Minted session: `/admin/ingest` renders the full ingest dashboard (Match review, matcher scorecard, show curation) with zero console errors and a "Signed in" header. Admin-only render gate true: 6 `Confirm this link is correct` controls on a show detail page. Admin-only write: Confirm produced the "Link confirmed" toast and the undo state, then the undo produced "Confirmation undone" — no data left changed. Signed out, same route: 0 Confirm controls and a direct POST to the `confirmEpisodeMatch` server function returned **403**.
 
@@ -1389,7 +1385,6 @@ Verified (preview, signed-in admin via U76 script, 2026-09-11): `/admin/ingest` 
 
 Remaining: the published site must be republished to pick up the re-bound key; after that confirm the ingestion stats, unmatched list and coverage cards render with real numbers and no `permission denied` appears for a full admin session. Status: IMPLEMENTED, VERIFIED IN PREVIEW — published verification pending republish.
 
-
 #### Pass U79 — Catalogue read resilience — S (~1-2 credits) — from Project monitoring finding `error_log_finding_cca2a935effadcbeb89e507c05947f3d` (filed 2026-09-11); plan: `.lovable/plan/plan-backlog-only-four-project-monitoring-findings-2026-09-11.md`
 
 Monitoring saw a burst of 6-8 cancelled statements (Postgres 57014, statement timeout) on 2026-09-10, after which the whole catalogue read threw and visitors got an empty browse/list page. Root cause is the legacy full-catalogue browser reader `fetchCatalog` in `src/lib/data.ts` (PAGE=1000, WAVE=6 parallel pages, deep `range()` offsets), still reachable through `useDiscovery` on movie detail (`src/routes/movies.$slug.tsx`), Lists & History (`src/lib/lists.ts`), Settings (`src/routes/settings.tsx`) and the legacy `src/lib/podcasts.ts` hook. **Retiring those four consumers is Pass L2c item 1 (L2c-1) — not filed again here.** U79 is only the two narrow fixes that stand alone and do not wait on L2c: (1) replace the holiday lookup's `.or("title.imatch.<regex>,synopsis.imatch.<regex>")` full-synopsis regex scan with the bounded/indexed `holidayMovieIds` approach already used server-side; (2) stop a single failed page from failing the whole read — retry a timed-out page once at a smaller page size and surface a partial-load state rather than rethrowing into a blank page. Acceptance: no 57014 rows attributable to the holiday query over a normal browsing session; a forced single-page failure degrades to a partial list with a visible notice instead of an empty page; no change to counts or ranking.
@@ -1404,12 +1399,15 @@ Fix (smallest safe, server-side path only): `loadCatalog` is now stale-while-rev
 
 Verified 2026-09-12 (preview): warm loads `/movies` 100 rows / 2616 titles, `/podcasts` 39 rows, Tonight 10 rows of 175 matches, no console errors. The previously failing case — first load after the 60s TTL expired — returned `/movies` with 100 rows in 2.24 s (was ~16 s empty); `/` 0.16 s; `/podcasts` 1.14 s. First fully cold read is still ~19 s and shows skeletons plus the loading subtitle, not a false empty state; further reducing cold-read cost stays with L2c/U80 and was not attempted here. Files changed: `src/lib/catalog.server.ts`, `src/lib/server-lists.ts`, `src/routes/index.tsx`, `src/routes/movies.index.tsx`, `src/routes/podcasts.index.tsx`, `src/components/ListErrorNotice.tsx` (new).
 
-#### Pass U80 — Restore source-side active-show filter on the catalogue episode read — S — SHIPPED 2026-09-13, VERIFIED (preview)
+#### Pass U80 — Restore source-side active-show filter on the catalogue episode read — S — SHIPPED 2026-09-12, VERIFIED (preview)
 
-Triage 2026-09-13 (Tonight/Movies "load more" and Shows/Show Details stuck on placeholder): all four surfaces share `loadCatalog`, and none of them were failing or returning wrong data — every one was waiting on a cold catalogue read of ~14 s (measured 12.2 s of it in the single keyset episode walk over 17,681 rows, 4,349 of them parked). A "load more" click raises `limit`, which is a new query key, so it too waited on that read and looked inert. Fix (`src/lib/catalog.server.ts` only): episodes are now read per active show with concurrency 8 (`fetchEpisodesByPodcast`), which restores the SQL-side active-show filter (13,332 rows, 3.2 s vs 12.2 s) and drops the in-memory filter; fresh-cache TTL raised 60 s → 5 min so background refreshes are far rarer. Verified after a cold restart: cold catalogue read ~5 s; `/` content 0.2 s and "Load more suggestions" 4 → 20 rows in 5.3 s; `/movies` content 0.6 s and "Show 100 more" 5 → 100 rows in 2.8 s; `/podcasts` renders shows; `/podcasts/the-villain-was-right` renders 419 episodes / 395 movies. No console errors. ~2 credits.
+Triage 2026-09-12 (Tonight/Movies "load more" and Shows/Show Details stuck on placeholder): all four surfaces shared `loadCatalog`, and none were failing or returning wrong data — every one was waiting on a cold catalogue read of ~14 s, with measured ~12.2 s spent in the single keyset episode walk over 17,681 rows, including 4,349 parked-show episodes. A "load more" click raises `limit`, creating a new query key, so it also waited on that cold read and appeared inert.
+
+Fix in `src/lib/catalog.server.ts`: episodes are now read per active show with bounded concurrency (8), restoring the SQL-side active-show filter and eliminating the need to fetch parked-show episodes and filter them in memory. The change also parallelizes active-show episode reads and raises the fresh catalogue-cache TTL from 60 s to 5 min, reducing how often list requests encounter a cold catalogue rebuild.
+
+Verified after a cold restart: cold catalogue read ~5 s; Tonight content 0.2 s and “Load more suggestions” 4 → 20 rows in 5.3 s; Movies content 0.6 s and “Show 100 more” 5 → 100 rows in 2.8 s; Shows renders; `/podcasts/the-villain-was-right` renders 419 episodes / 395 movies. No console errors. Actual credits used: 4.10.
 
 Original filing:
-
 
 `readCatalog` (`src/lib/catalog.server.ts`) moved the episode read to `fetchByKeyset` (`.gt("id", afterId).order("id")`) during the 2026-09-10 timeout fix and lost the `.in("podcast_id", activePodcastIds)` predicate; parked shows' episodes are now fetched over the wire and filtered out in memory, reversing the source-side filtering still applied to `podcast_external_metrics` and `episode_movies` (the L2a follow-up contract). Fix: keep keyset paging, reapply the active-podcast predicate in SQL (chunk the id list if it exceeds a safe URL length), and drop the in-memory filter and its re-sort. Acceptance: zero parked-show episode rows in the catalogue payload, catalogue counts unchanged for active shows, and Mom Can't Cook (111 episodes) / Your Inner Child Is an Idiot (255 episodes) still expose their full episode sets. Not open: the page-size-above-row-cap truncation risk the finding also mentions was fixed on 2026-09-10 (`LIMIT = 1000`, loop continues until an empty page).
 
@@ -1491,8 +1489,6 @@ Filed under their owning passes rather than as new passes; verification of the a
 3. **Adding a movie from TMDB is slow** — the separate certification request was folded into the existing TMDB call, removing one round trip per add.
 4. **"Stop after this show"** — the control now gives immediate feedback ("Stopping after this show…") instead of only setting an internal flag.
 
-
-
 ### Triage fix — "Not about a movie" is now reversible from the episode row — shipped 2026-09-04 (QUICK FIX)
 
 Finding: the retirement always _was_ a reversible per-episode state (`podcast_episodes.disposition`), and undo existed only inside Recent match decisions, where it required undoing two separate records (the `not_about_a_movie` entry plus one `unlink` per removed link) and became unfindable once the log scrolled. The row control was write-only.
@@ -1547,7 +1543,6 @@ Acceptance checklist against `.lovable/plan/acceptance-criteria-u8-u24-u4-p-u23-
 - **Request volume (code):** the mutation itself is 3 small queries for one episode. The refetch it triggers, `listEpisodeReviewStates`, was the real cost: it read episode metadata and review rows in **serial** 50-ID batches — 255 episodes = 12 sequential round trips inside one server request, and every mounted variant of the key (podcast detail, match review, unmatched list) refetched at once.
 - **Fix shipped:** batch size 50 → 200 and all chunks plus the two read sets now run concurrently (`src/lib/ingestion.functions.ts`). Same data, same semantics. **Verified (signed-in browser, /podcasts/your-inner-child-is-an-idiot, 255 episodes):** `listEpisodeReviewStates` 941 ms warm / 2.1 s cold, down from ~12 serial reads; page renders normally.
 - **Not reproduced:** the multi-minute, multi-page placeholder state. Consumer pages share no keys with review state, so the evidence points at server/runtime saturation or a preview worker restart (the same class as the U63 502 report — dynamic-import failures were present in the runtime error log for that window), not a client cascade. Left open rather than guessed at; if it recurs, capture the failing request status.
-
 
 Acceptance checklist against `.lovable/plan/acceptance-criteria-u8-u24-u4-p-u23-2026-09-02.md`:
 
