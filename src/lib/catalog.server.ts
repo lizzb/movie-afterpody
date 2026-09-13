@@ -248,7 +248,9 @@ async function readCatalog(): Promise<Catalog> {
   };
 }
 
-const TTL_MS = 60_000;
+/** Longer fresh window: a background refresh every minute made cold-ish reads far more likely. */
+const TTL_MS = 5 * 60_000;
+
 /**
  * Stale-while-revalidate. Previously every request arriving after the 60s TTL
  * expired had to wait on the whole catalogue read (measured ~16s), so list
