@@ -195,17 +195,8 @@ async function readCatalog(): Promise<Catalog> {
               .range(from, to)
               .returns<PodcastMetric[]>(),
           ),
-      activePodcastIds.length === 0
-        ? Promise.resolve([] as Episode[])
-        : fetchByKeyset<Episode>((afterId, limit) =>
-            db
-              .from("podcast_episodes")
-              .select("id, podcast_id, slug, title, released_at, duration_seconds, episode_number")
-              .gt("id", afterId)
-              .order("id")
-              .limit(limit)
-              .returns<Episode[]>(),
-          ),
+      fetchEpisodesByPodcast(db, activePodcastIds),
+
       activePodcastIds.length === 0
         ? Promise.resolve([] as EpisodeMovie[])
         : fetchAllRows<EpisodeMovie>((from, to) =>
