@@ -170,7 +170,7 @@ export async function evaluateMatcher(
   const episodeIds = [...new Set([...label.keys()].map((k) => k.split(":")[0]!))];
   const movieIds = [...new Set([...label.keys()].map((k) => k.split(":")[1]!))];
 
-  const [episodes, movies, allTitles] = await Promise.all([
+  const [episodes, movies, allTitles, allMovieTitles] = await Promise.all([
     chunkedIn<{ id: string; title: string; description: string | null; podcast_id: string }>(
       episodeIds,
       (ids) =>
