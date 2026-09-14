@@ -895,11 +895,21 @@ function UnmatchedEpisodesCard() {
   });
   const searching = query.isFetching && !query.isLoading;
   const rescanAction = useQueuedAction("rescan-all", "Recheck every episode against existing movies");
+  /**
+   * Pass U77 — where the next recheck continues from. Without this the same
+   * newest slice was reprocessed on every press and "left to check" never fell.
+   */
+  const [rescanCursor, setRescanCursor] = useState(0);
+  const [rescanUntilDone, setRescanUntilDone] = useState(false);
   const rescan = useMutation({
     mutationFn: (vars: Parameters<typeof rescanFn>[0]) => rescanAction.start(() => rescanFn(vars)),
-    onSuccess: async () => {
+    onSuccess: async (result) => {
+      setRescanCursor(result.remaining > 0 ? result.nextOffset : 0);
       await client.invalidateQueries({ queryKey: ["unmatched-episodes"] });
       await client.invalidateQueries({ queryKey: ["match-suggestions"] });
+      if (rescanUntilDone && result.remaining > 0 && result.scanned > 0) {
+        rescan.mutate({ data: { limit: 100, offset: result.nextOffset } });
+      }
     },
   });
   const refreshQueues = async () => {
@@ -973,7 +983,7 @@ function UnmatchedEpisodesCard() {
       <div className="mt-4">
         <button
           type="button"
-          onClick={() => rescan.mutate({ data: { limit: 100 } })}
+          onClick={() => rescan.mutate({ data: { limit: 100, offset: rescanCursor } })}
           disabled={rescan.isPending}
           className="inline-flex items-center rounded-full border border-border px-5 py-2.5 text-sm font-semibold disabled:opacity-50"
         >
@@ -983,6 +993,24 @@ function UnmatchedEpisodesCard() {
               ? "Rescanning…"
               : "Recheck every episode against existing movies"}
         </button>
+        <label className="ml-3 inline-flex items-center gap-2 text-xs text-muted-foreground">
+          <input
+            type="checkbox"
+            className="size-4"
+            checked={rescanUntilDone}
+            onChange={(e) => setRescanUntilDone(e.target.checked)}
+          />
+          Keep going until every episode is checked
+        </label>
+        {rescanCursor > 0 ? (
+          <button
+            type="button"
+            onClick={() => setRescanCursor(0)}
+            className="ml-3 text-xs font-semibold underline"
+          >
+            Start again from the newest
+          </button>
+        ) : null}
         <p className="mt-2 text-xs text-muted-foreground">
           Rescores every episode in your active shows against the movies already in the catalogue:
           links unmatched ones, replaces a weak match when a newly added movie clearly beats it, and
@@ -996,7 +1024,7 @@ function UnmatchedEpisodesCard() {
             {rescan.data.improved} · extra films added {rescan.data.extraAdded} ·{" "}
             {rescan.data.stillUnlinked} still unmatched.
             {rescan.data.remaining > 0
-              ? ` ${rescan.data.remaining} episodes left to check — run it again.`
+              ? ` At least ${rescan.data.remaining}${rescan.data.remainingIsFloor ? "+" : ""} episodes left to check — run it again to continue from where this run stopped.`
               : ""}
           </p>
         ) : null}
@@ -1196,12 +1224,25 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
     queue
       .run(showKey(podcastId, "recheck"), `Recheck episodes — ${name}`, async () => {
       setError(null);
-      const r = await rescanShow({ data: { podcastId, limit: 150 } });
+      // Pass U77 — walk the cursor so one press covers the whole show, not just
+      // its newest 150 episodes.
+      let offset = 0;
+      let r = await rescanShow({ data: { podcastId, limit: 150, offset } });
+      const totals = { scanned: r.scanned, linked: r.linked, improved: r.improved, extraAdded: r.extraAdded, stillUnlinked: r.stillUnlinked };
+      for (let guard = 0; guard < 40 && r.remaining > 0 && r.scanned > 0; guard += 1) {
+        offset = r.nextOffset;
+        r = await rescanShow({ data: { podcastId, limit: 150, offset } });
+        totals.scanned += r.scanned;
+        totals.linked += r.linked;
+        totals.improved += r.improved;
+        totals.extraAdded += r.extraAdded;
+        totals.stillUnlinked += r.stillUnlinked;
+      }
       setSyncLog((prev) =>
         [
           {
             name,
-            message: `recheck: ${r.scanned} scanned · ${r.linked} linked · ${r.improved} improved · ${r.extraAdded} extra · ${r.stillUnlinked} still unmatched${r.remaining > 0 ? ` · ${r.remaining} left, run again` : ""}`,
+            message: `recheck: ${totals.scanned} scanned · ${totals.linked} linked · ${totals.improved} improved · ${totals.extraAdded} extra · ${totals.stillUnlinked} still unmatched${r.remaining > 0 ? ` · ${r.remaining} left, run again` : " · whole show checked"}`,
             ok: true,
           },
           ...prev,
