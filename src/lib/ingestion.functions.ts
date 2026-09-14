@@ -1562,7 +1562,7 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
 
     // Corpus statistic: derived from the whole eligible pool, not just this
     // batch, so batching cannot change how an episode scores.
-    const commonEpisodeWords = computeCommonEpisodeWords(pool.map((ep) => ep.title));
+    const commonEpisodeWords = computeCommonEpisodeWords(statsTitles);
 
     let linked = 0;
 
@@ -1677,8 +1677,10 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
       improved,
       extraAdded,
       stillUnlinked,
-      pool: pool.length,
-      remaining: Math.max(0, pool.length - episodes.length),
+      pool: rawRows.filter(usable).length,
+      remaining,
+      /** Pass U77 — where the next run must continue from. */
+      nextOffset,
     };
   });
 
