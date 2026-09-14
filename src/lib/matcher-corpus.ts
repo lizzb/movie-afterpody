@@ -1,0 +1,234 @@
+/**
+ * Pass U75 — standing matcher regression corpus.
+ *
+ * Every case is a real episode title observed in the catalogue together with
+ * the link it must (or must not) produce. The corpus is data only: no per-show
+ * exceptions live here, and no rule reads it. It is replayed by
+ * `scripts/matcher-corpus.ts`, which is required evidence in every report for
+ * the matcher evidence-hierarchy initiative (U55–U62).
+ *
+ * `owner` names the pass responsible for the case. Cases owned by passes that
+ * have not shipped yet are expected to fail — that is the point of the corpus.
+ */
+
+export interface CorpusCase {
+  /** Episode title exactly as stored. */
+  episode: string;
+  /** Show the title came from — context only, never used by the matcher. */
+  show: string;
+  /** Movie titles that must win (top candidate, at or above the threshold). */
+  expect?: string[];
+  /** Movie titles that must not be suggested (must stay under the threshold). */
+  forbid?: string[];
+  /** True when the episode is not about a film at all: nothing may be suggested. */
+  expectNoLink?: boolean;
+  /** Pass that owns this case. */
+  owner: string;
+  note?: string;
+}
+
+export const MATCHER_CORPUS: CorpusCase[] = [
+  // ---- You Are Good ----
+  {
+    show: "You Are Good",
+    episode: "Rosemary's Baby w. Sarah Archer!",
+    expect: ["Rosemary's Baby"],
+    forbid: ["She's Having a Baby"],
+    owner: "U55",
+  },
+  {
+    show: "You Are Good",
+    episode: "Magnolia (Dads Can Be Very a Lot)",
+    expect: ["Magnolia"],
+    forbid: ["Can of Worms"],
+    owner: "U56",
+  },
+  {
+    show: "You Are Good",
+    episode: "10 Things I Hate About You",
+    expect: ["10 Things I Hate About You"],
+    forbid: ["I, Robot"],
+    owner: "U56",
+  },
+  {
+    show: "You Are Good",
+    episode: "A Beautiful Mind",
+    expect: ["A Beautiful Mind"],
+    forbid: ["Beautiful Disaster"],
+    owner: "U56",
+  },
+  {
+    show: "You Are Good",
+    episode: "The Mummy [1999]",
+    expect: ["The Mummy"],
+    owner: "U57",
+    note: "bracketed year must pick the 1999 film",
+  },
+  { show: "You Are Good", episode: "Clueless", expect: ["Clueless"], owner: "U55" },
+  {
+    show: "You Are Good",
+    episode: "My Neighbor Totoro",
+    expect: ["My Neighbor Totoro"],
+    owner: "U55",
+  },
+
+  // ---- Horror Queers ----
+  {
+    show: "Horror Queers",
+    episode: "Ready or Not 2: Here I Come (Patreon Clip)",
+    forbid: ["Ready or Not"],
+    owner: "U58",
+    note: "sequel marker: the 2019 film is not the subject",
+  },
+  {
+    show: "Horror Queers",
+    episode: "Interview: Zoe Rose Smith on Aftermath",
+    forbid: ["The Interview"],
+    owner: "U55",
+  },
+
+  // ---- How Did This Get Made? ----
+  {
+    show: "How Did This Get Made?",
+    episode: "Samurai Cop LIVE!",
+    forbid: ["Kindergarten Cop"],
+    owner: "U56",
+  },
+  {
+    show: "How Did This Get Made?",
+    episode: "Last Looks: Samurai Cop",
+    forbid: ["The Last Song"],
+    owner: "U75",
+    note: "format prefix must not contribute title words",
+  },
+  {
+    show: "How Did This Get Made?",
+    episode: "Sharknado 3",
+    forbid: ["Terrifier 3"],
+    owner: "U58",
+  },
+  {
+    show: "How Did This Get Made?",
+    episode: "Monkeybone",
+    forbid: ["Last Holiday", "The Last Song"],
+    owner: "U56",
+  },
+  {
+    show: "How Did This Get Made?",
+    episode: "Last Looks: xXx & The Legend of Billie Jean",
+    expect: ["xXx"],
+    owner: "U59",
+    note: "multi-title extraction",
+  },
+
+  // ---- Darren and Matt's 80s Adventure ----
+  {
+    show: "Darren and Matt's 80s Adventure",
+    episode: "License to Drive (1988)",
+    forbid: ["Drive"],
+    owner: "U56",
+  },
+  {
+    show: "Darren and Matt's 80s Adventure",
+    episode: "Evil Dead 2 (1987)",
+    expect: ["Evil Dead II"],
+    owner: "U58",
+  },
+  {
+    show: "Darren and Matt's 80s Adventure",
+    episode: "Critters (1986)",
+    expect: ["Critters"],
+    owner: "U57",
+  },
+
+  // ---- Deck the Hallmark ----
+  {
+    show: "Deck the Hallmark",
+    episode: "Gilmore Girls - Season 2 Episode 18 - Back in the Saddle Again",
+    expectNoLink: true,
+    owner: "U60",
+    note: "episode designator means TV, not film",
+  },
+  {
+    show: "Deck the Hallmark",
+    episode: "Paris is Always a Good Idea - Episode 5 (Hallmark+ - 2026)",
+    forbid: ["Always"],
+    owner: "U60",
+  },
+  {
+    show: "Deck the Hallmark",
+    episode: "DTH Classic: Falling for You",
+    forbid: ["Falling for Figaro"],
+    owner: "U56",
+  },
+  {
+    show: "Deck the Hallmark",
+    episode: "Niall Matter Interview (Much About Love)",
+    forbid: ["The Interview"],
+    owner: "U60",
+  },
+
+  // ---- The Rewatchables ----
+  {
+    show: "The Rewatchables",
+    episode: "'The Fugitive' With Bill Simmons, Chris Ryan, and Van Lathan",
+    expect: ["The Fugitive"],
+    forbid: ["Van Helsing"],
+    owner: "U55",
+  },
+  {
+    show: "The Rewatchables",
+    episode: "'Friday Night Lights' With Bill Simmons and Van Lathan",
+    forbid: ["Friday", "Van Helsing"],
+    owner: "U56",
+  },
+  {
+    show: "The Rewatchables",
+    episode: "'Basic Instinct' Live From San Francisco",
+    forbid: ["Maternal Instinct"],
+    owner: "U56",
+  },
+  {
+    show: "The Rewatchables",
+    episode: "A 2026 Rewatchables Mailbag",
+    expectNoLink: true,
+    owner: "U60",
+  },
+
+  // ---- The Flop House ----
+  {
+    show: "The Flop House",
+    episode: "Harold and the Purple Crayon",
+    forbid: ["Purple Rain"],
+    owner: "U56",
+  },
+  { show: "The Flop House", episode: "Trap", forbid: ["The Parent Trap"], owner: "U56" },
+  {
+    show: "The Flop House",
+    episode: "Return to Silent Hill",
+    forbid: ["Return of the Jedi"],
+    owner: "U56",
+  },
+  {
+    show: "The Flop House",
+    episode: "FH Mini #150 - Best Stephen King Movies",
+    expectNoLink: true,
+    owner: "U60",
+  },
+
+  // ---- The Confused Breakfast ----
+  {
+    show: "The Confused Breakfast",
+    episode: "BRUNCH: Nickelodeon GUTS",
+    expectNoLink: true,
+    owner: "U60",
+    note: "game show, not a film",
+  },
+  {
+    show: "The Confused Breakfast",
+    episode: "BRUNCH: The Greatest Drinks in Movie History",
+    expectNoLink: true,
+    owner: "U60",
+    note: "list episode",
+  },
+];
