@@ -136,3 +136,56 @@ A no-second-identity decision was taken deliberately: creating an extra `verify-
 **Labelling rule:** an admin-only item may only be labelled "IMPLEMENTED, NOT VERIFIED" _for session reasons_ after this procedure has actually been run and failed, with the failure output quoted on the roadmap entry.
 
 Verified 2026-09-11: `/admin/ingest` loads with the full ingest dashboard and no console errors; 6 Confirm controls present on a show detail; Confirm wrote and undid successfully; signed out, 0 controls and `confirmEpisodeMatch` returned 403.
+
+## Credit reporting, estimate content, and scope guards (added 2026-09-14, Pacific)
+
+### Credit numbers in chat
+
+The agent has no access to the billed cost of a message. Any "About X credits" line is a
+model-generated guess. Therefore:
+
+- Never report a bare "About X credits" figure as if it were actual spend.
+- Only state credits when (a) giving a forward-looking estimate, explicitly labelled
+  `Estimated remaining: <band>`, or (b) the user asks for a retrospective sense of cost, in which
+  case it is labelled `Rough estimate of work done (not billed cost)`.
+- Bands only (S ~1-2, M ~3-5, L ~6-10, XL ~10+); no invented precise numbers.
+
+### Every roadmap/plan estimate must carry scope, complexity and uncertainty
+
+A credit band alone is not an estimate. Each roadmap item and each planned pass records:
+
+- **Scope** — files/areas affected.
+- **Major steps** — the ordered work, not a single sentence.
+- **Dependencies** — other passes, data, deployment, or admin-session prerequisites.
+- **Unknowns** — what is not yet understood, and what would have to be measured first.
+- **Complexity drivers** — what makes this harder than its size suggests (shared code paths,
+  migrations, admin-only verification, matcher scoring, performance measurement, external APIs).
+- **Confidence** — High / Medium / Low. Low confidence means the estimate is a placeholder and
+  the first step is measurement, not implementation.
+
+New roadmap entries without these fields are incomplete. Existing entries are not rewritten
+retroactively unless the user asks for an audit.
+
+### Workflow keyword: CREDITLIMIT=N
+
+`CREDITLIMIT=N` anywhere in a request sets a hard ceiling of roughly N credits of work on that
+request. On approaching the ceiling, the agent must:
+
+1. Preserve completed code changes; leave the project coherent and buildable.
+2. Stop exploring further hypotheses merely because they are possible.
+3. Report: root-cause evidence so far, changes made, verification completed, remaining uncertainty,
+   and the estimated band for the remainder.
+4. Wait for a decision before continuing.
+
+Never spend ceiling budget on architectural cleanup, refactoring, redesign, or unrelated fixes.
+Absent an explicit `CREDITLIMIT=`, the default ceiling for TRIAGE and debugging requests is
+`CREDITLIMIT=3`. `CREDITLIMIT=none` removes the ceiling for that request only.
+
+## Roadmap timestamp rule — Pacific Time (added 2026-09-14, Pacific)
+
+All dates and times written into `.lovable/roadmap.md`, pass history, verification stamps and plan
+file `Created:` lines use **America/Los_Angeles** (PDT UTC-7 / PST UTC-8, DST handled automatically).
+Convert before writing; never copy a UTC tool timestamp through. If conversion crosses midnight, the
+Pacific calendar date wins. Date-only entries are Pacific calendar dates. Existing dates are not
+rewritten unless the user asks for an audit. This is a documentation convention only — no runtime
+timezone behaviour changes.

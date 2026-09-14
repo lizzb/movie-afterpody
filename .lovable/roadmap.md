@@ -13,6 +13,19 @@
 
 Priority reflects the app's current state: a personal tool for one user, refining the match engine on a small data set. Anything aimed at a wider audience or large-scale automatic ingestion is deliberately low priority. Estimates use credit bands, not token counts: **S ~1-2 credits**, **M ~3-5**, **L ~6-10**, **XL ~10+**. Bands are ballparks for build cost — verification loops, debugging and design rounds push a pass toward the top of its band or past it.
 
+## Estimate content rule (added 2026-09-14)
+
+A credit band on its own is not an estimate. Every new or re-scoped pass records **Scope** (files/areas), **Major steps**, **Dependencies**, **Unknowns**, **Complexity drivers** (what makes it harder than its size suggests) and **Confidence** (High / Medium / Low; Low means measure first). Existing entries are not rewritten retroactively unless an audit is requested. Credit numbers reported in chat are model estimates, never billed cost, and are always labelled as estimates.
+
+## Credit ceiling keyword (added 2026-09-14)
+
+`CREDITLIMIT=N` in a request caps work at roughly N credits: preserve completed changes, leave the project buildable, stop exploring optional hypotheses, and report evidence / changes / verification / remaining uncertainty before continuing. TRIAGE and debugging requests default to `CREDITLIMIT=3`; `CREDITLIMIT=none` lifts the cap for that request.
+
+## Timestamp rule (added 2026-09-14)
+
+All dates in this file are **America/Los_Angeles** (PDT/PST) calendar dates, converted from UTC tool timestamps before writing. Existing dates stay as-is unless an audit is requested.
+
+
 ## Roadmap status conventions
 
 Use status labels precisely:
