@@ -14,7 +14,7 @@ interface Props {
  * with an undo snackbar. Fixing it happens later in admin Match review.
  * Pass K1: one circular shape everywhere this control appears.
  */
-export function FlagMatchButton({ episodeId, movieId }: Props) {
+export function FlagMatchButton({ episodeId, movieId, movieTitle, episodeTitle }: Props) {
   const { flagged, hasUser } = useMyFlags();
   const toggle = useToggleFlag();
   const isFlagged = flagged.has(flagKey(episodeId, movieId));
