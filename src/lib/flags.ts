@@ -62,6 +62,9 @@ export function useToggleFlag() {
     episodeId: string;
     movieId: string;
     on: boolean;
+    /** Only used for the snackbar copy. */
+    movieTitle?: string;
+    episodeTitle?: string;
   }) => {
     if (!userId) throw new Error("Sign in to flag a wrong match.");
     if (on) {
