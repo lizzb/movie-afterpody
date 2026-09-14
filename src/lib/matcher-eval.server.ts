@@ -104,6 +104,7 @@ const SIGNAL_TESTS: { signal: string; test: (s: Record<string, unknown>) => bool
   { signal: "rejected before", test: (s) => Number(s["rejectedBefore"] ?? 0) > 0 },
   { signal: "sequel marker missing from title", test: (s) => s["distinguisherPenalty"] === true },
   { signal: "beaten by a franchise sibling", test: (s) => s["familySuppressed"] === true },
+  { signal: "matched only the guest's name", test: (s) => s["guestSuppressed"] === true },
   { signal: "covers most of the episode title", test: (s) => Number(s["episodeCoverage"] ?? 0) >= 0.5 },
 ];
 

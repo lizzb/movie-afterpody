@@ -536,6 +536,15 @@ export function matchEpisodeToMovies(
       reason += " - covers little of the episode title";
     }
 
+    // Pass U55 — the candidate's overlap comes from the guest credit, not the
+    // title ("Road to Perdition with Blake Howard" vs "Howard the Duck").
+    const guestOverlap = [...movieTokens].filter((t) => guestTokens.has(t)).length;
+    const guestSuppressed = guestOverlap > 0 && coverage < 1 && rule !== "exact";
+    if (guestSuppressed) {
+      confidence = Math.min(confidence, 15);
+      reason += " - only matches the guest's name";
+    }
+
     const familyKey = [...movieTokens][0] ?? movieCanonical;
 
     return {
@@ -560,6 +569,7 @@ export function matchEpisodeToMovies(
         descYear,
         distinguisherPenalty,
         familySuppressed: false,
+        guestSuppressed,
       },
       movieTokens,
       familyKey,
