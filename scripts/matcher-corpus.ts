@@ -10,7 +10,10 @@
  */
 import { createClient } from "@supabase/supabase-js";
 import { MATCHER_CORPUS, type CorpusCase } from "../src/lib/matcher-corpus";
-import { matchEpisodeToMovies } from "../src/lib/providers/matching.server";
+import {
+  matchEpisodeToMovies,
+  computeTitleWordStats,
+} from "../src/lib/providers/matching.server";
 
 const THRESHOLD = 25;
 
@@ -47,8 +50,31 @@ for (const title of wanted) {
   for (const row of data ?? []) pool.push(row as Movie);
 }
 
+/**
+ * Pass U56 — word distinctiveness comes from the whole catalogue, not from the
+ * handful of candidate films this script loads, so scores match production.
+ */
+const allTitles: string[] = [];
+for (let page = 0; page < 20; page += 1) {
+  const from = page * 1000;
+  const { data, error } = await db
+    .from("movies")
+    .select("title")
+    .order("id")
+    .range(from, from + 999);
+  if (error) {
+    console.error(`Title-statistics read failed: ${error.message}`);
+    process.exit(2);
+  }
+  const rows = data ?? [];
+  for (const row of rows) allTitles.push((row as { title: string }).title);
+  if (rows.length < 1000) break;
+}
+const titleWordStats = computeTitleWordStats(allTitles);
+console.log(`Distinctiveness corpus: ${allTitles.length} catalogue titles.\n`);
+
 function evaluate(c: CorpusCase) {
-  const scored = matchEpisodeToMovies(c.episode, pool, {});
+  const scored = matchEpisodeToMovies(c.episode, pool, { titleWordStats });
   const live = scored.filter((s) => s.confidence >= THRESHOLD);
   const top = live[0] ?? null;
   const problems: string[] = [];

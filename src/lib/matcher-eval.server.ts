@@ -105,6 +105,15 @@ const SIGNAL_TESTS: { signal: string; test: (s: Record<string, unknown>) => bool
   { signal: "sequel marker missing from title", test: (s) => s["distinguisherPenalty"] === true },
   { signal: "beaten by a franchise sibling", test: (s) => s["familySuppressed"] === true },
   { signal: "matched only the guest's name", test: (s) => s["guestSuppressed"] === true },
+  {
+    signal: "title has a distinctive word the episode never says",
+    test: (s) => s["missingDistinctive"] === true,
+  },
+  { signal: "matched only post-colon chatter", test: (s) => s["chatterOnly"] === true },
+  {
+    signal: "shared words are distinctive",
+    test: (s) => Number(s["weightedCoverage"] ?? 0) >= 0.75,
+  },
   { signal: "covers most of the episode title", test: (s) => Number(s["episodeCoverage"] ?? 0) >= 0.5 },
 ];
 

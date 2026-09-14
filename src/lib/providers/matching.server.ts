@@ -34,6 +34,12 @@ export interface MatchSignals {
   familySuppressed: boolean;
   /** Pass U55 — the only shared words came from a guest credit, not the title. */
   guestSuppressed: boolean;
+  /** Pass U56 — coverage weighted by how distinctive each shared word is (0-1). */
+  weightedCoverage: number;
+  /** Pass U56 — a distinctive word of the candidate title is absent from the episode. */
+  missingDistinctive: boolean;
+  /** Pass U56 — the only shared words sat in post-colon chatter. */
+  chatterOnly: boolean;
 }
 
 export interface MovieMatchCandidate {
@@ -58,6 +64,12 @@ export interface MatchOptions {
    * unknown means the default strategy, i.e. pre-U4 behaviour.
    */
   strategy?: MatcherStrategy | null | undefined;
+  /**
+   * Pass U56 — catalogue-wide title-word statistics. Supply this when the
+   * candidate pool is a small slice of the catalogue; otherwise the pool itself
+   * is used.
+   */
+  titleWordStats?: TitleWordStats | null | undefined;
 }
 
 
@@ -266,6 +278,80 @@ function isSubset(a: Set<string>, b: Set<string>): boolean {
   return true;
 }
 
+/**
+ * Pass U56 — token distinctiveness.
+ *
+ * Distinctiveness is inverse document frequency over the catalogue's own movie
+ * titles, normalised to 0-1: a word that names one film ("Totoro") is worth far
+ * more than one that appears in hundreds ("man", "love", "night"). The map is
+ * derived from the candidate pool the caller already loaded, cached per array so
+ * repeated episode scoring over one pool costs nothing extra.
+ */
+const IDF_CACHE = new WeakMap<object, { docs: number; df: Map<string, number> }>();
+
+/** A pool this small cannot support meaningful document frequencies. */
+const MIN_IDF_DOCS = 40;
+
+function docFrequencies(movies: { title: string }[]): { docs: number; df: Map<string, number> } {
+  const cached = IDF_CACHE.get(movies as object);
+  if (cached) return cached;
+  const df = new Map<string, number>();
+  for (const m of movies) {
+    for (const token of tokenSet(canonical(m.title))) {
+      df.set(token, (df.get(token) ?? 0) + 1);
+    }
+  }
+  const built = { docs: movies.length, df };
+  IDF_CACHE.set(movies as object, built);
+  return built;
+}
+
+/** Catalogue-wide word statistics, so a small candidate pool still scores well. */
+export interface TitleWordStats {
+  docs: number;
+  df: Map<string, number>;
+}
+
+/** Builds distinctiveness statistics from a list of catalogue movie titles. */
+export function computeTitleWordStats(titles: string[]): TitleWordStats {
+  const df = new Map<string, number>();
+  for (const title of titles) {
+    for (const token of tokenSet(canonical(title))) {
+      df.set(token, (df.get(token) ?? 0) + 1);
+    }
+  }
+  return { docs: titles.length, df };
+}
+
+/**
+ * Word distinctiveness in 0-1. Without a large enough corpus every content word
+ * counts the same, so behaviour degrades to pre-U56 coverage rather than to a
+ * guess.
+ */
+function makeDistinctiveness(
+  movies: { title: string }[],
+  stats: TitleWordStats | null | undefined,
+): (word: string) => number {
+  const { docs, df } = stats ?? docFrequencies(movies);
+  if (docs < MIN_IDF_DOCS) return () => 1;
+  const denom = Math.log(docs);
+  return (word: string) => {
+    const seen = df.get(word) ?? 0;
+    const idf = Math.log(docs / (1 + seen)) / denom;
+    return Math.min(1, Math.max(0.08, idf));
+  };
+}
+
+/** Distinctive enough that its absence from the episode title means something. */
+const MISSING_IDF_FLOOR = 0.55;
+
+
+/** Post-colon chatter still counts, but at a fraction of its face value. */
+const CHATTER_WEIGHT = 0.4;
+
+
+
+
 export function matchEpisodeToMovies(
   episodeTitle: string,
   movies: {
@@ -295,6 +381,34 @@ export function matchEpisodeToMovies(
     [...episodeTokens].filter((t) => DISTINGUISHER_TOKENS.has(t)),
   );
 
+  // Pass U56 — post-colon chatter. "78. The Broken Hearts Gallery: our favourite
+  // break-ups" names the film before the colon; everything after it is talk. Only
+  // demote the tail when the head is a plausible title on its own (two or more
+  // content words), so "Mission: Impossible II" keeps its whole title.
+  const colonSplit = parsed.titleText.split(/\s*:\s*/);
+  const headTokens =
+    colonSplit.length > 1 ? tokenSet(canonical(colonSplit[0] ?? "")) : episodeTokens;
+  const chatterTokens =
+    colonSplit.length > 1 && headTokens.size >= 2
+      ? new Set([...episodeTokens].filter((t) => !headTokens.has(t)))
+      : new Set<string>();
+
+  // Pass U56 — phrase segments of the episode title. A candidate that is only
+  // part of a longer phrase ("Friday" inside "Friday Night Lights", "Drive"
+  // inside "License to Drive") is a sub-phrase, not the subject.
+  const episodePhrases = parsed.titleText
+    .split(/[()[\]|,:]|\s[-–—]\s/)
+    .map((p) => canonical(p))
+    .filter((p) => p.length > 0)
+    .map((p) => ({ text: p, tokens: tokenSet(p) }));
+
+
+  // Pass U56 — distinctiveness of each word across catalogue titles.
+  const distinctiveness = makeDistinctiveness(movies, options.titleWordStats);
+  const tokenWeight = (t: string) =>
+    distinctiveness(t) * (chatterTokens.has(t) ? CHATTER_WEIGHT : 1);
+
+
   // Description-aware signals: deterministic, no AI, no network.
   const descRaw = (options.description ?? "")
     .replace(/<[^>]*>/g, " ")
@@ -308,11 +422,42 @@ export function matchEpisodeToMovies(
     const movieCanonical = canonical(movie.title);
     const movieTokens = tokenSet(movieCanonical);
     const similarity = jaccard(episodeTokens, movieTokens);
-    const shared = [...movieTokens].filter((t) => episodeTokens.has(t)).length;
+    const sharedTokens = [...movieTokens].filter((t) => episodeTokens.has(t));
+    const shared = sharedTokens.length;
     const coverage = movieTokens.size ? shared / movieTokens.size : 0;
     // Symmetric: how much of what the episode names this title accounts for.
     const episodeCoverage = episodeTokens.size ? shared / episodeTokens.size : 0;
 
+    // Pass U56 — the same coverage, weighted by distinctiveness: a shared
+    // "broken" is worth much less than a shared "totoro", and words that sat in
+    // post-colon chatter count at a fraction of face value.
+    const movieWeightTotal = [...movieTokens].reduce((sum, t) => sum + distinctiveness(t), 0);
+    const sharedWeight = sharedTokens.reduce((sum, t) => sum + tokenWeight(t), 0);
+    const weightedCoverage = movieWeightTotal ? sharedWeight / movieWeightTotal : 0;
+    const chatterOnly = shared > 0 && sharedTokens.every((t) => chatterTokens.has(t));
+    // The missing side: a distinctive word of the candidate's own title that the
+    // episode never says ("arrow" in "Broken Arrow") is evidence against it.
+    // Words after a colon in the *movie* title are structurally omittable, so a
+    // subtitle-only omission is exempt.
+    const movieSubtitleTokens =
+      movie.title.includes(":")
+        ? new Set(
+            [...tokenSet(canonical(movie.title.split(/\s*:\s*/).slice(1).join(" ")))],
+          )
+        : new Set<string>();
+    const missingWeights = [...movieTokens]
+      .filter((t) => !episodeTokens.has(t) && !movieSubtitleTokens.has(t))
+      .map((t) => distinctiveness(t));
+    const worstMissing = missingWeights.length ? Math.max(...missingWeights) : 0;
+    /** How identifying the evidence the episode actually gives us is. */
+    const sharedMax = sharedTokens.length
+      ? Math.max(...sharedTokens.map((t) => tokenWeight(t)))
+      : 0;
+
+
+
+    // Distinctiveness never inflates a match, only tempers a generic one.
+    const effCoverage = Math.min(coverage, weightedCoverage);
 
     let confidence = 0;
     let reason = "";
@@ -339,20 +484,20 @@ export function matchEpisodeToMovies(
       confidence = 88;
       reason = "all movie words present";
       rule = "tokens";
-    } else if (coverage >= 0.75) {
+    } else if (effCoverage >= 0.75) {
       confidence = 74;
       reason = "most movie words present";
       rule = "tokens";
-    } else if (coverage >= 0.5) {
+    } else if (effCoverage >= 0.5) {
       confidence = 56;
       reason = "half the movie words present";
       rule = "tokens";
-    } else if (similarity >= 0.4) {
+    } else if (similarity >= 0.4 && weightedCoverage >= 0.4) {
       confidence = 50;
       reason = "moderate token overlap";
       rule = "tokens";
     } else {
-      confidence = Math.round(coverage * 45);
+      confidence = Math.round(effCoverage * 45);
       reason = "token overlap";
       rule = "weak";
     }
@@ -545,6 +690,59 @@ export function matchEpisodeToMovies(
       reason += " - only matches the guest's name";
     }
 
+    // Pass U56 — a distinctive word of the candidate's own title that the episode
+    // never says is negative evidence, scaled by how distinctive that word is.
+    // An exact hit accounts for the whole title, so it is exempt.
+    const corroboratedU56 = yearMatch === "same" || (descTitle && descYear !== "mismatch");
+    const missingDistinctive =
+      worstMissing >= MISSING_IDF_FLOOR && coverage < 1 && rule !== "exact";
+    if (missingDistinctive) {
+      // Half a title's words, one of them distinctive and absent, is not
+      // evidence of anything: "Purple Rain" against "Harold and the Purple
+      // Crayon", "Return of the Jedi" against "Return to Silent Hill". Same when
+      // the word the episode omits is more identifying than anything it says:
+      // "Falling for Figaro" against "Falling for You".
+      const missingDominates = worstMissing > sharedMax;
+      if (rule === "tokens" && (coverage <= 0.5 || missingDominates) && !corroboratedU56) {
+        confidence = Math.min(confidence, 20);
+      } else {
+        confidence = Math.max(0, confidence - Math.round(worstMissing * 22));
+      }
+      reason += " - title has a distinctive word the episode never says";
+    }
+
+    // Pass U56 — distinctive beats generic: a candidate that is only part of a
+    // longer phrase in the episode title is a sub-phrase, not the subject
+    // ("Friday" in "Friday Night Lights", "Drive" in "License to Drive"). The
+    // extra words have to carry weight of their own, so ordinary chatter around
+    // a real title ("Magnolia (Dads Can Be Very a Lot)") still matches.
+    let subPhrase = false;
+    if (rule === "contained" && coverage === 1 && !corroboratedU56) {
+      const host = episodePhrases.find(
+        (p) => p.tokens.size > movieTokens.size && isSubset(movieTokens, p.tokens),
+      );
+      if (host) {
+        const extras = [...host.tokens].filter((t) => !movieTokens.has(t));
+        subPhrase = extras.some(
+          (t) =>
+            distinctiveness(t) >= MISSING_IDF_FLOOR &&
+            !commonEpisodeWords.has(t) &&
+            !COMMON_WORD_TITLES.has(t),
+        );
+      }
+      if (subPhrase) {
+        confidence = Math.min(confidence, 20);
+        reason += " - only part of a longer title in the episode";
+      }
+    }
+
+    // Pass U56 — the shared words all sat in post-colon chatter, not in the
+    // part of the episode title that names the film.
+    if (chatterOnly && rule !== "exact" && coverage < 1) {
+      confidence = Math.min(confidence, 18);
+      reason += " - only matches post-colon chatter";
+    }
+
     const familyKey = [...movieTokens][0] ?? movieCanonical;
 
     return {
@@ -570,12 +768,27 @@ export function matchEpisodeToMovies(
         distinguisherPenalty,
         familySuppressed: false,
         guestSuppressed,
+        weightedCoverage: Math.round(weightedCoverage * 100) / 100,
+        missingDistinctive,
+        chatterOnly,
       },
       movieTokens,
       familyKey,
       collectionKey: movie.collection_id ? `c${movie.collection_id}` : null,
     };
   });
+
+  // Pass U56 — the episode title names a film outright, so a longer title that
+  // merely contains that text ("The Parent Trap" for the episode "Trap") is not
+  // in the running.
+  if (candidates.some((c) => c.signals.rule === "exact")) {
+    for (const c of candidates) {
+      if (c.signals.rule === "contained" && c.signals.coverage < 1) {
+        c.confidence = Math.min(c.confidence, 20);
+        c.reason += " - the episode names another film exactly";
+      }
+    }
+  }
 
   resolveFamilies(candidates, episodeDistinguishers);
 
