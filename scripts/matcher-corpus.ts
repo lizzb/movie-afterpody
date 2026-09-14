@@ -75,30 +75,36 @@ function evaluate(c: CorpusCase) {
   return { problems, top, skipped: [] as string[] };
 }
 
-const byOwner = new Map<string, { pass: number; fail: number }>();
+const byOwner = new Map<string, { pass: number; fail: number; skip: number }>();
 let failures = 0;
+let skipped = 0;
 
 for (const c of cases) {
-  const { problems, top } = evaluate(c);
-  const ok = problems.length === 0;
-  const tally = byOwner.get(c.owner) ?? { pass: 0, fail: 0 };
-  if (ok) tally.pass += 1;
-  else {
+  const { problems, top, skipped: absent } = evaluate(c);
+  const state = absent.length ? "SKIP" : problems.length === 0 ? "PASS" : "FAIL";
+  const tally = byOwner.get(c.owner) ?? { pass: 0, fail: 0, skip: 0 };
+  if (state === "PASS") tally.pass += 1;
+  else if (state === "SKIP") {
+    tally.skip += 1;
+    skipped += 1;
+  } else {
     tally.fail += 1;
     failures += 1;
   }
   byOwner.set(c.owner, tally);
 
   const winner = top ? `${top.title} @${top.confidence}` : "no candidate";
-  console.log(`${ok ? "PASS" : "FAIL"} [${c.owner}] ${c.show} — ${c.episode}`);
+  console.log(`${state} [${c.owner}] ${c.show} — ${c.episode}`);
   console.log(`      winner: ${winner}`);
   if (top) console.log(`      signals: ${JSON.stringify(top.signals)}`);
+  if (absent.length) console.log(`      ~ not in the catalogue: ${absent.join(", ")}`);
   for (const p of problems) console.log(`      ! ${p}`);
 }
 
 console.log("\nBy owning pass:");
 for (const [owner, t] of [...byOwner.entries()].sort()) {
-  console.log(`  ${owner}: ${t.pass} pass / ${t.fail} fail`);
+  console.log(`  ${owner}: ${t.pass} pass / ${t.fail} fail / ${t.skip} skipped`);
 }
-console.log(`\n${cases.length - failures}/${cases.length} cases pass.`);
+const judged = cases.length - skipped;
+console.log(`\n${judged - failures}/${judged} judged cases pass (${skipped} skipped).`);
 process.exit(0);
