@@ -461,7 +461,7 @@ function EpisodeRow({
             href={listenUrl}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary px-2.5 py-1 text-[11px] font-semibold text-secondary-foreground"
+            className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground"
           >
             Listen
             <ExternalLink className="size-3" aria-hidden />
