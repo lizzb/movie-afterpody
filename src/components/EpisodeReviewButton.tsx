@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { CheckCheck, Loader2, RotateCcw } from "lucide-react";
 import { useSetEpisodeReviewed } from "@/lib/episode-reviews";
 
@@ -8,6 +9,9 @@ interface Props {
   variant?: "inline" | "block";
 }
 
+/** A reopen this soon after marking reviewed is a stray second tap, not intent. */
+const REVERSE_GUARD_MS = 2500;
+
 /**
  * Admin-only "Mark episode reviewed" control for episode rows. Render only when
  * the viewer is an admin (see `useEpisodeReviewStates().isAdmin`).
@@ -15,11 +19,17 @@ interface Props {
 export function EpisodeReviewButton({ episodeId, reviewed, variant = "inline" }: Props) {
   const mutation = useSetEpisodeReviewed();
   const pending = mutation.isPending;
+  const markedAt = useRef(0);
 
   const onClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    mutation.mutate({ episodeId, reviewed: !reviewed });
+    const next = !reviewed;
+    // Guard the destructive direction only: reopening within a moment of
+    // marking reviewed silently undid the action the user just took.
+    if (!next && Date.now() - markedAt.current < REVERSE_GUARD_MS) return;
+    if (next) markedAt.current = Date.now();
+    mutation.mutate({ episodeId, reviewed: next });
   };
 
   const title = reviewed
