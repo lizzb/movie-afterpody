@@ -58,6 +58,23 @@ Use `BUILD` only when product code is expected to change. Expect `VERIFY SWEEP` 
 
 ## Do next
 
+### Pass U86 — "Wrong movie?" flag state never rendered — S — SHIPPED 2026-09-14, VERIFIED (preview, 390px)
+
+Root cause (data-confirmed): `useMyFlags` read `episode_link_flags` unscoped and unbounded. All 1,478 open flags belong to the single admin account and PostgREST caps a response at 1,000 rows, so older flags were silently dropped and their buttons painted as unflagged even though the write succeeded.
+
+- `src/lib/flags.ts` — read scoped to `flagged_by = userId`, ordered by `id`, paged in explicit 1,000-row windows with a 20-page guard. Standing guard documented in the file: never read this list unbounded.
+- Snackbar now names the pairing: `Flagged as wrong: The Interview · Interview with Nikki Soohoo`, existing "moves to the top of the admin review queue" line kept as the description, duplicate name collapsed, year deliberately omitted at phone width. `FlagMatchButton` takes optional `movieTitle` / `episodeTitle`; all three call sites (movie detail, show detail episode rows, show detail movie rows) pass them.
+- Verified at 390px with a real signed-in session: `/movies/the-interview` paints 14 filled flags on first load (matches 14 stored flags; previously 0), `/movies/i-robot` 17; tap → outline + "Flag removed"; tap again → filled + named snackbar, no reload. No console errors.
+
+### Pass U87 — Retired episode kept showing its movie links — S — IMPLEMENTED, NOT VERIFIED (2026-09-14)
+
+Two causes, both fixed: the client refetch list did not include the L2b server-ranked reads, and the server catalogue snapshot still contained the removed links for up to the stale window, so an honest refetch returned stale rows anyway.
+
+- `src/lib/episode-reviews.ts` — `RETIREMENT_KEYS` (shared by retire and undo) now also invalidates `movie-page`, `show-page`, `show-detail`, `episode-details`, `facets`.
+- `src/lib/catalog.server.ts` — new `expireCatalog()` drops the cached snapshot; called by `markEpisodeNotAboutMovie` and `undoEpisodeRetirement` after the write.
+- Not verified in-app: needs one retire + undo on a show with visible links, confirming the links disappear within one navigation and return on undo. Snapshot cache is per-worker, so a multi-worker deployment may still serve one stale read; noted, not addressed here.
+
+
 ### Pass U63 — Admin server functions no longer load whole tables — M — IMPLEMENTED, NOT VERIFIED (status re-confirmed 2026-09-09; blocked on U76)
 
 Root cause of the 502s on Match Review / coverage / stats / recheck: those handlers read every episode, link, review and rejection row into one worker. Now aggregated or bounded in Postgres:
