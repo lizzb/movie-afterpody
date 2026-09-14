@@ -142,10 +142,31 @@ function stripPrefixes(input: string): { prefix: string; rest: string } {
   return { prefix: prefix.trim(), rest };
 }
 
+/** Removes trailing format tags ("LIVE!", "(Patreon Clip)", "[Jason Edition]"). */
+function stripFormatSuffixes(input: string): string {
+  let out = input.trim();
+  for (let i = 0; i < 3; i += 1) {
+    let changed = false;
+    for (const re of FORMAT_SUFFIXES) {
+      const next = out.replace(re, "");
+      if (next.trim() !== out.trim() && next.replace(/[^A-Za-z0-9]/g, "").length >= 2) {
+        out = next.trim();
+        changed = true;
+      }
+    }
+    if (!changed) break;
+  }
+  // Empty brackets left behind once a year or tag was removed.
+  return out
+    .replace(/[([]\s*[-–—]?\s*[)\]]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 /** Splits an episode title into prefix / title / guest segments. */
 export function parseEpisodeTitle(episodeTitle: string): ParsedEpisodeTitle {
   const { prefix, rest } = stripPrefixes(episodeTitle ?? "");
-  let titleText = rest;
+  let titleText = stripFormatSuffixes(rest);
   let guestText = "";
 
   const bracketed = titleText.match(BRACKETED_GUEST);
@@ -168,6 +189,16 @@ export function parseEpisodeTitle(episodeTitle: string): ParsedEpisodeTitle {
         guestText = trailing[1].trim();
         titleText = head;
       }
+    }
+  }
+
+  // Pass U75 — "Interview: <guest> on <movie title>". Only after an interview
+  // format prefix, so ordinary titles containing " on " stay intact.
+  if (!guestText && /interview/i.test(prefix)) {
+    const onSplit = titleText.match(GUEST_ON_TITLE);
+    if (onSplit?.[1] && onSplit[2] && looksLikeGuestNames(onSplit[1])) {
+      guestText = onSplit[1].trim();
+      titleText = onSplit[2].trim();
     }
   }
 
