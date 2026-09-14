@@ -1427,6 +1427,12 @@ const RescanInput = ResolveInput.extend({
   rescoreWeakLinks: z.boolean().default(true),
   /** Attach extra strong candidates (trilogies, double features) alongside the primary. */
   addExtraLinks: z.boolean().default(true),
+  /**
+   * Pass U77 — position in the stable eligible ordering (released_at DESC, id)
+   * to continue from. Rechecking does not remove an episode from the eligible
+   * pool, so without this cursor every run reprocessed the same newest slice.
+   */
+  offset: z.number().int().min(0).default(0),
 });
 
 /** A newly added movie can beat a weak link only by this margin (percentage points). */
