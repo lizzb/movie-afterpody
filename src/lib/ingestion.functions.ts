@@ -1685,6 +1685,7 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
       stillUnlinked,
       pool: rawRows.filter(usable).length,
       remaining,
+      remainingIsFloor,
       /** Pass U77 — where the next run must continue from. */
       nextOffset,
     };
