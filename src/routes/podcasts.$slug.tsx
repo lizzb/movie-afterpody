@@ -246,40 +246,70 @@ function PodcastDetailPage() {
           </button>
         </section>
 
-        <section className="mt-7">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="font-display text-lg font-bold">
-              Watchable tonight <span className="text-muted-foreground">({streamableTotal})</span>
-            </h2>
-            <ViewToggle surface="podcast-detail" value={view} />
-          </div>
-          {streamableTotal === 0 ? (
-            <p className="mt-3 rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-              Nothing this show covers is unwatched on your services.{" "}
-              <Link to="/settings" className="font-semibold text-coral">
-                Adjust your services
-              </Link>
-              .
-            </p>
-          ) : (
-            <CoveredList items={streamableUnwatched} view={view} />
-          )}
-        </section>
+        <div
+          role="group"
+          aria-label="Show content"
+          className="mt-6 inline-flex items-center gap-0.5 rounded-full border border-border bg-card p-0.5"
+        >
+          {([
+            { value: "movies", label: "Movies" },
+            { value: "episodes", label: "Episodes" },
+          ] as const).map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              aria-pressed={mode === opt.value}
+              onClick={() => setMode(opt.value)}
+              className={`rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${
+                mode === opt.value
+                  ? "bg-coral-soft text-coral"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
 
-        {restTotal > 0 ? (
-          <section className="mt-7">
-            <h2 className="font-display text-lg font-bold">
-              Also covered <span className="text-muted-foreground">({restTotal})</span>
-            </h2>
-            <CoveredList items={rest} view={view} />
-          </section>
-        ) : null}
+        {mode === "movies" ? (
+          <>
+            <section className="mt-7">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="font-display text-lg font-bold">
+                  Watchable tonight{" "}
+                  <span className="text-muted-foreground">({streamableTotal})</span>
+                </h2>
+                <ViewToggle surface="podcast-detail" value={view} />
+              </div>
+              {streamableTotal === 0 ? (
+                <p className="mt-3 rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                  Nothing this show covers is unwatched on your services.{" "}
+                  <Link to="/settings" className="font-semibold text-coral">
+                    Adjust your services
+                  </Link>
+                  .
+                </p>
+              ) : (
+                <CoveredList items={streamableUnwatched} view={view} />
+              )}
+            </section>
 
-        <EpisodeFeed
-          rows={allEpisodes}
-          reviewStates={reviewStates}
-          fallbackListenUrl={podcast.website_url ?? null}
-        />
+            {restTotal > 0 ? (
+              <section className="mt-7">
+                <h2 className="font-display text-lg font-bold">
+                  Also covered <span className="text-muted-foreground">({restTotal})</span>
+                </h2>
+                <CoveredList items={rest} view={view} />
+              </section>
+            ) : null}
+          </>
+        ) : (
+          <EpisodeFeed
+            rows={allEpisodes}
+            reviewStates={reviewStates}
+            fallbackListenUrl={podcast.website_url ?? null}
+          />
+        )}
 
       </main>
     </AppShell>
