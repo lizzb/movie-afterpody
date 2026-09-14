@@ -90,8 +90,10 @@ function PodcastDetailPage() {
   // episodes and covered movies are transferred.
   const { detail, isLoading } = useShowDetail(slug);
   const view = prefs.viewModes["podcast-detail"] ?? "rows";
+  // U40D — presentation-only toggle over the same useShowDetail payload.
+  const [mode, setMode] = useState<"movies" | "episodes">("episodes");
   const reviewStates = useEpisodeReviewStates(
-    detail?.allEpisodes.map((row) => row.episode.id) ?? [],
+    mode === "episodes" ? (detail?.allEpisodes.map((row) => row.episode.id) ?? []) : [],
   );
 
 
