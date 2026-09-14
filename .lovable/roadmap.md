@@ -1665,3 +1665,12 @@ Lists & History gained a third tab, "Listened (N)": every episode you rated, gra
 ### Match review rows show episode date + duration — shipped 2026-08-31
 
 Every Match review row (Flagged / Proposed / Existing) now prints the release date and runtime next to the show name, so 90-second ads and trailers are obvious at a glance and an ambiguous title's year can be sanity-checked. `duration_seconds` was added to the episode fetch, `listEpisodeLinks` and the flagged-links query.
+
+### Reconciliation 2026-09-13 — Project monitoring findings triage (no new passes filed)
+
+- **Main catalogue fails to load for visitors** (`error_log_finding_cca2a935effadcbeb89e507c05947f3d`) — **RESOLVED, no code change.** Owner U79 (+ U80). Checked the published site directly: `/movies` renders 2626 titles / 100 cards, `/podcasts` 42 shows, Tonight 10 suggestions, no console errors. The blank-page failure is not reproducible on current production; the timeouts belong to the pre-U79/U80 window. Residual cold-read latency stays with L2c-1 (retiring the legacy `src/lib/data.ts` reader).
+- **"Recheck every episode" only rechecks the newest batch** (`6c5cebfe-64c5-59f4-b8e7-24e4ad14feb9`) — **REAL BUG, fixed.** Owner U77, shipped and verified 2026-09-13 (see above). S.
+- **Admin stats / unmatched / coverage: permission denied** (`error_log_finding_1eda9e944e4620fec6ef58c2abf4f6a2`) — **PRODUCTION DEPLOYMENT ISSUE, no code change.** Owner U78. The fix was an environment re-binding of the managed service-role key, already verified in preview (all three RPC paths return real numbers). The published site must be republished to pick it up; re-verify afterwards with `scripts/verify-admin-session.py` (Pass U76). Investigate code only if `permission denied` persists post-republish. Do NOT switch to `SECURITY DEFINER` or widen EXECUTE.
+- **Listen Later bookmark absent from podcast-page episode cards** — **UX/COPY GAP, not a regression.** Owner U44. V1 deliberately put the control on movie-detail episode cards only; the empty state in `src/routes/lists.index.tsx` says "any episode card", which overstates it. Smallest resolution: correct that copy (XS). Optional U44 V1.1 — reuse the existing `ListenLaterButton` on the podcast-page episode card (S, no card redesign, no second subsystem). Not implemented this turn per instruction.
+
+Recommended priority: republish for U78 → U44 copy correction (XS) → optional U44 V1.1 → L2c-1.
