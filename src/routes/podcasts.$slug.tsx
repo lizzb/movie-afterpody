@@ -516,6 +516,7 @@ function PodcastEpisodeCard({
   const listenUrl = detail.listenUrl ?? fallbackListenUrl;
   const sources = detail.sources;
   const listening = prefs.listening[episode.slug] ?? "not_started";
+  const savedForLater = listenLaterSlugs(prefs).includes(episode.slug);
 
   const meta: string[] = [];
   if (episode.episode_number != null) meta.push(`Episode ${episode.episode_number}`);
@@ -526,6 +527,11 @@ function PodcastEpisodeCard({
     <CardShell className="p-3">
       <CardControls>
         <MarkListenedButton episodeSlug={episode.slug} listening={listening} />
+        <ListenLaterButton
+          episodeSlug={episode.slug}
+          episodeTitle={episode.title}
+          saved={savedForLater}
+        />
       </CardControls>
 
       <CardHeader
