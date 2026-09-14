@@ -133,8 +133,15 @@ export function parseEpisodeTitle(episodeTitle: string): ParsedEpisodeTitle {
     const trailing = titleText.match(TRAILING_GUEST);
     if (trailing?.[1] && looksLikeGuestNames(trailing[1])) {
       const head = titleText.slice(0, trailing.index ?? titleText.length).trim();
-      // Never leave an empty title behind — "With Bob" alone is not a guest split.
-      if (head.replace(/[^A-Za-z0-9]/g, "").length >= 2) {
+      const headWords = head.split(/\s+/).filter(Boolean).length;
+      const spelledOut = /^\s*[-–—|,:]?\s*with\b/i.test(
+        titleText.slice(trailing.index ?? 0),
+      );
+      // Never leave an empty or one-word title behind: "Sleeping with Other
+      // People" must not become "Sleeping". Abbreviated markers (w/, feat.) are
+      // never part of a film title, so a one-word head is fine for those.
+      const headOk = head.replace(/[^A-Za-z0-9]/g, "").length >= 2 && (headWords >= 2 || !spelledOut);
+      if (headOk) {
         guestText = trailing[1].trim();
         titleText = head;
       }
