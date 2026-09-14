@@ -281,9 +281,15 @@ export function matchEpisodeToMovies(
   const commonEpisodeWords = options.commonEpisodeWords ?? new Set<string>();
 
   const episodeYear = extractYear(episodeTitle);
-  const episodeClean = stripEpisodePrefixes(removeYear(episodeTitle));
-  const episodeCanonical = canonical(episodeClean);
+  // Pass U55 — parse first: guest credits stop counting as title evidence.
+  const parsed = parseEpisodeTitle(removeYear(episodeTitle));
+  const episodeFullCanonical = canonical(stripEpisodePrefixes(removeYear(episodeTitle)));
+  const episodeCanonical = canonical(parsed.titleText);
   const episodeTokens = tokenSet(episodeCanonical);
+  // Guest words are tracked only so a guest-only overlap stays explainable.
+  const guestTokens = new Set(
+    [...tokenSet(canonical(parsed.guestText))].filter((t) => !episodeTokens.has(t)),
+  );
   const keywordSuppressed = NON_FILM_KEYWORDS.some((re) => re.test(episodeTitle));
   const episodeDistinguishers = new Set(
     [...episodeTokens].filter((t) => DISTINGUISHER_TOKENS.has(t)),
