@@ -12,7 +12,17 @@ interface FlagRow {
   resolved_at: string | null;
 }
 
-/** Every unresolved "wrong movie?" flag this signed-in person has raised. */
+/**
+ * Every unresolved "wrong movie?" flag this signed-in person has raised.
+ *
+ * Scoped to `flagged_by = userId` and ordered/bounded on purpose: the read
+ * policy lets admins see everyone's flags, so an unscoped read grew past the
+ * backend's 1,000-row response cap and silently dropped this person's own
+ * flags — the button then never rendered as flagged. Never read this list
+ * unbounded.
+ */
+const MY_FLAGS_LIMIT = 1000;
+
 export function useMyFlags() {
   const { userId } = useAuth();
   const query = useQuery({
@@ -23,7 +33,10 @@ export function useMyFlags() {
       const { data, error } = await supabase
         .from("episode_link_flags")
         .select("id, episode_id, movie_id, resolved_at")
+        .eq("flagged_by", userId!)
         .is("resolved_at", null)
+        .order("created_at", { ascending: false })
+        .limit(MY_FLAGS_LIMIT)
         .returns<FlagRow[]>();
       if (error) throw new Error(error.message);
       return data ?? [];
