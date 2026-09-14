@@ -983,7 +983,7 @@ function UnmatchedEpisodesCard() {
       <div className="mt-4">
         <button
           type="button"
-          onClick={() => rescan.mutate({ data: { limit: 100 } })}
+          onClick={() => rescan.mutate({ data: { limit: 100, offset: rescanCursor } })}
           disabled={rescan.isPending}
           className="inline-flex items-center rounded-full border border-border px-5 py-2.5 text-sm font-semibold disabled:opacity-50"
         >
@@ -993,6 +993,24 @@ function UnmatchedEpisodesCard() {
               ? "Rescanning…"
               : "Recheck every episode against existing movies"}
         </button>
+        <label className="ml-3 inline-flex items-center gap-2 text-xs text-muted-foreground">
+          <input
+            type="checkbox"
+            className="size-4"
+            checked={rescanUntilDone}
+            onChange={(e) => setRescanUntilDone(e.target.checked)}
+          />
+          Keep going until every episode is checked
+        </label>
+        {rescanCursor > 0 ? (
+          <button
+            type="button"
+            onClick={() => setRescanCursor(0)}
+            className="ml-3 text-xs font-semibold underline"
+          >
+            Start again from the newest
+          </button>
+        ) : null}
         <p className="mt-2 text-xs text-muted-foreground">
           Rescores every episode in your active shows against the movies already in the catalogue:
           links unmatched ones, replaces a weak match when a newly added movie clearly beats it, and
