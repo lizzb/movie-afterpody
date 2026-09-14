@@ -1472,25 +1472,58 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
      * blew the CPU limit and returned 502s; the caller repeats the action until
      * `remaining` is zero.
      */
-    const { data: eligibleRows, error: eligibleError } = await supabaseAdmin.rpc(
-      "admin_match_eligible_episodes",
-      {
+    /**
+     * Pass U77 — the window starts at the caller's cursor. The ordering
+     * (released_at DESC, id) is stable and a recheck never removes an episode
+     * from the eligible pool, so advancing the cursor by the number of rows
+     * actually consumed is what makes consecutive runs touch different
+     * episodes and the "left to check" figure fall.
+     */
+    const readEligible = (offset: number) =>
+      supabaseAdmin.rpc("admin_match_eligible_episodes", {
         ...(data.podcastId ? { p_podcast_id: data.podcastId } : {}),
         p_exclude_confirmed: false,
         p_limit: MATCH_SCAN_CAP,
-        p_offset: 0,
-      },
-    );
+        p_offset: offset,
+      });
+
+    const { data: eligibleRows, error: eligibleError } = await readEligible(data.offset);
     if (eligibleError) throw eligibleError;
-    const pool = (eligibleRows ?? [])
-      .filter((ep) => hasUsableEpisodeTitle(ep.title) && !looksNonMovieEpisode(ep.title))
-      .map((row) => ({
+    const rawRows = eligibleRows ?? [];
+
+    const usable = (ep: { title: string }) =>
+      hasUsableEpisodeTitle(ep.title) && !looksNonMovieEpisode(ep.title);
+
+    /**
+     * Walk the raw window in order so the returned cursor is expressed in the
+     * same coordinates the RPC pages in, even though unusable titles are
+     * skipped rather than processed.
+     */
+    const episodes: { id: string; title: string; description: string | null; podcasts: { matcher_strategy: typeof rawRows[number]["matcher_strategy"] } }[] = [];
+    let consumedRaw = 0;
+    for (const row of rawRows) {
+      if (episodes.length >= data.limit) break;
+      consumedRaw += 1;
+      if (!usable(row)) continue;
+      episodes.push({
         id: row.id,
         title: row.title,
         description: row.description,
         podcasts: { matcher_strategy: row.matcher_strategy },
-      }));
-    const episodes = pool.slice(0, data.limit);
+      });
+    }
+    const nextOffset = data.offset + consumedRaw;
+    const remaining = Math.max(0, rawRows.filter(usable).length - episodes.length);
+
+    /**
+     * Corpus word statistics must not depend on where the cursor happens to
+     * be, so they are always derived from the head of the eligible pool.
+     */
+    const statsTitles =
+      data.offset === 0
+        ? rawRows.filter(usable).map((r) => r.title)
+        : ((await readEligible(0)).data ?? []).filter(usable).map((r) => r.title);
+
     const episodeIds = episodes.map((ep) => ep.id);
 
     const [rejected, rejectionCountByMovie] = await Promise.all([
