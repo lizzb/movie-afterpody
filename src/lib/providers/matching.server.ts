@@ -320,7 +320,9 @@ export function matchEpisodeToMovies(
 
     // Coverage-first: how much of the *movie* title the episode contains, so
     // extra episode chatter ("Ep 43 - …") no longer dilutes a full match.
-    if (episodeCanonical === movieCanonical) {
+    // A whole-title match on the *unparsed* string still counts, so a real
+    // title containing "with" is never broken by the parse stage.
+    if (episodeCanonical === movieCanonical || episodeFullCanonical === movieCanonical) {
       confidence = 100;
       reason = "exact title";
       rule = "exact";
