@@ -81,7 +81,11 @@ export function useEpisodeDetails(episodeIds: string[]) {
   };
 }
 
-/** The movie synopsis, loaded only on the movie detail page. */
+/**
+ * The movie synopsis plus its stored IMDb id, loaded only on the movie detail
+ * page. The IMDb id already exists on the row (written during ingestion), so
+ * the header link rides along on this one request (Pass U42D).
+ */
 export function useMovieSynopsis(movieId: string | undefined) {
   const query = useQuery({
     queryKey: ["movie-synopsis", movieId],
@@ -90,12 +94,12 @@ export function useMovieSynopsis(movieId: string | undefined) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("movies")
-        .select("synopsis")
+        .select("synopsis, imdb_id")
         .eq("id", movieId!)
-        .maybeSingle<{ synopsis: string | null }>();
+        .maybeSingle<{ synopsis: string | null; imdb_id: string | null }>();
       if (error) throw new Error(error.message);
-      return data?.synopsis ?? null;
+      return { synopsis: data?.synopsis ?? null, imdbId: data?.imdb_id ?? null };
     },
   });
-  return query.data ?? null;
+  return query.data ?? { synopsis: null, imdbId: null };
 }
