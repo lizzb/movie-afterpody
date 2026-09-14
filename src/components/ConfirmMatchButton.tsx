@@ -1,4 +1,4 @@
-import { Check } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 import { flagKey } from "@/lib/flags";
 import { useConfirmedLinks, useConfirmMatch } from "@/lib/link-review";
 
@@ -13,14 +13,16 @@ export function ConfirmMatchButton({
   episodeId: string;
   movieId: string;
 }) {
-  const { confirmed, isAdmin } = useConfirmedLinks();
+  const { confirmed, isAdmin, isLoading } = useConfirmedLinks();
   const confirm = useConfirmMatch();
   if (!isAdmin) return null;
 
   const isConfirmed = confirmed.has(flagKey(episodeId, movieId));
-  const title = isConfirmed
-    ? "Confirmed correct — tap to undo"
-    : "Confirm this link is correct";
+  const title = isLoading
+    ? "Checking whether this link is already confirmed…"
+    : isConfirmed
+      ? "Confirmed correct — tap to undo"
+      : "Confirm this link is correct";
 
   return (
     <button
@@ -30,7 +32,7 @@ export function ConfirmMatchButton({
         e.stopPropagation();
         confirm.mutate({ episodeId, movieId, on: !isConfirmed });
       }}
-      disabled={confirm.isPending}
+      disabled={confirm.isPending || isLoading}
       aria-pressed={isConfirmed}
       aria-label={title}
       title={title}
@@ -40,7 +42,11 @@ export function ConfirmMatchButton({
           : "border-border text-muted-foreground hover:text-teal"
       }`}
     >
-      <Check className="size-4" aria-hidden />
+      {isLoading ? (
+        <Loader2 className="size-4 animate-spin" aria-hidden />
+      ) : (
+        <Check className="size-4" aria-hidden />
+      )}
     </button>
   );
 }

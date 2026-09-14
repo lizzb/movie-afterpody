@@ -10,6 +10,8 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 const LOCAL_KEY = ["link-confirmations"] as const;
 type LocalState = Record<string, boolean>;
 
+const CONFIRMED_KEY = ["episode-links", "confirmed"] as const;
+
 async function fetchConfirmedKeys(): Promise<string[]> {
   const out: string[] = [];
   for (let from = 0; ; from += 1000) {
@@ -17,7 +19,12 @@ async function fetchConfirmedKeys(): Promise<string[]> {
       .from("episode_movies")
       .select("episode_id, movie_id")
       .eq("review_state", "confirmed")
+      // Both columns: an episode can hold several confirmed links, so ordering
+      // by episode_id alone leaves ties. Offset paging over a tie can skip or
+      // repeat rows, which made individual confirmations vanish from the UI
+      // even though the database had them.
       .order("episode_id")
+      .order("movie_id")
       .range(from, from + 999);
     if (error) throw new Error(error.message);
     const rows = data ?? [];
@@ -34,7 +41,7 @@ async function fetchConfirmedKeys(): Promise<string[]> {
 export function useConfirmedLinks() {
   const isAdmin = useIsAdmin();
   const links = useQuery({
-    queryKey: ["episode-links", "confirmed"],
+    queryKey: CONFIRMED_KEY,
     queryFn: fetchConfirmedKeys,
     enabled: isAdmin,
     staleTime: 5 * 60 * 1000,
@@ -52,7 +59,9 @@ export function useConfirmedLinks() {
     if (on) confirmed.add(key);
     else confirmed.delete(key);
   }
-  return { confirmed, isAdmin };
+  // Until the confirmed set has loaded, an already-confirmed link would draw as
+  // unconfirmed — which invited confirming it a second time.
+  return { confirmed, isAdmin, isLoading: links.isPending && isAdmin };
 }
 
 /**
@@ -78,12 +87,18 @@ export function useConfirmMatch() {
         ? confirmMatch({ data: { episodeId, movieId } })
         : unconfirmMatch({ data: { episodeId, movieId } }),
     onSuccess: (_result, { episodeId, movieId, on = true }) => {
+      const key = flagKey(episodeId, movieId);
       client.setQueryData<LocalState>(LOCAL_KEY, (prev) => ({
         ...(prev ?? {}),
-        [flagKey(episodeId, movieId)]: on,
+        [key]: on,
       }));
+      // Also write the change into the fetched set, so the control keeps its
+      // state if the session overrides are dropped before the next read.
+      client.setQueryData<string[]>(CONFIRMED_KEY, (prev) =>
+        prev ? (on ? (prev.includes(key) ? prev : [...prev, key]) : prev.filter((k) => k !== key)) : prev,
+      );
       void client.invalidateQueries({ queryKey: ["episode-flags"] });
-      void client.invalidateQueries({ queryKey: ["episode-links"] });
+      void client.invalidateQueries({ queryKey: CONFIRMED_KEY });
       toast.success(on ? "Link confirmed" : "Confirmation undone");
     },
     onError: (error: Error) => toast.error(error.message),

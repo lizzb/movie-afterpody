@@ -6,7 +6,9 @@ import {
   markEpisodeNotAboutMovie,
   setEpisodeReviewed,
   undoEpisodeRetirement,
+  type EpisodeReviewState,
 } from "@/lib/ingestion.functions";
+
 
 import { useIsAdmin } from "@/hooks/useIsAdmin";
 
@@ -60,22 +62,58 @@ const RETIREMENT_KEYS = [
   ["match-actions"],
 ];
 
+/**
+ * Writes one episode's reviewed state straight into every cached
+ * `episode-review-states` result. Without this the button kept reading the old
+ * value until a full page-wide refetch returned (seconds on mobile), so the
+ * action looked like it had not registered and a second tap reopened the
+ * episode that had just been marked reviewed.
+ */
+function patchReviewCaches(
+  queryClient: ReturnType<typeof useQueryClient>,
+  episodeId: string,
+  reviewed: boolean,
+) {
+  queryClient.setQueriesData<Record<string, EpisodeReviewState>>(
+    { queryKey: ["episode-review-states"] },
+    (prev) => {
+      if (!prev || !(episodeId in prev)) return prev;
+      const existing = prev[episodeId]!;
+      return {
+        ...prev,
+        [episodeId]: {
+          ...existing,
+          reviewed,
+          reviewedAt: reviewed ? new Date().toISOString() : existing.reviewedAt,
+          hasStaleRecord: reviewed ? false : Boolean(existing.reviewedAt),
+        },
+      };
+    },
+  );
+}
+
 export function useSetEpisodeReviewed() {
   const queryClient = useQueryClient();
   const run = useServerFn(setEpisodeReviewed);
   return useMutation({
     mutationFn: async (vars: { episodeId: string; reviewed: boolean }) =>
       run({ data: { episodeIds: [vars.episodeId], reviewed: vars.reviewed } }),
+    onMutate: (vars) => {
+      patchReviewCaches(queryClient, vars.episodeId, vars.reviewed);
+    },
     onSuccess: (result, vars) => {
       if (result.succeeded === 0) {
+        patchReviewCaches(queryClient, vars.episodeId, !vars.reviewed);
         toast.error(result.failed[0] ?? "Could not update this episode");
         return;
       }
       toast.success(vars.reviewed ? "Episode marked reviewed" : "Episode reopened");
       void queryClient.invalidateQueries({ queryKey: ["episode-review-states"] });
     },
-    onError: (error: unknown) =>
-      toast.error(error instanceof Error ? error.message : "Could not update this episode"),
+    onError: (error: unknown, vars) => {
+      patchReviewCaches(queryClient, vars.episodeId, !vars.reviewed);
+      toast.error(error instanceof Error ? error.message : "Could not update this episode");
+    },
   });
 }
 
