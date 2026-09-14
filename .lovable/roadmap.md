@@ -326,6 +326,19 @@ Root cause: decided rows are filtered out of the derived list the instant their 
 
 Y2's rating range is accepted; this pass addresses the broader filtering-feedback problem it exposed: (1) staged "Apply filters" breaks cause/effect — overlaps and is cross-referenced with Pass D4; (2) filter impact is invisible because the count and list sit outside the panel — candidate is a live "N movies match" readout on the draft plus cheap per-control hints; (3) the expanded filter controls are not discoverable — candidate is a clearer labelled entry point carrying the active-filter summary, plus removable applied-filter chips. Design options first, then build. Depends on D4's measurement for the live-count half.
 
+**U37-A — Filter entry point — filed 2026-09-14** (plan: `.lovable/plan/plan-backlog-only-11-filings-2026-09-14.md` item 1). Build-ready sub-item; unlike U37's live-count half it is **not** blocked on D4 measurement.
+
+- Effort: M (~3-5 credits). Confidence in estimate: Medium.
+- Scope: `src/components/FilterBar.tsx` (the persistent button, panel header, genre badge, inline chip) plus the Tonight parameters block; Tonight and Movies routes only.
+- Problem: the switchboard icon appears in three non-entry places while the large persistent button is dual-purpose — it reads "Apply filters (N changes)" / "Filters applied" and commits instead of opening. Users press it, and the header icon, expecting the panel.
+- Steps: (1) outer persistent control always opens Filters & Sort, labelled `Filters` / `Filters · N active` where N counts **applied** filters, not pending edits, with the switchboard icon; (2) panel primary control commits, labelled `Show N matches` when a count is available, otherwise `Apply filters`, neutral/disabled when nothing is pending; (3) remove the switchboard icon beside "Tonight's Parameters" and "Movie Filters"; (4) genre badge icon becomes drama/comedy masks (`Theater`); (5) remove the trailing "NNN matches" readout from the on-page Tonight parameter block, since the count already sits with the results and cannot update live.
+- Required pre-build check: Tonight exposes several controls inline. Confirm they still have a reachable commit affordance once the outer button is open-only; if not, the inline block keeps its own `Show N matches` commit button and only the outer control changes. Live-updating those inline controls is explicitly out of scope — it was tried before and slowed the UI.
+- Dependencies: none hard. Overlaps D4, which may later delete the commit step entirely; U37-A must not pre-empt that decision.
+- Unknowns: whether the applied-filter count and the draft match count are both cheaply available at the outer button.
+- Complexity drivers: shared FilterBar serves two surfaces with different default-exposed controls; separating "applied" from "pending" state cleanly is the real work.
+- Acceptance: one obvious entry point on Tonight and Movies at 390px; outer label reflects applied state only and always opens the panel; icons as specified; no duplicate match count on the filter block; staged/commit behaviour inside the panel unchanged.
+
+
 ## Worth doing soon
 
 #### Pass L1 — Catalogue read is too heavy for a cold page load — M (~3-5 credits) — SHIPPED 2026-09-05 — accepted on code/measurement evidence 2026-09-09 (no further bespoke runtime test planned)
