@@ -6,7 +6,11 @@
  * reports precision, recall and where the mistakes cluster. Database only:
  * no TMDB calls, no AI, no tokens.
  */
-import { matchEpisodeToMovies, computeCommonEpisodeWords } from "./providers/matching.server";
+import {
+  matchEpisodeToMovies,
+  computeCommonEpisodeWords,
+  computeTitleWordStats,
+} from "./providers/matching.server";
 import { pageAll, fetchRejectionCountsByMovie } from "./ingestion-helpers.server";
 import {
   asMatcherStrategy,
