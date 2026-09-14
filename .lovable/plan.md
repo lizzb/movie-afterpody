@@ -58,7 +58,7 @@ change made once is visible on all three surfaces; podcast page visually unchang
 Dependencies: none. Complexity driver: three call sites with different available data (movie
 context vs podcast context) — the variant contract is the real work.
 
-## 4. Watchlist movie card consistency — extends **Pass U42**, no new pass — S, High
+## 4. Watchlist movie card consistency — extends **Pass U42**, no new pass — Effort: S; Confidence in estimate: High
 
 Inspection (`lists.index.tsx` ~lines 160-190): the watchlist row prints `{title} · watched`
 inside the same bold title span, and omits the release year, while Watched history prints
