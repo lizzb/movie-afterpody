@@ -86,6 +86,8 @@ The D/O/T5/G/H/Y repair pass is verified and closed (see "Already done"). The re
 - **Pass H2 — Tonight result volume and shape — M (~3-5 credits) — NEEDS DESIGN.** Top 10 by default, "Load more suggestions", count reads `Showing 10 of 121 matches`. Movies stays the catalogue surface.
 - **Pass H3 — Surface sorting on Tonight — S (~1-2 credits) — NEEDS DESIGN.** Options: sort chip row above results; single sort button beside the result count; mode segmented control (Best match / Short / New / Most covered); right-aligned results-toolbar dropdown.
 - **Pass H4 — Best-only / minimum Commentary Score — S (~1-2 credits).** No hard default minimum until score distribution is measured; ship a "Best only" toggle with a visible match count first.
+  - **Scope extended 2026-09-14** (plan: `.lovable/plan/plan-backlog-only-11-filings-2026-09-14.md` item 2) — H4 absorbs the minimum-score control; no separate pass. Effort: S (~1-2 credits). Confidence in estimate: Medium. Scope: advanced filters in `src/components/FilterBar.tsx` plus the pref that feeds `applyFilters`. Steps: compact popover `Min score: Any ▾` offering **Any / 25 / 50 / 75 / 90 only** — deliberately no 1- or 5-point granularity, which would imply precision the score does not have; Movies defaults to Any (no filter), Tonight defaults to 50. Dependency: before shipping the Tonight default, confirm from live data that 50 leaves a useful result set; if it starves Tonight, ship Any on both and revisit. Unknown: the real score distribution (this is H4's original measurement caveat). Acceptance: control present in advanced filters on both surfaces, persists with other prefs, and counts toward the `Filters · N active` total from U37-A.
+
 
 #### Movies gets its own filter surface — Priority 2b
 
