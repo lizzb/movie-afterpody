@@ -1384,6 +1384,17 @@ On `/podcasts/$slug`, selecting the episode title in a covered-movie card's rela
 
 Audit first, then the smallest V1 change. Confirm per path which actions reach the history, including bulk equivalents, and where each timestamp comes from. Hold the architectural line: `episode_reviews` = current state, `match_actions` = historical decisions; no second audit system. Deliverable: a statement of what the section actually represents, a rename recommendation only if the content is genuinely broader, and a recommendation on whether review/reopen events belong in `match_actions`. Acceptance: per-action logged/not-logged table plus recommendations covering undo events, reopen events, bulk actions and relationship vs episode-level grouping.
 
+**U70-B — Search "Recent match decisions" — filed 2026-09-14** (plan: `.lovable/plan/plan-backlog-only-11-filings-2026-09-14.md` item 9). Build item under existing history ownership; run after U70's audit so naming and coverage are settled first. No competing history system — U71 remains the owner of *which* event types appear.
+
+- Effort: S (~1-2 credits). Confidence in estimate: High.
+- Scope: `src/components/admin/MatchHistoryCard.tsx` and `listMatchActions` in `src/lib/ingestion.functions.ts`.
+- Problem (confirmed): `listMatchActions` is called with a fixed `limit: 40` and no search, so after a run of bulk reviews an older decision — e.g. every confirm containing "blue" — is unreachable. This is the reported troubleshooting failure, not a data loss.
+- Steps: add a debounced server-side search over movie title, podcast name and episode title, plus a date filter, querying the whole `match_actions` history rather than filtering the loaded page; bounded page size preserved.
+- Dependencies: U70 audit. Unknowns: whether the existing joins support title search without a new index — measure before assuming one is needed.
+- Acceptance: searching "blue" returns matching decisions older than the current 40-row window; undo still works on returned rows; searching / no-results states explicit; the unfiltered default view unchanged.
+
+
+
 #### Pass U71 — Episode review events in the activity history — M (~3-5 credits) — depends on U70
 
 Only if U70 recommends it: log mark-reviewed, reopen and undo-retirement as historical events in the existing `match_actions` model and render them in the same chronological list with episode-level styling distinct from relationship rows. Undo stays "action marked undone", not a synthetic event. Acceptance: one correctly labelled, correctly timestamped entry per action; bulk actions produce one entry per episode; relationship undo still works; no duplicates.
