@@ -86,6 +86,8 @@ The D/O/T5/G/H/Y repair pass is verified and closed (see "Already done"). The re
 - **Pass H2 — Tonight result volume and shape — M (~3-5 credits) — NEEDS DESIGN.** Top 10 by default, "Load more suggestions", count reads `Showing 10 of 121 matches`. Movies stays the catalogue surface.
 - **Pass H3 — Surface sorting on Tonight — S (~1-2 credits) — NEEDS DESIGN.** Options: sort chip row above results; single sort button beside the result count; mode segmented control (Best match / Short / New / Most covered); right-aligned results-toolbar dropdown.
 - **Pass H4 — Best-only / minimum Commentary Score — S (~1-2 credits).** No hard default minimum until score distribution is measured; ship a "Best only" toggle with a visible match count first.
+  - **Scope extended 2026-09-14** (plan: `.lovable/plan/plan-backlog-only-11-filings-2026-09-14.md` item 2) — H4 absorbs the minimum-score control; no separate pass. Effort: S (~1-2 credits). Confidence in estimate: Medium. Scope: advanced filters in `src/components/FilterBar.tsx` plus the pref that feeds `applyFilters`. Steps: compact popover `Min score: Any ▾` offering **Any / 25 / 50 / 75 / 90 only** — deliberately no 1- or 5-point granularity, which would imply precision the score does not have; Movies defaults to Any (no filter), Tonight defaults to 50. Dependency: before shipping the Tonight default, confirm from live data that 50 leaves a useful result set; if it starves Tonight, ship Any on both and revisit. Unknown: the real score distribution (this is H4's original measurement caveat). Acceptance: control present in advanced filters on both surfaces, persists with other prefs, and counts toward the `Filters · N active` total from U37-A.
+
 
 #### Movies gets its own filter surface — Priority 2b
 
@@ -326,6 +328,19 @@ Root cause: decided rows are filtered out of the derived list the instant their 
 
 Y2's rating range is accepted; this pass addresses the broader filtering-feedback problem it exposed: (1) staged "Apply filters" breaks cause/effect — overlaps and is cross-referenced with Pass D4; (2) filter impact is invisible because the count and list sit outside the panel — candidate is a live "N movies match" readout on the draft plus cheap per-control hints; (3) the expanded filter controls are not discoverable — candidate is a clearer labelled entry point carrying the active-filter summary, plus removable applied-filter chips. Design options first, then build. Depends on D4's measurement for the live-count half.
 
+**U37-A — Filter entry point — filed 2026-09-14** (plan: `.lovable/plan/plan-backlog-only-11-filings-2026-09-14.md` item 1). Build-ready sub-item; unlike U37's live-count half it is **not** blocked on D4 measurement.
+
+- Effort: M (~3-5 credits). Confidence in estimate: Medium.
+- Scope: `src/components/FilterBar.tsx` (the persistent button, panel header, genre badge, inline chip) plus the Tonight parameters block; Tonight and Movies routes only.
+- Problem: the switchboard icon appears in three non-entry places while the large persistent button is dual-purpose — it reads "Apply filters (N changes)" / "Filters applied" and commits instead of opening. Users press it, and the header icon, expecting the panel.
+- Steps: (1) outer persistent control always opens Filters & Sort, labelled `Filters` / `Filters · N active` where N counts **applied** filters, not pending edits, with the switchboard icon; (2) panel primary control commits, labelled `Show N matches` when a count is available, otherwise `Apply filters`, neutral/disabled when nothing is pending; (3) remove the switchboard icon beside "Tonight's Parameters" and "Movie Filters"; (4) genre badge icon becomes drama/comedy masks (`Theater`); (5) remove the trailing "NNN matches" readout from the on-page Tonight parameter block, since the count already sits with the results and cannot update live.
+- Required pre-build check: Tonight exposes several controls inline. Confirm they still have a reachable commit affordance once the outer button is open-only; if not, the inline block keeps its own `Show N matches` commit button and only the outer control changes. Live-updating those inline controls is explicitly out of scope — it was tried before and slowed the UI.
+- Dependencies: none hard. Overlaps D4, which may later delete the commit step entirely; U37-A must not pre-empt that decision.
+- Unknowns: whether the applied-filter count and the draft match count are both cheaply available at the outer button.
+- Complexity drivers: shared FilterBar serves two surfaces with different default-exposed controls; separating "applied" from "pending" state cleanly is the real work.
+- Acceptance: one obvious entry point on Tonight and Movies at 390px; outer label reflects applied state only and always opens the panel; icons as specified; no duplicate match count on the filter block; staged/commit behaviour inside the panel unchanged.
+
+
 ## Worth doing soon
 
 #### Pass L1 — Catalogue read is too heavy for a cold page load — M (~3-5 credits) — SHIPPED 2026-09-05 — accepted on code/measurement evidence 2026-09-09 (no further bespoke runtime test planned)
@@ -423,7 +438,58 @@ Dedicated per-episode pages are deferred until external ratings/comments or simi
 
 NEW BACKLOG ADDITIONS - REVIEWED 2026.09.06 832AM
 
+## Newly filed backlog — 2026-09-14 (U81–U85)
+
+Filed from `.lovable/plan/plan-backlog-only-11-filings-2026-09-14.md`. The other six items in that plan extend existing passes (U37-A, H4, U42-H/I/J, U70-B) and were not given new IDs.
+
+#### Pass U81 — One shared podcast-episode card (Listen Later, movie detail, podcast page)
+
+- Effort: M (~3-5 credits). Confidence in estimate: Medium.
+- Scope: the episode card currently local to `src/routes/podcasts.$slug.tsx`, its new shared home under `src/components/card/`, and the Listen Later + movie-detail call sites (`src/routes/lists.index.tsx` ~lines 205-280, `src/routes/movies.$slug.tsx`).
+- Problem: `/podcasts/$slug` renders a full episode card (listened state, rating, quality, Listen, platform badges, `EpisodeNotesFooter`), while Listen Later renders a bespoke row that is missing the listened/rating controls a user expects in exactly that context. K5/K6 established shared card primitives but Lists was never migrated. Same semantic object, two layouts.
+- Steps: extract the podcast-page card into one exported component with a documented compact variant for dense contexts; render it in Listen Later and on movie detail; keep remove-from-Listen-Later as an upper-right control on the shared card. No second episode-card system, no card redesign.
+- Dependencies: none. Unknowns: how much of the podcast-page card's data is available in the Listen Later join today.
+- Complexity drivers: three call sites with different available data (movie context vs podcast context vs saved-list context) — defining the variant contract is the actual work, not the markup.
+- Acceptance: one component file is the only definition; Listen Later shows listened + rating controls writing through `prefsActions`; a styling change made once is visible on all three surfaces; the podcast page is visually unchanged.
+
+#### Pass U82 — Filter within a watchlist
+
+- Effort: S (~1-2 credits). Confidence in estimate: Medium.
+- Recommendation (asked for in the plan): keep it local to the watchlist. Two segmented toggles per list — "On my services" and "Unwatched" — both derivable from data already loaded there (`watchableCount`, `watched`), so no server or schema work. **Rejected:** exposing watchlist membership as a general catalogue filter on Movies/Podcasts — it adds a choice to every browse surface to solve a problem that only exists inside a list, against the choice-absorption principle.
+- Scope: `src/routes/lists.index.tsx` watchlist section only.
+- Dependencies: none. Unknowns: none material.
+- Acceptance: toggles filter in place, show a truthful count, persist for the session, and do not re-sort the list mid-tap.
+
+#### Pass U83 — User-entered movie reactions (design resolved)
+
+- Effort: M (~3-5 credits). Confidence in estimate: Medium.
+- Design recommendation: reuse the existing three-way episode model rather than inventing a scale. `MovieReaction = disliked | meh | loved` shown as 😞 / 😐 / 😊, one tap, reversible, beside the existing watched control on movie detail and in Watched history. **Rejected:** stars (false precision, higher decision burden, no analogue anywhere in the app) and thumbs variants (a novel grammar for the same three-way signal). Rationale: meaningful preference signal at the lowest decision cost, identical to `EpisodeRating` so scoring can consume both the same way.
+- Scope: `src/lib/types.ts`, `src/lib/prefs.ts` (`prefsActions`), movie detail, Watched history.
+- Steps: add the reaction type and pref, keyed by movie slug with an optional watch-date association; render the control in both places; local-first, no schema change.
+- Dependencies: none. Future extension points to record now: per-rewatch reactions, free-text notes, account sync (rides on L2c-2's account taste store).
+- Unknowns: whether the reaction should attach to a watch event or to the movie — V1 attaches to the movie with the latest watch date noted.
+- Acceptance: rate and clear from movie detail and history, survives reload, never acts as a filter anywhere.
+
+#### Pass U84 — Watch history and reactions as a Tonight signal — depends on U83
+
+- Effort: M (~3-5 credits). Confidence in estimate: **Low — step one is measurement, not implementation.**
+- Scope: `src/lib/entries.ts` / `src/lib/scoring.ts` ranking inputs and `src/lib/taste.ts`; Tonight only.
+- Steps: derive a small deterministic taste vector from rated + watched movies (genre affinity and decade affinity only), then apply it as a **capped** nudge to the existing Tonight ordering — not to the Commentary Score itself, and never as a filter. The cap must be small enough that a strongly-liked genre can lift a movie past a slightly better-covered one, but cannot outrank coverage by preferred podcasts.
+- Dependencies: U83 (needs ratings to exist). Unknowns: the cap value, which must be measured against the real score distribution first.
+- Complexity drivers: the signal rides shared browser+server ranking code, so any change affects Movies parity too; keeping it bounded is a scoring-design problem, not a UI one.
+- Acceptance: with ratings cleared, Tonight ordering is identical to today; with ratings present, ordering changes but every result still satisfies the active filters; the "why this" reason string names the taste contribution when it applied.
+
+#### Pass U85 — Streaming availability sync: honest control labels
+
+- Effort: S (~1-2 credits). Confidence in estimate: High.
+- Scope: the availability + genres card in `src/routes/admin.ingest.tsx` (buttons ~lines 745-780 and the info paragraph ~line 712). Copy and disabled-state presentation only — no behaviour change.
+- Inspection finding: the three run buttons are `disabled={action.pending}`, so during "Syncing…" only "Stop after this batch" is actionable. That is intended, not a bug; the labels simply do not say what each button covers.
+- Steps: relabel `Just 80` → **Sync 80 stale movies**; `Run until done` → **Sync all stale movies**; keep **Sync up to 400 stale movies**; make the running state read as unavailable rather than merely dimmed, with Stop as the only live control. Add a definition of "stale" to the info copy — **verify the real threshold in the freshness query first**; the panel shows "Never checked" and "Older than 7 days", so the copy must state the actual rule rather than assume 7 days.
+- Dependencies: none. Unknowns: the exact staleness rule behind `staleBefore`.
+- Acceptance: every label states its scope; a first-time reader can predict each button's effect; the stale definition in the copy matches the code.
+
 ## Newly filed / queued backlog — 2026-09-06
+
 
 ### TO SEND NOW / next after current stability gate
 
@@ -686,7 +752,34 @@ G. Podcast show details confirm/flag composition
 - Do not assume the fix is simply "make them smaller."
 - Low priority.
 
+H. Watchlist movie card consistency (filed 2026-09-14 — plan: `.lovable/plan/plan-backlog-only-11-filings-2026-09-14.md` item 4)
+
+- Effort: S (~1-2 credits). Confidence in estimate: High.
+- Scope: `src/routes/lists.index.tsx` watchlist rows (~lines 160-190) only.
+- Problem: the row prints `{title} · watched` inside the same bold title span and omits the release year, while Watched history prints `Title (Year)` with the year muted.
+- Steps: put the year adjacent to the title in the existing muted convention; make "watched" a separate subordinate marker/badge, not title text.
+- Dependencies: none. If U81 lands first, these rows should inherit the shared movie-card grammar instead of being patched locally.
+- Unknowns: none material. Complexity drivers: none.
+- Acceptance: watchlist rows match the history/movies-card year convention; watched is visually subordinate; no new styling convention introduced.
+
+I. Listening History badge grammar (filed 2026-09-14 — inspection complete, see plan item 5)
+
+- Effort: S (~1-2 credits). Confidence in estimate: High.
+- Inspection finding: the listened badge is fixed neutral (`bg-secondary`, muted text, headphones icon); the rating badge is tinted with the **podcast's accent** via `accentSoft(podcast.accent)`. The colour difference therefore carries **no rating semantics** — loved and disliked on the same show look identical, and the same rating differs across shows. Arbitrary, and misleading because tinted badges elsewhere read as meaningful.
+- Ownership: U42 (badge grammar), **not** E2 — E2 is Commentary Score formatting and these badges are not scores.
+- Recommendation: status stays neutral + icon; rating maps to sentiment tokens (negative / neutral / positive) so colour means one thing everywhere; podcast accent is reserved for podcast identity, never for user judgements.
+- Acceptance: a written badge-grammar rule plus both badges conforming.
+
+J. Remove show-card descriptions on the Podcasts index (filed 2026-09-14 — plan item 10)
+
+- Effort: S (~1-2 credits). Confidence in estimate: High.
+- Scope: `src/routes/podcasts.index.tsx` (~line 228) description preview only.
+- Rationale: the index is a scan surface; the description adds height to every card while discriminating little against title, artwork, episode count and coverage.
+- Steps: remove the preview; do not backfill the freed space; let cards shorten so more fit per screen. Full description stays on show detail.
+- Acceptance: no description text on index cards at 390px; more cards above the fold; show detail unchanged.
+
 Also identify any small-ish UX changes from this redesign that naturally reduce initial data/rendering cost without compromising correctness.
+
 
 - No code changes in this planning pass.
 - Identify only small, naturally aligned performance wins; do not turn this into another L2b.
@@ -1341,6 +1434,17 @@ On `/podcasts/$slug`, selecting the episode title in a covered-movie card's rela
 #### Pass U70 — Audit "Recent match decisions" coverage and naming — S (~1-2 credits)
 
 Audit first, then the smallest V1 change. Confirm per path which actions reach the history, including bulk equivalents, and where each timestamp comes from. Hold the architectural line: `episode_reviews` = current state, `match_actions` = historical decisions; no second audit system. Deliverable: a statement of what the section actually represents, a rename recommendation only if the content is genuinely broader, and a recommendation on whether review/reopen events belong in `match_actions`. Acceptance: per-action logged/not-logged table plus recommendations covering undo events, reopen events, bulk actions and relationship vs episode-level grouping.
+
+**U70-B — Search "Recent match decisions" — filed 2026-09-14** (plan: `.lovable/plan/plan-backlog-only-11-filings-2026-09-14.md` item 9). Build item under existing history ownership; run after U70's audit so naming and coverage are settled first. No competing history system — U71 remains the owner of *which* event types appear.
+
+- Effort: S (~1-2 credits). Confidence in estimate: High.
+- Scope: `src/components/admin/MatchHistoryCard.tsx` and `listMatchActions` in `src/lib/ingestion.functions.ts`.
+- Problem (confirmed): `listMatchActions` is called with a fixed `limit: 40` and no search, so after a run of bulk reviews an older decision — e.g. every confirm containing "blue" — is unreachable. This is the reported troubleshooting failure, not a data loss.
+- Steps: add a debounced server-side search over movie title, podcast name and episode title, plus a date filter, querying the whole `match_actions` history rather than filtering the loaded page; bounded page size preserved.
+- Dependencies: U70 audit. Unknowns: whether the existing joins support title search without a new index — measure before assuming one is needed.
+- Acceptance: searching "blue" returns matching decisions older than the current 40-row window; undo still works on returned rows; searching / no-results states explicit; the unfiltered default view unchanged.
+
+
 
 #### Pass U71 — Episode review events in the activity history — M (~3-5 credits) — depends on U70
 
