@@ -10,6 +10,7 @@ import { FlagMatchButton } from "@/components/FlagMatchButton";
 import { ConfirmMatchButton } from "@/components/ConfirmMatchButton";
 import { EpisodeAdminActions } from "@/components/EpisodeAdminActions";
 import { MarkListenedButton } from "@/components/MarkListenedButton";
+import { ListenLaterButton } from "@/components/ListenLaterButton";
 import { PlatformBadges } from "@/components/PlatformBadges";
 import { EpisodeNotesFooter } from "@/components/EpisodeNotesFooter";
 import { ExpandableText } from "@/components/ExpandableText";
@@ -26,7 +27,7 @@ import { useEpisodeDetails, EMPTY_EPISODE_DETAIL, type EpisodeDetail } from "@/l
 
 import type { PodcastEpisodeRow, PodcastMovie } from "@/lib/podcast-entries";
 import { useShowDetail } from "@/lib/server-lists";
-import { prefsActions, usePrefs, type ViewMode } from "@/lib/prefs";
+import { listenLaterSlugs, prefsActions, usePrefs, type ViewMode } from "@/lib/prefs";
 
 
 export const Route = createFileRoute("/podcasts/$slug")({
@@ -516,6 +517,7 @@ function PodcastEpisodeCard({
   const listenUrl = detail.listenUrl ?? fallbackListenUrl;
   const sources = detail.sources;
   const listening = prefs.listening[episode.slug] ?? "not_started";
+  const savedForLater = listenLaterSlugs(prefs).includes(episode.slug);
 
   const meta: string[] = [];
   if (episode.episode_number != null) meta.push(`Episode ${episode.episode_number}`);
@@ -526,6 +528,11 @@ function PodcastEpisodeCard({
     <CardShell className="p-3">
       <CardControls>
         <MarkListenedButton episodeSlug={episode.slug} listening={listening} />
+        <ListenLaterButton
+          episodeSlug={episode.slug}
+          episodeTitle={episode.title}
+          saved={savedForLater}
+        />
       </CardControls>
 
       <CardHeader
