@@ -242,6 +242,7 @@ export async function evaluateMatcher(
       rejectionCountByMovie,
       description: episode.description,
       commonEpisodeWords,
+      titleWordStats,
       strategy,
     });
 
