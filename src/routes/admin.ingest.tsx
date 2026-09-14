@@ -895,11 +895,21 @@ function UnmatchedEpisodesCard() {
   });
   const searching = query.isFetching && !query.isLoading;
   const rescanAction = useQueuedAction("rescan-all", "Recheck every episode against existing movies");
+  /**
+   * Pass U77 — where the next recheck continues from. Without this the same
+   * newest slice was reprocessed on every press and "left to check" never fell.
+   */
+  const [rescanCursor, setRescanCursor] = useState(0);
+  const [rescanUntilDone, setRescanUntilDone] = useState(false);
   const rescan = useMutation({
     mutationFn: (vars: Parameters<typeof rescanFn>[0]) => rescanAction.start(() => rescanFn(vars)),
-    onSuccess: async () => {
+    onSuccess: async (result) => {
+      setRescanCursor(result.remaining > 0 ? result.nextOffset : 0);
       await client.invalidateQueries({ queryKey: ["unmatched-episodes"] });
       await client.invalidateQueries({ queryKey: ["match-suggestions"] });
+      if (rescanUntilDone && result.remaining > 0 && result.scanned > 0) {
+        rescan.mutate({ data: { limit: 100, offset: result.nextOffset } });
+      }
     },
   });
   const refreshQueues = async () => {
