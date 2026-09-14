@@ -1224,12 +1224,25 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
     queue
       .run(showKey(podcastId, "recheck"), `Recheck episodes — ${name}`, async () => {
       setError(null);
-      const r = await rescanShow({ data: { podcastId, limit: 150 } });
+      // Pass U77 — walk the cursor so one press covers the whole show, not just
+      // its newest 150 episodes.
+      let offset = 0;
+      let r = await rescanShow({ data: { podcastId, limit: 150, offset } });
+      const totals = { scanned: r.scanned, linked: r.linked, improved: r.improved, extraAdded: r.extraAdded, stillUnlinked: r.stillUnlinked };
+      for (let guard = 0; guard < 40 && r.remaining > 0 && r.scanned > 0; guard += 1) {
+        offset = r.nextOffset;
+        r = await rescanShow({ data: { podcastId, limit: 150, offset } });
+        totals.scanned += r.scanned;
+        totals.linked += r.linked;
+        totals.improved += r.improved;
+        totals.extraAdded += r.extraAdded;
+        totals.stillUnlinked += r.stillUnlinked;
+      }
       setSyncLog((prev) =>
         [
           {
             name,
-            message: `recheck: ${r.scanned} scanned · ${r.linked} linked · ${r.improved} improved · ${r.extraAdded} extra · ${r.stillUnlinked} still unmatched${r.remaining > 0 ? ` · ${r.remaining} left, run again` : ""}`,
+            message: `recheck: ${totals.scanned} scanned · ${totals.linked} linked · ${totals.improved} improved · ${totals.extraAdded} extra · ${totals.stillUnlinked} still unmatched${r.remaining > 0 ? ` · ${r.remaining} left, run again` : ""}`,
             ok: true,
           },
           ...prev,
