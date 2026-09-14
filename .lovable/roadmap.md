@@ -438,7 +438,58 @@ Dedicated per-episode pages are deferred until external ratings/comments or simi
 
 NEW BACKLOG ADDITIONS - REVIEWED 2026.09.06 832AM
 
+## Newly filed backlog — 2026-09-14 (U81–U85)
+
+Filed from `.lovable/plan/plan-backlog-only-11-filings-2026-09-14.md`. The other six items in that plan extend existing passes (U37-A, H4, U42-H/I/J, U70-B) and were not given new IDs.
+
+#### Pass U81 — One shared podcast-episode card (Listen Later, movie detail, podcast page)
+
+- Effort: M (~3-5 credits). Confidence in estimate: Medium.
+- Scope: the episode card currently local to `src/routes/podcasts.$slug.tsx`, its new shared home under `src/components/card/`, and the Listen Later + movie-detail call sites (`src/routes/lists.index.tsx` ~lines 205-280, `src/routes/movies.$slug.tsx`).
+- Problem: `/podcasts/$slug` renders a full episode card (listened state, rating, quality, Listen, platform badges, `EpisodeNotesFooter`), while Listen Later renders a bespoke row that is missing the listened/rating controls a user expects in exactly that context. K5/K6 established shared card primitives but Lists was never migrated. Same semantic object, two layouts.
+- Steps: extract the podcast-page card into one exported component with a documented compact variant for dense contexts; render it in Listen Later and on movie detail; keep remove-from-Listen-Later as an upper-right control on the shared card. No second episode-card system, no card redesign.
+- Dependencies: none. Unknowns: how much of the podcast-page card's data is available in the Listen Later join today.
+- Complexity drivers: three call sites with different available data (movie context vs podcast context vs saved-list context) — defining the variant contract is the actual work, not the markup.
+- Acceptance: one component file is the only definition; Listen Later shows listened + rating controls writing through `prefsActions`; a styling change made once is visible on all three surfaces; the podcast page is visually unchanged.
+
+#### Pass U82 — Filter within a watchlist
+
+- Effort: S (~1-2 credits). Confidence in estimate: Medium.
+- Recommendation (asked for in the plan): keep it local to the watchlist. Two segmented toggles per list — "On my services" and "Unwatched" — both derivable from data already loaded there (`watchableCount`, `watched`), so no server or schema work. **Rejected:** exposing watchlist membership as a general catalogue filter on Movies/Podcasts — it adds a choice to every browse surface to solve a problem that only exists inside a list, against the choice-absorption principle.
+- Scope: `src/routes/lists.index.tsx` watchlist section only.
+- Dependencies: none. Unknowns: none material.
+- Acceptance: toggles filter in place, show a truthful count, persist for the session, and do not re-sort the list mid-tap.
+
+#### Pass U83 — User-entered movie reactions (design resolved)
+
+- Effort: M (~3-5 credits). Confidence in estimate: Medium.
+- Design recommendation: reuse the existing three-way episode model rather than inventing a scale. `MovieReaction = disliked | meh | loved` shown as 😞 / 😐 / 😊, one tap, reversible, beside the existing watched control on movie detail and in Watched history. **Rejected:** stars (false precision, higher decision burden, no analogue anywhere in the app) and thumbs variants (a novel grammar for the same three-way signal). Rationale: meaningful preference signal at the lowest decision cost, identical to `EpisodeRating` so scoring can consume both the same way.
+- Scope: `src/lib/types.ts`, `src/lib/prefs.ts` (`prefsActions`), movie detail, Watched history.
+- Steps: add the reaction type and pref, keyed by movie slug with an optional watch-date association; render the control in both places; local-first, no schema change.
+- Dependencies: none. Future extension points to record now: per-rewatch reactions, free-text notes, account sync (rides on L2c-2's account taste store).
+- Unknowns: whether the reaction should attach to a watch event or to the movie — V1 attaches to the movie with the latest watch date noted.
+- Acceptance: rate and clear from movie detail and history, survives reload, never acts as a filter anywhere.
+
+#### Pass U84 — Watch history and reactions as a Tonight signal — depends on U83
+
+- Effort: M (~3-5 credits). Confidence in estimate: **Low — step one is measurement, not implementation.**
+- Scope: `src/lib/entries.ts` / `src/lib/scoring.ts` ranking inputs and `src/lib/taste.ts`; Tonight only.
+- Steps: derive a small deterministic taste vector from rated + watched movies (genre affinity and decade affinity only), then apply it as a **capped** nudge to the existing Tonight ordering — not to the Commentary Score itself, and never as a filter. The cap must be small enough that a strongly-liked genre can lift a movie past a slightly better-covered one, but cannot outrank coverage by preferred podcasts.
+- Dependencies: U83 (needs ratings to exist). Unknowns: the cap value, which must be measured against the real score distribution first.
+- Complexity drivers: the signal rides shared browser+server ranking code, so any change affects Movies parity too; keeping it bounded is a scoring-design problem, not a UI one.
+- Acceptance: with ratings cleared, Tonight ordering is identical to today; with ratings present, ordering changes but every result still satisfies the active filters; the "why this" reason string names the taste contribution when it applied.
+
+#### Pass U85 — Streaming availability sync: honest control labels
+
+- Effort: S (~1-2 credits). Confidence in estimate: High.
+- Scope: the availability + genres card in `src/routes/admin.ingest.tsx` (buttons ~lines 745-780 and the info paragraph ~line 712). Copy and disabled-state presentation only — no behaviour change.
+- Inspection finding: the three run buttons are `disabled={action.pending}`, so during "Syncing…" only "Stop after this batch" is actionable. That is intended, not a bug; the labels simply do not say what each button covers.
+- Steps: relabel `Just 80` → **Sync 80 stale movies**; `Run until done` → **Sync all stale movies**; keep **Sync up to 400 stale movies**; make the running state read as unavailable rather than merely dimmed, with Stop as the only live control. Add a definition of "stale" to the info copy — **verify the real threshold in the freshness query first**; the panel shows "Never checked" and "Older than 7 days", so the copy must state the actual rule rather than assume 7 days.
+- Dependencies: none. Unknowns: the exact staleness rule behind `staleBefore`.
+- Acceptance: every label states its scope; a first-time reader can predict each button's effect; the stale definition in the copy matches the code.
+
 ## Newly filed / queued backlog — 2026-09-06
+
 
 ### TO SEND NOW / next after current stability gate
 
