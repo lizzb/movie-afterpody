@@ -36,6 +36,26 @@ const PREFIXES = [
   /^\d{1,4}\s*[:\-–—|]\s*/,
   /^s\d+\s*e\d+\s*[:\-–—|]?\s*/i,
   /^(bonus|mini(sode)?|patreon|preview|encore|classic|rewatch|revisit|live)\s*[:\-–—|]\s*/i,
+  // Pass U75 — observed show-format prefixes. General patterns only: a short
+  // format label ending in a separator ("BRUNCH:", "Last Looks:", "Redux:",
+  // "DTH Classic:", "Micro Queers:", "Matinee Monday:", "Feed Drop -"),
+  // and abbreviated numbered formats ("FH Mini 117 –", "Ep. #441 -").
+  /^[a-z]{0,4}\s*mini(sode)?\s*#?\d*\s*[:\-–—|]\s*/i,
+  /^(brunch|redux|re-?issue|re-?release|matinee\s+monday|last\s+looks|micro\s+queers|dth\s+classic|interview|interviews|feed\s+drop|mailbag|listener\s+mail|q\s*&?\s*a)\s*[:\-–—|]\s*/i,
+];
+
+/**
+ * Format suffixes that describe the episode, not the film: "LIVE!",
+ * "(Patreon Clip)", "(Classic)", "(Re-Release)", "[Jason Edition]",
+ * "(LIVE from Brooklyn)", "(Hallmark+ - 2026)".
+ */
+const FORMAT_SUFFIXES = [
+  /\s*[-–—|]?\s*live\s*!+\s*$/i,
+  /\s*\(\s*(?:live\s+(?:from|at)\s+[^)]*)\)\s*$/i,
+  /\s*\(\s*(?:patreon(?:\s+clip| preview)?|clip|classic|re-?release|re-?issue|rerun|encore|redux|bonus|live|uncut|extended)\s*\)\s*$/i,
+  /\s*\[[^\]]{2,30}(edition|version|cut)\]\s*$/i,
+  // Channel/date tags left after the year is removed: "(Hallmark+ - 2026)".
+  /\s*[([][A-Za-z+&.\s]{2,20}\s*[-–—]\s*(?:(?:19|20)\d{2})?\s*[)\]]\s*$/,
 ];
 
 const GUEST_MARKER = String.raw`(?:with|w\/|w\.|feat\.?|featuring|ft\.?)`;
@@ -45,6 +65,9 @@ const BRACKETED_GUEST = new RegExp(String.raw`[([]\s*${GUEST_MARKER}\s+([^)\]]{2
 
 /** "… with Colby Day" / "… - w/ Danette Chavez & Amy Smart" at the very end. */
 const TRAILING_GUEST = new RegExp(String.raw`\s+(?:[-–—|,:]\s*)?${GUEST_MARKER}\s+(.{2,80})$`, "i");
+
+/** "Interview: Niall Matter on Much About Love" — the title follows " on ". */
+const GUEST_ON_TITLE = /^(.{2,60}?)\s+on\s+(.{2,80})$/i;
 
 const NAME_PARTICLES = new Set([
   "de",
@@ -119,10 +142,31 @@ function stripPrefixes(input: string): { prefix: string; rest: string } {
   return { prefix: prefix.trim(), rest };
 }
 
+/** Removes trailing format tags ("LIVE!", "(Patreon Clip)", "[Jason Edition]"). */
+function stripFormatSuffixes(input: string): string {
+  let out = input.trim();
+  for (let i = 0; i < 3; i += 1) {
+    let changed = false;
+    for (const re of FORMAT_SUFFIXES) {
+      const next = out.replace(re, "");
+      if (next.trim() !== out.trim() && next.replace(/[^A-Za-z0-9]/g, "").length >= 2) {
+        out = next.trim();
+        changed = true;
+      }
+    }
+    if (!changed) break;
+  }
+  // Empty brackets left behind once a year or tag was removed.
+  return out
+    .replace(/[([]\s*[-–—]?\s*[)\]]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 /** Splits an episode title into prefix / title / guest segments. */
 export function parseEpisodeTitle(episodeTitle: string): ParsedEpisodeTitle {
   const { prefix, rest } = stripPrefixes(episodeTitle ?? "");
-  let titleText = rest;
+  let titleText = stripFormatSuffixes(rest);
   let guestText = "";
 
   const bracketed = titleText.match(BRACKETED_GUEST);
@@ -145,6 +189,16 @@ export function parseEpisodeTitle(episodeTitle: string): ParsedEpisodeTitle {
         guestText = trailing[1].trim();
         titleText = head;
       }
+    }
+  }
+
+  // Pass U75 — "Interview: <guest> on <movie title>". Only after an interview
+  // format prefix, so ordinary titles containing " on " stay intact.
+  if (!guestText && /interview/i.test(prefix)) {
+    const onSplit = titleText.match(GUEST_ON_TITLE);
+    if (onSplit?.[1] && onSplit[2] && looksLikeGuestNames(onSplit[1])) {
+      guestText = onSplit[1].trim();
+      titleText = onSplit[2].trim();
     }
   }
 
