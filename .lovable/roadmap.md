@@ -686,7 +686,34 @@ G. Podcast show details confirm/flag composition
 - Do not assume the fix is simply "make them smaller."
 - Low priority.
 
+H. Watchlist movie card consistency (filed 2026-09-14 — plan: `.lovable/plan/plan-backlog-only-11-filings-2026-09-14.md` item 4)
+
+- Effort: S (~1-2 credits). Confidence in estimate: High.
+- Scope: `src/routes/lists.index.tsx` watchlist rows (~lines 160-190) only.
+- Problem: the row prints `{title} · watched` inside the same bold title span and omits the release year, while Watched history prints `Title (Year)` with the year muted.
+- Steps: put the year adjacent to the title in the existing muted convention; make "watched" a separate subordinate marker/badge, not title text.
+- Dependencies: none. If U81 lands first, these rows should inherit the shared movie-card grammar instead of being patched locally.
+- Unknowns: none material. Complexity drivers: none.
+- Acceptance: watchlist rows match the history/movies-card year convention; watched is visually subordinate; no new styling convention introduced.
+
+I. Listening History badge grammar (filed 2026-09-14 — inspection complete, see plan item 5)
+
+- Effort: S (~1-2 credits). Confidence in estimate: High.
+- Inspection finding: the listened badge is fixed neutral (`bg-secondary`, muted text, headphones icon); the rating badge is tinted with the **podcast's accent** via `accentSoft(podcast.accent)`. The colour difference therefore carries **no rating semantics** — loved and disliked on the same show look identical, and the same rating differs across shows. Arbitrary, and misleading because tinted badges elsewhere read as meaningful.
+- Ownership: U42 (badge grammar), **not** E2 — E2 is Commentary Score formatting and these badges are not scores.
+- Recommendation: status stays neutral + icon; rating maps to sentiment tokens (negative / neutral / positive) so colour means one thing everywhere; podcast accent is reserved for podcast identity, never for user judgements.
+- Acceptance: a written badge-grammar rule plus both badges conforming.
+
+J. Remove show-card descriptions on the Podcasts index (filed 2026-09-14 — plan item 10)
+
+- Effort: S (~1-2 credits). Confidence in estimate: High.
+- Scope: `src/routes/podcasts.index.tsx` (~line 228) description preview only.
+- Rationale: the index is a scan surface; the description adds height to every card while discriminating little against title, artwork, episode count and coverage.
+- Steps: remove the preview; do not backfill the freed space; let cards shorten so more fit per screen. Full description stays on show detail.
+- Acceptance: no description text on index cards at 390px; more cards above the fold; show detail unchanged.
+
 Also identify any small-ish UX changes from this redesign that naturally reduce initial data/rendering cost without compromising correctness.
+
 
 - No code changes in this planning pass.
 - Identify only small, naturally aligned performance wins; do not turn this into another L2b.
