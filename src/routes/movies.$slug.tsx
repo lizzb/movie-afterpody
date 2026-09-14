@@ -253,6 +253,17 @@ function MovieDetailPage() {
               </button>
             </div>
             <AddToListButton movieSlug={movie.slug} movieTitle={movie.title} variant="button" />
+            {imdbId ? (
+              <a
+                href={`https://www.imdb.com/title/${imdbId}/`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary px-2.5 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-foreground"
+              >
+                <ExternalLink className="size-3" aria-hidden />
+                IMDb
+              </a>
+            ) : null}
           </div>
         </section>
 
