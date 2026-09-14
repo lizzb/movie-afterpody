@@ -219,6 +219,9 @@ function PodcastDetailPage() {
             ) : (
               <span className="text-[11px] text-muted-foreground">No listings catalogued</span>
             )}
+          </div>
+          {/* Pass U42D — the show's own site sits with the header actions. */}
+          <div className="ml-auto flex items-center gap-2">
             {podcast.website_url ? (
               <a
                 href={podcast.website_url}
@@ -230,20 +233,20 @@ function PodcastDetailPage() {
                 Website
               </a>
             ) : null}
+            <button
+              type="button"
+              onClick={() => prefsActions.togglePreferredPodcast(podcast.slug, !preferred)}
+              aria-pressed={preferred}
+              className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-semibold transition-colors ${
+                preferred
+                  ? "bg-berry text-primary-foreground"
+                  : "border border-border bg-card text-foreground hover:bg-secondary"
+              }`}
+            >
+              <Heart className="size-4" aria-hidden />
+              {preferred ? "Preferred show" : "Prefer this show"}
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => prefsActions.togglePreferredPodcast(podcast.slug, !preferred)}
-            aria-pressed={preferred}
-            className={`ml-auto inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-semibold transition-colors ${
-              preferred
-                ? "bg-berry text-primary-foreground"
-                : "border border-border bg-card text-foreground hover:bg-secondary"
-            }`}
-          >
-            <Heart className="size-4" aria-hidden />
-            {preferred ? "Preferred show" : "Prefer this show"}
-          </button>
         </section>
 
         <div
