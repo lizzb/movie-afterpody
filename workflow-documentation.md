@@ -38,7 +38,7 @@ TRIAGE: Create a keyword for this workflow
 
 The meaning should be:
 
-Investigate first. If the cause and smallest safe fix are clear and low-risk, implement it in this turn. If meaningful investigation, architectural changes, broad refactoring, multiple screens, migrations, or substantial implementation would be required, do not implement; explain the root cause/likely scope, estimate the work, and add or update a backlog pass.
+Investigate first. TRIAGE diagnoses the reported problem and determines the likely root cause, scope, and appropriate next step. TRIAGE does not authorize implementation: even when the cause and smallest safe fix are clear and low-risk, explain the diagnosis and recommended fix rather than implementing it. If implementation would require meaningful investigation, architectural changes, broad refactoring, multiple screens, migrations, or substantial work, explain the likely scope and add or update a backlog pass.
 
 ### Workflow keyword: TRIAGE
 
@@ -47,20 +47,22 @@ When a user message begins with `TRIAGE:`:
 1. Investigate the reported bug/problem using the current roadmap, relevant pass/plan files, and current implementation.
 2. Identify the root cause or most likely cause.
 3. Check whether the issue is already covered by an existing pass/backlog item before creating anything new.
-4. If the cause and smallest safe fix are clear, localized, low-risk, and reasonably small:
-   - implement the fix in the current turn;
-   - verify it;
-   - update the roadmap according to the normal workflow.
-5. If the issue requires substantial investigation, architectural work, a migration, broad refactoring, multiple independent changes, or is otherwise likely to be a large/uncertain credit expenditure:
+4. Do NOT implement a fix during TRIAGE, even when the cause and smallest safe fix are clear, localized, low-risk, and reasonably small:
+   - explain the root cause or strongest diagnosis;
+   - describe the smallest plausible fix;
+   - identify any important verification considerations;
+   - determine whether an existing roadmap pass already owns the work.
+
+5. If the issue requires substantial investigation, architectural work, a migration, broad refactoring, multiple independent changes, or otherwise substantial implementation:
    - do NOT implement it;
    - explain the root cause/uncertainty;
-   - describe the smallest plausible fix and broader alternatives where useful;
-   - estimate the effort using the project's S/M/L/XL credit bands;
+   - describe the likely scope, smallest plausible fix, and broader alternatives where useful
+   - estimate the effort using the project's S/M/L/XL complexity plus work drivers;
    - add or update an appropriately scoped backlog pass.
 6. Do not create a new pass when an existing pass already covers the problem; update/reframe the existing pass instead.
 7. Do not turn a TRIAGE request into unrelated cleanup or opportunistic improvements.
 8. Clearly state which branch was taken:
-   QUICK FIX IMPLEMENTED
+   TRIAGE COMPLETE — RECOMMENDED FIX
    or
    NEEDS DEEPER WORK — BACKLOGGED
 
@@ -131,6 +133,6 @@ Standing procedure (credential-free; nothing stored in source):
 
 A no-second-identity decision was taken deliberately: creating an extra `verify-admin@…` auth user would make every mint require `--user <uuid>` with per-run user approval, adding friction without adding safety. The existing sole admin account is already non-shared and its tokens are short-lived.
 
-**Labelling rule:** an admin-only item may only be labelled "IMPLEMENTED, NOT VERIFIED" *for session reasons* after this procedure has actually been run and failed, with the failure output quoted on the roadmap entry.
+**Labelling rule:** an admin-only item may only be labelled "IMPLEMENTED, NOT VERIFIED" _for session reasons_ after this procedure has actually been run and failed, with the failure output quoted on the roadmap entry.
 
 Verified 2026-09-11: `/admin/ingest` loads with the full ingest dashboard and no console errors; 6 Confirm controls present on a show detail; Confirm wrote and undid successfully; signed out, 0 controls and `confirmEpisodeMatch` returned 403.
