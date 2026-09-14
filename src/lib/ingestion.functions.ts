@@ -1514,6 +1514,12 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
     }
     const nextOffset = data.offset + consumedRaw;
     const remaining = Math.max(0, rawRows.filter(usable).length - episodes.length);
+    /**
+     * The eligible pool is read one capped window at a time, so when the window
+     * came back full the true tail is unknown and `remaining` is a floor, not an
+     * exact figure. Say so rather than printing a number that stops falling.
+     */
+    const remainingIsFloor = rawRows.length >= MATCH_SCAN_CAP;
 
     /**
      * Corpus word statistics must not depend on where the cursor happens to
