@@ -1611,6 +1611,18 @@ Left IMPLEMENTED, NOT VERIFIED by decision (not by oversight): **U4**, **U8**, *
 
 Confirm was visually heavier than the adjacent Flag control. Both now share one lightweight icon-button grammar reusing the existing treatment and tokens — Flag lightweight blue, Confirm lightweight green — applied everywhere the pair appears (movie detail relationship rows, podcast-page linked-movie rows). Icons, actions, state semantics, permissions, size, placement and API calls unchanged. Verified in-app 2026-09-09. The rest of Pass U42 remains open.
 
+### U42C — Primary blue Listen treatment on movie-detail episode cards — shipped 2026-09-14 — VERIFIED 2026-09-14
+
+The Movie Details episode-card Listen link now reuses the canonical primary treatment already used by the expanded `EpisodeNotesFooter` (`rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground`) instead of the bordered secondary treatment. Destination, `target="_blank"`, `rel`, and the external-link icon unchanged; `EpisodeNotesFooter` untouched; no second "blue Listen" style created. Verified at 390px and 1280px on `/movies/i-robot`: class string matches the footer control, target `_blank`. Effort: S; Confidence in estimate: High.
+
+### U42D — Gray secondary external-link buttons in Movie / Show headers — shipped 2026-09-14 — VERIFIED 2026-09-14
+
+Movie Details header action area gained an IMDb link using the `movies.imdb_id` already written during ingestion (2,581 of 2,632 rows populated); it rides along on the existing per-page `useMovieSynopsis` read — no new source, network path, or schema change. Podcast Show Details moves the existing `podcast.website_url` link out of the "Listen on" row into the header action row beside the preferred-show control; same destination, one mechanism. Both use the existing secondary badge grammar and `ExternalLink` icon. Verified at 390px and 1280px: IMDb resolves to `https://www.imdb.com/title/tt0343818/`; Website resolves to `http://www.flophousepodcast.com`. Effort: S; Confidence in estimate: High.
+
+### U40D (partial) — Movies / Episodes view toggle on Podcast Show details — shipped 2026-09-14 — VERIFIED 2026-09-14
+
+Segmented Movies / Episodes control on show detail, defaulting to Episodes, over the same `useShowDetail` payload — no second data model or duplicate filtering. Episode review states load only in Episodes mode, so the hidden side costs nothing extra. Episode search, match/review filters and sort unchanged. Verified at 390px. The broader U40 admin-workspace redesign remains open. Effort: S; Confidence in estimate: High.
+
 ### Podcast detail header — "Last episode" replaces "Active" — shipped 2026-09-07 — VERIFIED 2026-09-09 (partial delivery of U40D)
 
 The consumer-facing podcast detail header no longer shows the admin-only "Active" word. It shows the most recent stored episode's date: `Last episode: August 24` when under six months old, `Last episode: February 2026` at six months or older, and a minimal empty state when the show has no stored episode. Uses episode data already on the page; admin Active/Parked semantics untouched. The remaining U40 header/view work stays open under Pass U40.
