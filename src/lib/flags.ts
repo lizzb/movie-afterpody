@@ -63,8 +63,8 @@ export function useToggleFlag() {
     movieId: string;
     on: boolean;
     /** Only used for the snackbar copy. */
-    movieTitle?: string;
-    episodeTitle?: string;
+    movieTitle?: string | undefined;
+    episodeTitle?: string | undefined;
   }) => {
     if (!userId) throw new Error("Sign in to flag a wrong match.");
     if (on) {
