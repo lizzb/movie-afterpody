@@ -178,9 +178,13 @@ export async function evaluateMatcher(
     pageAll<{ title: string }>((from, to) =>
       admin.from("podcast_episodes").select("title").range(from, to),
     ),
+    // Pass U56 — word distinctiveness is a property of the whole catalogue, not
+    // of the few labelled candidates each episode is scored against.
+    pageAll<{ title: string }>((from, to) => admin.from("movies").select("title").range(from, to)),
   ]);
 
   const commonEpisodeWords = computeCommonEpisodeWords(allTitles.map((t) => t.title));
+  const titleWordStats = computeTitleWordStats(allMovieTitles.map((t) => t.title));
   const movieById = new Map(movies.map((m) => [m.id, m]));
   const episodeById = new Map(
     episodes
