@@ -53,6 +53,13 @@ function evaluate(c: CorpusCase) {
   const top = live[0] ?? null;
   const problems: string[] = [];
 
+  // A case whose expected film is not in the catalogue cannot be judged here —
+  // report it rather than counting it as a matcher failure.
+  const absent = (c.expect ?? []).filter(
+    (t) => !pool.some((m) => m.title.toLowerCase() === t.toLowerCase()),
+  );
+  if (absent.length) return { problems, top, skipped: absent };
+
   for (const bad of c.forbid ?? []) {
     const hit = live.find((s) => s.title.toLowerCase() === bad.toLowerCase());
     if (hit) problems.push(`suggested "${hit.title}" at ${hit.confidence} (${hit.reason})`);
@@ -65,7 +72,7 @@ function evaluate(c: CorpusCase) {
     if (!hit) problems.push(`missing "${good}"`);
     else if (top && hit !== top) problems.push(`"${good}" lost to "${top.title}" (${top.confidence})`);
   }
-  return { problems, top };
+  return { problems, top, skipped: [] as string[] };
 }
 
 const byOwner = new Map<string, { pass: number; fail: number }>();
