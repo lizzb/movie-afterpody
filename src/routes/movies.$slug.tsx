@@ -84,7 +84,7 @@ function MovieDetailPage() {
   const [notesOpen, setNotesOpen] = useState(false);
   const reviewStates = useEpisodeReviewStates(entry?.episodes.map((ep) => ep.episode.id) ?? []);
   // Pass L2a — synopsis and episode text load for this page only.
-  const synopsis = useMovieSynopsis(entry?.movie.id);
+  const { synopsis, imdbId } = useMovieSynopsis(entry?.movie.id);
   const { details } = useEpisodeDetails(entry?.episodes.map((ep) => ep.episode.id) ?? []);
 
 
@@ -253,6 +253,17 @@ function MovieDetailPage() {
               </button>
             </div>
             <AddToListButton movieSlug={movie.slug} movieTitle={movie.title} variant="button" />
+            {imdbId ? (
+              <a
+                href={`https://www.imdb.com/title/${imdbId}/`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary px-2.5 py-1 text-[11px] font-semibold text-secondary-foreground hover:text-foreground"
+              >
+                <ExternalLink className="size-3" aria-hidden />
+                IMDb
+              </a>
+            ) : null}
           </div>
         </section>
 
@@ -450,7 +461,7 @@ function EpisodeRow({
             href={listenUrl}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary px-2.5 py-1 text-[11px] font-semibold text-secondary-foreground"
+            className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground"
           >
             Listen
             <ExternalLink className="size-3" aria-hidden />

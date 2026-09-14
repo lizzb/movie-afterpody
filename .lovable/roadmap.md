@@ -737,31 +737,11 @@ Do not force identical presentation merely for consistency. Recommend consistenc
 
 The objective is a coherent visual language, not artificial uniformity.
 
-C. Listen button treatment
+C. Listen button treatment — **done, see U42C below (2026-09-14)**
 
-- Movie details > episode card: Listen button styling should reuse the exact existing blue Listen treatment currently used in the expanded-footer "Listen ↗" control.
-- Do not recreate the styling.
-- Identify the existing implementation/style values (e.g. class names or button/type identifier) and identify what this treatment is called/referred to so it can be referenced precisely as a design token/component reference in future work.
+D. External link buttons — **done, see U42D below (2026-09-14)**
 
-D. External link buttons
-
-- Podcast website / Movie Details IMDb external link buttons:
-  - gray secondary buttons with external-link icons;
-  - lower-right portion of:
-    1. Movie details page header
-    2. Podcast show details page header
-
-  - keep current small-ish size
-  - moving the existing podcast website element;
-  - adding the new IMDb element.
-
-E. Relationship action visual consistency
-
-- Confirm + Flag should be lightweight action buttons.
-- Confirm currently feels heavier than the adjacent flag incorrect button.
-- Confirm should feel visually closer to the lighter/semi-translucent treatment used by the current blue Flag control rather than an opaque heavy fill.
-- Styling should be consistent throughout the app.
-- Before implementation, describe the existing treatment in actual UI vocabulary: opacity, border, fill, text/icon treatment, etc., so it can be referenced precisely.
+E. Relationship action visual consistency — **done, see U42a below (shipped 2026-09-07, VERIFIED 2026-09-09)**
 
 F. Confirm vs Flag positioning
 
@@ -1630,6 +1610,18 @@ Left IMPLEMENTED, NOT VERIFIED by decision (not by oversight): **U4**, **U8**, *
 ### U42a — Confirm/Flag relationship action visual consistency — shipped 2026-09-07 — VERIFIED 2026-09-09
 
 Confirm was visually heavier than the adjacent Flag control. Both now share one lightweight icon-button grammar reusing the existing treatment and tokens — Flag lightweight blue, Confirm lightweight green — applied everywhere the pair appears (movie detail relationship rows, podcast-page linked-movie rows). Icons, actions, state semantics, permissions, size, placement and API calls unchanged. Verified in-app 2026-09-09. The rest of Pass U42 remains open.
+
+### U42C — Primary blue Listen treatment on movie-detail episode cards — shipped 2026-09-14 — VERIFIED 2026-09-14
+
+The Movie Details episode-card Listen link now reuses the canonical primary treatment already used by the expanded `EpisodeNotesFooter` (`rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground`) instead of the bordered secondary treatment. Destination, `target="_blank"`, `rel`, and the external-link icon unchanged; `EpisodeNotesFooter` untouched; no second "blue Listen" style created. Verified at 390px and 1280px on `/movies/i-robot`: class string matches the footer control, target `_blank`. Effort: S; Confidence in estimate: High.
+
+### U42D — Gray secondary external-link buttons in Movie / Show headers — shipped 2026-09-14 — VERIFIED 2026-09-14
+
+Movie Details header action area gained an IMDb link using the `movies.imdb_id` already written during ingestion (2,581 of 2,632 rows populated); it rides along on the existing per-page `useMovieSynopsis` read — no new source, network path, or schema change. Podcast Show Details moves the existing `podcast.website_url` link out of the "Listen on" row into the header action row beside the preferred-show control; same destination, one mechanism. Both use the existing secondary badge grammar and `ExternalLink` icon. Verified at 390px and 1280px: IMDb resolves to `https://www.imdb.com/title/tt0343818/`; Website resolves to `http://www.flophousepodcast.com`. Effort: S; Confidence in estimate: High.
+
+### U40D (partial) — Movies / Episodes view toggle on Podcast Show details — shipped 2026-09-14 — VERIFIED 2026-09-14
+
+Segmented Movies / Episodes control on show detail, defaulting to Episodes, over the same `useShowDetail` payload — no second data model or duplicate filtering. Episode review states load only in Episodes mode, so the hidden side costs nothing extra. Episode search, match/review filters and sort unchanged. Verified at 390px. The broader U40 admin-workspace redesign remains open. Effort: S; Confidence in estimate: High.
 
 ### Podcast detail header — "Last episode" replaces "Active" — shipped 2026-09-07 — VERIFIED 2026-09-09 (partial delivery of U40D)
 
