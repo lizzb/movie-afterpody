@@ -557,7 +557,12 @@ function PodcastEpisodeCard({
               control={
                 <span className="flex items-center gap-1.5">
                   <ConfirmMatchButton episodeId={episode.id} movieId={m.id} />
-                  <FlagMatchButton episodeId={episode.id} movieId={m.id} />
+                  <FlagMatchButton
+                    episodeId={episode.id}
+                    movieId={m.id}
+                    movieTitle={m.title}
+                    episodeTitle={episode.title}
+                  />
                 </span>
               }
             >
@@ -695,7 +700,12 @@ function CoveredMovie({ item, view }: { item: PodcastMovie; view: ViewMode }) {
                 control={
                   <span className="flex items-center gap-1.5">
                     <ConfirmMatchButton episodeId={ep.id} movieId={movie.id} />
-                    <FlagMatchButton episodeId={ep.id} movieId={movie.id} />
+                    <FlagMatchButton
+                      episodeId={ep.id}
+                      movieId={movie.id}
+                      movieTitle={movie.title}
+                      episodeTitle={ep.title}
+                    />
                   </span>
                 }
               >

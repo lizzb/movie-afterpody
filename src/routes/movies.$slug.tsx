@@ -302,6 +302,7 @@ function MovieDetailPage() {
                   entry={ep}
                   detail={details[ep.episode.id] ?? EMPTY_EPISODE_DETAIL}
                   movieId={movie.id}
+                  movieTitle={movie.title}
                   showReview={reviewStates.isAdmin}
                   reviewed={reviewStates.reviews[ep.episode.id]?.reviewed ?? false}
                   retired={reviewStates.reviews[ep.episode.id]?.retired ?? false}
@@ -331,6 +332,7 @@ function EpisodeRow({
   entry,
   detail,
   movieId,
+  movieTitle,
   showReview,
   reviewed,
   retired,
@@ -342,6 +344,7 @@ function EpisodeRow({
   entry: EpisodeEntry;
   detail: EpisodeDetail;
   movieId: string;
+  movieTitle: string;
   showReview: boolean;
   reviewed: boolean;
   retired: boolean;
@@ -359,7 +362,12 @@ function EpisodeRow({
     <CardShell className="p-3">
       <CardControls>
         <ConfirmMatchButton episodeId={episode.id} movieId={movieId} />
-        <FlagMatchButton episodeId={episode.id} movieId={movieId} />
+        <FlagMatchButton
+          episodeId={episode.id}
+          movieId={movieId}
+          movieTitle={movieTitle}
+          episodeTitle={episode.title}
+        />
         <ListenLaterButton
           episodeSlug={episode.slug}
           episodeTitle={episode.title}

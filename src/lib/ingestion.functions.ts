@@ -2242,6 +2242,9 @@ export const markEpisodeNotAboutMovie = createServerFn({ method: "POST" })
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const removed = await retireEpisode(supabaseAdmin, context.userId, data.episodeId);
+    // The catalogue snapshot still contains the links this just removed, so a
+    // client refetch would return stale rows for up to the stale window.
+    (await import("@/lib/catalog.server")).expireCatalog();
     return { ok: true, linksRemoved: removed };
   });
 
@@ -2323,6 +2326,7 @@ export const undoEpisodeRetirement = createServerFn({ method: "POST" })
         .eq("id", retire.id);
     }
 
+    (await import("@/lib/catalog.server")).expireCatalog();
     return { ok: true, linksRestored: restored };
   });
 

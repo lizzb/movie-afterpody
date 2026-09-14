@@ -43,6 +43,13 @@ export function useEpisodeReviewStates(episodeIds: string[]) {
  */
 const RETIREMENT_KEYS = [
   ["catalog"],
+  // Server-ranked list reads (L2b): without these, a retired episode kept
+  // showing its movie links on movie detail, the show page and show detail.
+  ["movie-page"],
+  ["show-page"],
+  ["show-detail"],
+  ["episode-details"],
+  ["facets"],
   ["episode-review-states"],
   ["episode-links"],
   ["episode-flags"],

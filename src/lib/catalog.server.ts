@@ -262,6 +262,16 @@ const MAX_STALE_MS = 15 * 60_000;
 let cached: { at: number; value: Catalog } | null = null;
 let inFlight: Promise<Catalog> | null = null;
 
+/**
+ * Drops the cached snapshot so the very next read rebuilds it. Used by admin
+ * writes that change what the catalogue contains (episode retirement / undo):
+ * without it, a client refetch honestly re-requests the list and still receives
+ * links that no longer exist for up to the stale window.
+ */
+export function expireCatalog() {
+  cached = null;
+}
+
 export async function loadCatalog(): Promise<Catalog> {
   const age = cached ? Date.now() - cached.at : Number.POSITIVE_INFINITY;
   if (cached && age < TTL_MS) return cached.value;

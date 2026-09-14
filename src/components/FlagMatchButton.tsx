@@ -4,6 +4,9 @@ import { flagKey, useMyFlags, useToggleFlag } from "@/lib/flags";
 interface Props {
   episodeId: string;
   movieId: string;
+  /** Shown in the confirmation snackbar so it names what was flagged. */
+  movieTitle?: string;
+  episodeTitle?: string;
 }
 
 /**
@@ -11,7 +14,7 @@ interface Props {
  * with an undo snackbar. Fixing it happens later in admin Match review.
  * Pass K1: one circular shape everywhere this control appears.
  */
-export function FlagMatchButton({ episodeId, movieId }: Props) {
+export function FlagMatchButton({ episodeId, movieId, movieTitle, episodeTitle }: Props) {
   const { flagged, hasUser } = useMyFlags();
   const toggle = useToggleFlag();
   const isFlagged = flagged.has(flagKey(episodeId, movieId));
@@ -26,7 +29,7 @@ export function FlagMatchButton({ episodeId, movieId }: Props) {
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        toggle.mutate({ episodeId, movieId, on: !isFlagged });
+        toggle.mutate({ episodeId, movieId, on: !isFlagged, movieTitle, episodeTitle });
       }}
       disabled={toggle.isPending}
       aria-pressed={isFlagged}
