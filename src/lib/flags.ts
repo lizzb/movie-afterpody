@@ -104,7 +104,8 @@ export function useToggleFlag() {
       if (vars.on) {
         // Naming the pairing makes the snackbar readable at phone width; the
         // release year is skipped because it roughly doubles the line length.
-        const named = [vars.movieTitle, vars.episodeTitle].filter(Boolean).join(" · ");
+        const parts = [vars.movieTitle, vars.episodeTitle].filter(Boolean);
+        const named = [...new Set(parts)].join(" · ");
         toast(named ? `Flagged as wrong: ${named}` : "Flagged as a wrong match", {
           description: "It moves to the top of the admin review queue.",
           action: {
