@@ -4,6 +4,9 @@ import { flagKey, useMyFlags, useToggleFlag } from "@/lib/flags";
 interface Props {
   episodeId: string;
   movieId: string;
+  /** Shown in the confirmation snackbar so it names what was flagged. */
+  movieTitle?: string;
+  episodeTitle?: string;
 }
 
 /**
