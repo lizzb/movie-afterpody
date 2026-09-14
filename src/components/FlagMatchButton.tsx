@@ -29,7 +29,7 @@ export function FlagMatchButton({ episodeId, movieId, movieTitle, episodeTitle }
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        toggle.mutate({ episodeId, movieId, on: !isFlagged });
+        toggle.mutate({ episodeId, movieId, on: !isFlagged, movieTitle, episodeTitle });
       }}
       disabled={toggle.isPending}
       aria-pressed={isFlagged}
