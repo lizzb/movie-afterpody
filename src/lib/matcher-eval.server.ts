@@ -6,7 +6,11 @@
  * reports precision, recall and where the mistakes cluster. Database only:
  * no TMDB calls, no AI, no tokens.
  */
-import { matchEpisodeToMovies, computeCommonEpisodeWords } from "./providers/matching.server";
+import {
+  matchEpisodeToMovies,
+  computeCommonEpisodeWords,
+  computeTitleWordStats,
+} from "./providers/matching.server";
 import { pageAll, fetchRejectionCountsByMovie } from "./ingestion-helpers.server";
 import {
   asMatcherStrategy,
@@ -105,6 +109,15 @@ const SIGNAL_TESTS: { signal: string; test: (s: Record<string, unknown>) => bool
   { signal: "sequel marker missing from title", test: (s) => s["distinguisherPenalty"] === true },
   { signal: "beaten by a franchise sibling", test: (s) => s["familySuppressed"] === true },
   { signal: "matched only the guest's name", test: (s) => s["guestSuppressed"] === true },
+  {
+    signal: "title has a distinctive word the episode never says",
+    test: (s) => s["missingDistinctive"] === true,
+  },
+  { signal: "matched only post-colon chatter", test: (s) => s["chatterOnly"] === true },
+  {
+    signal: "shared words are distinctive",
+    test: (s) => Number(s["weightedCoverage"] ?? 0) >= 0.75,
+  },
   { signal: "covers most of the episode title", test: (s) => Number(s["episodeCoverage"] ?? 0) >= 0.5 },
 ];
 
@@ -157,7 +170,7 @@ export async function evaluateMatcher(
   const episodeIds = [...new Set([...label.keys()].map((k) => k.split(":")[0]!))];
   const movieIds = [...new Set([...label.keys()].map((k) => k.split(":")[1]!))];
 
-  const [episodes, movies, allTitles] = await Promise.all([
+  const [episodes, movies, allTitles, allMovieTitles] = await Promise.all([
     chunkedIn<{ id: string; title: string; description: string | null; podcast_id: string }>(
       episodeIds,
       (ids) =>
@@ -169,9 +182,13 @@ export async function evaluateMatcher(
     pageAll<{ title: string }>((from, to) =>
       admin.from("podcast_episodes").select("title").range(from, to),
     ),
+    // Pass U56 — word distinctiveness is a property of the whole catalogue, not
+    // of the few labelled candidates each episode is scored against.
+    pageAll<{ title: string }>((from, to) => admin.from("movies").select("title").range(from, to)),
   ]);
 
   const commonEpisodeWords = computeCommonEpisodeWords(allTitles.map((t) => t.title));
+  const titleWordStats = computeTitleWordStats(allMovieTitles.map((t) => t.title));
   const movieById = new Map(movies.map((m) => [m.id, m]));
   const episodeById = new Map(
     episodes
@@ -225,6 +242,7 @@ export async function evaluateMatcher(
       rejectionCountByMovie,
       description: episode.description,
       commonEpisodeWords,
+      titleWordStats,
       strategy,
     });
 
