@@ -703,7 +703,11 @@ export function matchEpisodeToMovies(
       // the word the episode omits is more identifying than anything it says:
       // "Falling for Figaro" against "Falling for You".
       const missingDominates = worstMissing > sharedMax;
-      if (rule === "tokens" && (coverage <= 0.5 || missingDominates) && !corroboratedU56) {
+      const weakTokens = rule === "tokens" && (coverage <= 0.5 || missingDominates);
+      // The episode says less than the candidate's title and what it leaves out
+      // is more identifying than what it says: "The Parent Trap" for "Trap".
+      const weakContainment = rule === "contained" && missingDominates;
+      if ((weakTokens || weakContainment) && !corroboratedU56) {
         confidence = Math.min(confidence, 20);
       } else {
         confidence = Math.max(0, confidence - Math.round(worstMissing * 22));
