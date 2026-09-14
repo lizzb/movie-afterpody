@@ -1385,9 +1385,13 @@ Plan: `.lovable/plan/plan-backlog-only-matcher-evidence-hierarchy-false-positive
 
 Sequence: U55 → U56 → U57 → U58 → U60 → U59 → U61, scoring the matcher after each. Total if all built ≈ 20–30 credits.
 
-#### Pass U55 — Episode-title parsing stage — M (~3-5 credits) — no dependencies
+#### Pass U55 — Episode-title parsing stage — M (~3-5 credits) — no dependencies — SHIPPED 2026-09-14, VERIFIED
 
-Deterministic structural parser producing role-labelled segments before scoring. Guest segments (`with`, `w/`, `featuring`, `feat.`) stop contributing title evidence; conservative splitting only, and `with` stays intact when the whole string matches a catalogue title, so genuine titles are not broken. Regression: `88: Human Nature with Colby Day` ≠ `Disclosure Day`; `56: Road to Perdition with Blake Howard` ≠ `Howard the Duck`; `FELICITY FRIDAYS: "Ancient History" w/ Danette Chavez & Amy Smart` ≠ `Chasing Amy`; `209: Felicia's Journey w/ Billy Ray Brewton` and `220: For the Love of the Game w/ Billy Ray Brewton & Amanda Smith` ≠ `Billy Madison`.
+Deterministic structural parser producing role-labelled segments before scoring. Guest segments (`with`, `w/`, `w.`, `featuring`, `feat.`, `ft.`) stop contributing title evidence; conservative splitting only, and `with` stays intact when the whole string matches a catalogue title, so genuine titles are not broken. Regression: `88: Human Nature with Colby Day` ≠ `Disclosure Day`; `56: Road to Perdition with Blake Howard` ≠ `Howard the Duck`; `FELICITY FRIDAYS: "Ancient History" w/ Danette Chavez & Amy Smart` ≠ `Chasing Amy`; `209: Felicia's Journey w/ Billy Ray Brewton` and `220: For the Love of the Game w/ Billy Ray Brewton & Amanda Smith` ≠ `Billy Madison`.
+
+Implementation: new `src/lib/providers/episode-parse.server.ts` (`parseEpisodeTitle` → prefix / title / guest segments, `looksLikeGuestNames` guard: ≤4 comma/&-separated names, ≤4 words each, capitalised, no digits/quotes; bracketed trailing credits handled; a spelled-out `with` never splits a one-word head, so "Sleeping with Other People" survives). `matching.server.ts` scores title-bearing segments only, keeps a whole-string exact-title fallback, tracks guest-only overlap and caps it at 15 with a new `guestSuppressed` signal (surfaced in `matcher-eval.server.ts` as "matched only the guest's name"). `episode-title.server.ts` strips guest credits before TMDB title extraction.
+
+Acceptance checklist — **Verified:** all 7 regression cases pass (5 from the plan plus two protections: `Sleeping with Other People` unsplit, bracketed `(with Amy Smart)` split); matcher scoring over 10,778 labelled pairs shows precision at threshold 25 up 59.14% → 59.77% with recall up 98.06% → 98.27% (gate requires precision up, recall drop ≤2 points); typecheck clean. **Not applicable:** no schema, UI or write-path changes; no confirmed link, rejection record or review state touched; no replay/recheck run.
 
 #### Pass U56 — Token distinctiveness and missing-token penalty — M (~3-5 credits) — depends on U55
 

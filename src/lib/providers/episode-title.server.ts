@@ -1,5 +1,6 @@
 // Extracts a likely movie title from a podcast episode title.
 // Lightweight, deterministic heuristics — no AI needed.
+import { parseEpisodeTitle } from "./episode-parse.server";
 
 const NOISE_PREFIXES = [
   /^ep(isode)?\.?\s*#?\d+\s*[:\-–—|]\s*/i,
@@ -73,7 +74,8 @@ function stripNoise(input: string): string {
  */
 export function extractMovieTitleCandidates(episodeTitle: string): ExtractedTitle[] {
   if (!hasUsableEpisodeTitle(episodeTitle)) return [];
-  const cleaned = stripNoise(episodeTitle);
+  // Pass U55 — drop guest credits ("… with Colby Day") before extracting.
+  const cleaned = parseEpisodeTitle(stripNoise(episodeTitle)).titleText.trim();
   if (!cleaned) return [];
 
   const yearMatch = cleaned.match(YEAR_RE);

@@ -1,4 +1,5 @@
 import { normalizeTitle } from "./shared.server";
+import { parseEpisodeTitle } from "./episode-parse.server";
 import { strategyConfig, type MatcherStrategy } from "@/lib/matcher-strategies";
 
 
@@ -31,6 +32,8 @@ export interface MatchSignals {
   distinguisherPenalty: boolean;
   /** A longer/better title in the same franchise family beat this candidate. */
   familySuppressed: boolean;
+  /** Pass U55 — the only shared words came from a guest credit, not the title. */
+  guestSuppressed: boolean;
 }
 
 export interface MovieMatchCandidate {
@@ -278,9 +281,15 @@ export function matchEpisodeToMovies(
   const commonEpisodeWords = options.commonEpisodeWords ?? new Set<string>();
 
   const episodeYear = extractYear(episodeTitle);
-  const episodeClean = stripEpisodePrefixes(removeYear(episodeTitle));
-  const episodeCanonical = canonical(episodeClean);
+  // Pass U55 — parse first: guest credits stop counting as title evidence.
+  const parsed = parseEpisodeTitle(removeYear(episodeTitle));
+  const episodeFullCanonical = canonical(stripEpisodePrefixes(removeYear(episodeTitle)));
+  const episodeCanonical = canonical(parsed.titleText);
   const episodeTokens = tokenSet(episodeCanonical);
+  // Guest words are tracked only so a guest-only overlap stays explainable.
+  const guestTokens = new Set(
+    [...tokenSet(canonical(parsed.guestText))].filter((t) => !episodeTokens.has(t)),
+  );
   const keywordSuppressed = NON_FILM_KEYWORDS.some((re) => re.test(episodeTitle));
   const episodeDistinguishers = new Set(
     [...episodeTokens].filter((t) => DISTINGUISHER_TOKENS.has(t)),
@@ -311,7 +320,9 @@ export function matchEpisodeToMovies(
 
     // Coverage-first: how much of the *movie* title the episode contains, so
     // extra episode chatter ("Ep 43 - …") no longer dilutes a full match.
-    if (episodeCanonical === movieCanonical) {
+    // A whole-title match on the *unparsed* string still counts, so a real
+    // title containing "with" is never broken by the parse stage.
+    if (episodeCanonical === movieCanonical || episodeFullCanonical === movieCanonical) {
       confidence = 100;
       reason = "exact title";
       rule = "exact";
@@ -525,6 +536,15 @@ export function matchEpisodeToMovies(
       reason += " - covers little of the episode title";
     }
 
+    // Pass U55 — the candidate's overlap comes from the guest credit, not the
+    // title ("Road to Perdition with Blake Howard" vs "Howard the Duck").
+    const guestOverlap = [...movieTokens].filter((t) => guestTokens.has(t)).length;
+    const guestSuppressed = guestOverlap > 0 && coverage < 1 && rule !== "exact";
+    if (guestSuppressed) {
+      confidence = Math.min(confidence, 15);
+      reason += " - only matches the guest's name";
+    }
+
     const familyKey = [...movieTokens][0] ?? movieCanonical;
 
     return {
@@ -549,6 +569,7 @@ export function matchEpisodeToMovies(
         descYear,
         distinguisherPenalty,
         familySuppressed: false,
+        guestSuppressed,
       },
       movieTokens,
       familyKey,
