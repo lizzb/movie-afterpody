@@ -1,4 +1,5 @@
 import { normalizeTitle } from "./shared.server";
+import { parseEpisodeTitle } from "./episode-parse.server";
 import { strategyConfig, type MatcherStrategy } from "@/lib/matcher-strategies";
 
 
@@ -31,6 +32,8 @@ export interface MatchSignals {
   distinguisherPenalty: boolean;
   /** A longer/better title in the same franchise family beat this candidate. */
   familySuppressed: boolean;
+  /** Pass U55 — the only shared words came from a guest credit, not the title. */
+  guestSuppressed: boolean;
 }
 
 export interface MovieMatchCandidate {
