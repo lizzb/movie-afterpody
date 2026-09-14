@@ -33,8 +33,15 @@ export const MATCHER_CORPUS: CorpusCase[] = [
     show: "You Are Good",
     episode: "Rosemary's Baby w. Sarah Archer!",
     expect: ["Rosemary's Baby"],
-    forbid: ["She's Having a Baby"],
     owner: "U55",
+    note: "guest credit must not break the title",
+  },
+  {
+    show: "You Are Good",
+    episode: "Rosemary's Baby w. Sarah Archer!",
+    forbid: ["She's Having a Baby"],
+    owner: "U56",
+    note: "\"baby\" alone is not identifying evidence",
   },
   {
     show: "You Are Good",
