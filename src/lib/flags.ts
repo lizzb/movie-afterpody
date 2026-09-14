@@ -15,13 +15,19 @@ interface FlagRow {
 /**
  * Every unresolved "wrong movie?" flag this signed-in person has raised.
  *
- * Scoped to `flagged_by = userId` and ordered/bounded on purpose: the read
- * policy lets admins see everyone's flags, so an unscoped read grew past the
- * backend's 1,000-row response cap and silently dropped this person's own
- * flags — the button then never rendered as flagged. Never read this list
- * unbounded.
+ * Two deliberate rules, both of which the previous single unbounded read broke:
+ * 1. Scope to `flagged_by = userId`. The read policy lets admins see everyone's
+ *    flags, so an unscoped read is unnecessarily large and unstable.
+ * 2. Page explicitly. The backend caps any response at 1,000 rows; with more
+ *    open flags than that, older ones were silently dropped and their buttons
+ *    never rendered as flagged. Ordered keyset paging keeps the set complete
+ *    and the result stable between renders.
+ *
+ * Never read this list unbounded.
  */
-const MY_FLAGS_LIMIT = 1000;
+const FLAG_PAGE = 1000;
+/** Guard: 20 pages is far beyond any realistic personal flag count. */
+const MAX_FLAG_PAGES = 20;
 
 export function useMyFlags() {
   const { userId } = useAuth();
@@ -30,16 +36,22 @@ export function useMyFlags() {
     enabled: Boolean(userId),
     staleTime: 60 * 1000,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("episode_link_flags")
-        .select("id, episode_id, movie_id, resolved_at")
-        .eq("flagged_by", userId!)
-        .is("resolved_at", null)
-        .order("created_at", { ascending: false })
-        .limit(MY_FLAGS_LIMIT)
-        .returns<FlagRow[]>();
-      if (error) throw new Error(error.message);
-      return data ?? [];
+      const rows: FlagRow[] = [];
+      for (let page = 0; page < MAX_FLAG_PAGES; page += 1) {
+        const from = page * FLAG_PAGE;
+        const { data, error } = await supabase
+          .from("episode_link_flags")
+          .select("id, episode_id, movie_id, resolved_at")
+          .eq("flagged_by", userId!)
+          .is("resolved_at", null)
+          .order("id", { ascending: true })
+          .range(from, from + FLAG_PAGE - 1)
+          .returns<FlagRow[]>();
+        if (error) throw new Error(error.message);
+        rows.push(...(data ?? []));
+        if ((data?.length ?? 0) < FLAG_PAGE) break;
+      }
+      return rows;
     },
   });
   const keys = new Set((query.data ?? []).map((f) => flagKey(f.episode_id, f.movie_id)));
