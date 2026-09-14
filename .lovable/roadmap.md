@@ -737,31 +737,11 @@ Do not force identical presentation merely for consistency. Recommend consistenc
 
 The objective is a coherent visual language, not artificial uniformity.
 
-C. Listen button treatment
+C. Listen button treatment — **done, see U42C below (2026-09-14)**
 
-- Movie details > episode card: Listen button styling should reuse the exact existing blue Listen treatment currently used in the expanded-footer "Listen ↗" control.
-- Do not recreate the styling.
-- Identify the existing implementation/style values (e.g. class names or button/type identifier) and identify what this treatment is called/referred to so it can be referenced precisely as a design token/component reference in future work.
+D. External link buttons — **done, see U42D below (2026-09-14)**
 
-D. External link buttons
-
-- Podcast website / Movie Details IMDb external link buttons:
-  - gray secondary buttons with external-link icons;
-  - lower-right portion of:
-    1. Movie details page header
-    2. Podcast show details page header
-
-  - keep current small-ish size
-  - moving the existing podcast website element;
-  - adding the new IMDb element.
-
-E. Relationship action visual consistency
-
-- Confirm + Flag should be lightweight action buttons.
-- Confirm currently feels heavier than the adjacent flag incorrect button.
-- Confirm should feel visually closer to the lighter/semi-translucent treatment used by the current blue Flag control rather than an opaque heavy fill.
-- Styling should be consistent throughout the app.
-- Before implementation, describe the existing treatment in actual UI vocabulary: opacity, border, fill, text/icon treatment, etc., so it can be referenced precisely.
+E. Relationship action visual consistency — **done, see U42a below (shipped 2026-09-07, VERIFIED 2026-09-09)**
 
 F. Confirm vs Flag positioning
 
