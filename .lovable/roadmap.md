@@ -58,6 +58,25 @@ Use `BUILD` only when product code is expected to change. Expect `VERIFY SWEEP` 
 
 ## Do next
 
+### Pass U88 — Confirm + Mark reviewed appeared not to stick — S — SHIPPED 2026-09-14, VERIFIED (preview, 390px)
+
+Effort: S; Confidence in estimate: High. Not U53 (that pass still owns making "Mark reviewed" confirm the links); this was a state-presentation defect only.
+
+Root cause (data-confirmed, two parts — neither was a race, a trigger, or a failed write):
+1. `Mark episode reviewed` only flipped once a page-wide `episode-review-states` refetch returned (~1–2s in preview, longer on mobile), so the tap looked ignored. `episode_reviews` shows 12 rows where `reopened_at - reviewed_at` is 1–7s with reason `manual_reopen` — i.e. a second tap on the same control, now labelled "Reopen", silently undid the review that had just been recorded.
+2. On a fresh load, already-confirmed links painted as unconfirmed for ~3s while `fetchConfirmedKeys` read all 5,894 confirmed pairs in six sequential 1,000-row pages — which invited re-confirming (and hence toggling off) links that were already confirmed. That read also ordered by `episode_id` alone, which is not unique, so offset paging over a tie could skip or repeat rows.
+3. Disproved: no reopen trigger fires on confirm (`stale_episode_review` fires on non-confirmed link INSERT, link DELETE and flag INSERT only; `resolveOpenFlags` is an UPDATE). `setEpisodeReviewed` and `confirmEpisodeMatch` both re-read and verify their writes. No `new_link` reopens exist in the data.
+
+Fix:
+- `src/lib/episode-reviews.ts` — `useSetEpisodeReviewed` writes the new reviewed state straight into every cached `episode-review-states` result on mutate (rolled back on failure), then still invalidates.
+- `src/components/EpisodeReviewButton.tsx` — a reopen within 2.5s of marking reviewed is treated as a stray second tap and ignored; the confirm direction is unguarded.
+- `src/lib/link-review.ts` — confirmed-pairs read ordered by `episode_id, movie_id`; confirm/unconfirm patches the fetched set as well as the session overrides; hook exposes `isLoading`.
+- `src/components/ConfirmMatchButton.tsx` — spinner + disabled while the confirmed set loads instead of drawing "unconfirmed".
+
+Verified at 390px, signed-in admin, real workflow: confirm → mark reviewed 120ms later → reviewed shows at +300ms, confirmed at +700ms; a stray third tap inside the guard window did not undo it; both states survive navigate-away-and-back and a hard reload; database read confirms `review_state = confirmed`, `reviewed_at` set, `reopened_at` null. No console errors.
+
+
+
 ### Pass U86 — "Wrong movie?" flag state never rendered — S — SHIPPED 2026-09-14, VERIFIED (preview, 390px)
 
 Root cause (data-confirmed): `useMyFlags` read `episode_link_flags` unscoped and unbounded. All 1,478 open flags belong to the single admin account and PostgREST caps a response at 1,000 rows, so older flags were silently dropped and their buttons painted as unflagged even though the write succeeded.
