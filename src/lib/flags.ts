@@ -90,7 +90,10 @@ export function useToggleFlag() {
     onSuccess: (_res, vars) => {
       void client.invalidateQueries({ queryKey: ["episode-flags", userId] });
       if (vars.on) {
-        toast("Flagged as a wrong match", {
+        // Naming the pairing makes the snackbar readable at phone width; the
+        // release year is skipped because it roughly doubles the line length.
+        const named = [vars.movieTitle, vars.episodeTitle].filter(Boolean).join(" · ");
+        toast(named ? `Flagged as wrong: ${named}` : "Flagged as a wrong match", {
           description: "It moves to the top of the admin review queue.",
           action: {
             label: "Undo",
