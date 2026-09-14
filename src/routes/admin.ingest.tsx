@@ -1024,7 +1024,7 @@ function UnmatchedEpisodesCard() {
             {rescan.data.improved} · extra films added {rescan.data.extraAdded} ·{" "}
             {rescan.data.stillUnlinked} still unmatched.
             {rescan.data.remaining > 0
-              ? ` ${rescan.data.remaining} episodes left to check — run it again.`
+              ? ` At least ${rescan.data.remaining}${rescan.data.remainingIsFloor ? "+" : ""} episodes left to check — run it again to continue from where this run stopped.`
               : ""}
           </p>
         ) : null}
@@ -1242,7 +1242,7 @@ function PodcastCoverageCard({ onSuccess }: { onSuccess: () => void }) {
         [
           {
             name,
-            message: `recheck: ${totals.scanned} scanned · ${totals.linked} linked · ${totals.improved} improved · ${totals.extraAdded} extra · ${totals.stillUnlinked} still unmatched${r.remaining > 0 ? ` · ${r.remaining} left, run again` : ""}`,
+            message: `recheck: ${totals.scanned} scanned · ${totals.linked} linked · ${totals.improved} improved · ${totals.extraAdded} extra · ${totals.stillUnlinked} still unmatched${r.remaining > 0 ? ` · ${r.remaining} left, run again` : " · whole show checked"}`,
             ok: true,
           },
           ...prev,
