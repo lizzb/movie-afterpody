@@ -40,7 +40,12 @@ export interface MatchSignals {
   missingDistinctive: boolean;
   /** Pass U56 — the only shared words sat in post-colon chatter. */
   chatterOnly: boolean;
+  /** Pass U57 — the description names the title and its release year in one sentence. */
+  descTitleYear: boolean;
+  /** Pass U57 — a year agreed but carried no weight: the candidate had no other evidence. */
+  yearGated: boolean;
 }
+
 
 export interface MovieMatchCandidate {
   movieId: string;
@@ -344,6 +349,12 @@ function makeDistinctiveness(
 
 /** Distinctive enough that its absence from the episode title means something. */
 const MISSING_IDF_FLOOR = 0.55;
+
+/** Distinctive enough that sharing it is real lexical evidence (Pass U57 gate). */
+const IDENTIFYING_IDF = 0.65;
+
+/** Pass U57 — a title named with its release year in one sentence is strong evidence. */
+const DESC_TITLE_YEAR_FLOOR = 72;
 
 
 /** Post-colon chatter still counts, but at a fraction of its face value. */
