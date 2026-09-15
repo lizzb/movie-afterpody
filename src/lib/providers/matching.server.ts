@@ -597,6 +597,16 @@ export function matchEpisodeToMovies(
     [...tokenSet(canonical(parsed.guestText))].filter((t) => !episodeTokens.has(t)),
   );
   const keywordSuppressed = NON_FILM_KEYWORDS.some((re) => re.test(episodeTitle));
+
+  // Pass U60 — episode-level content-type context. A TV episode designator after
+  // the opening of the title, or a list/ranking framing, means no single film is
+  // the subject. Both are overridable only by an exact whole-title match.
+  const tvDesignator = TV_DESIGNATORS.some((re) => {
+    const m = re.exec(episodeTitle);
+    return m !== null && m.index > 0 && /[a-z]/i.test(episodeTitle.slice(0, m.index));
+  });
+  const listEpisode = LIST_EPISODE_PATTERNS.some((re) => re.test(episodeTitle));
+
   const episodeDistinguishers = new Set(
     [...episodeTokens].filter((t) => DISTINGUISHER_TOKENS.has(t)),
   );
