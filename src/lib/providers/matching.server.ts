@@ -1222,6 +1222,51 @@ export function matchEpisodeToMovies(
       reason += " - only matches a subtitle";
     }
 
+    // Pass U72 — soft show priors. Built from confirmed links only, they can
+    // only ever subtract a small bounded amount, never boost and never exclude,
+    // and they step aside entirely for an exact title or a description
+    // title+year hit. A show with too small a confirmed sample has no profile.
+    let unusualGenre = false;
+    let unusualEra = false;
+    let unusualCertification = false;
+    let profilePenalty = 0;
+    const profile = options.podcastProfile ?? null;
+    if (profile && rule !== "exact" && !descTitleYear && !multiTitle) {
+      const movieGenres = movie.genre_ids ?? [];
+      if (profile.hasGenre && movieGenres.length > 0) {
+        const bestShare = Math.max(...movieGenres.map((g) => profile.genreShare[g] ?? 0));
+        if (bestShare < UNUSUAL_GENRE_SHARE) {
+          unusualGenre = true;
+          profilePenalty += GENRE_PENALTY;
+        }
+      }
+      if (profile.hasEra && movie.release_year) {
+        const decade = Math.floor(movie.release_year / 10) * 10;
+        // Neighbouring decades count, so a show's era is a span, not a bucket.
+        const nearby =
+          (profile.decadeShare[decade] ?? 0) +
+          (profile.decadeShare[decade - 10] ?? 0) +
+          (profile.decadeShare[decade + 10] ?? 0);
+        if (nearby === 0) {
+          unusualEra = true;
+          profilePenalty += ERA_PENALTY;
+        }
+      }
+      if (profile.hasCert && movie.certification) {
+        if ((profile.certShare[movie.certification] ?? 0) === 0) {
+          unusualCertification = true;
+          profilePenalty += CERT_PENALTY;
+        }
+      }
+      profilePenalty = Math.min(PROFILE_PENALTY_CAP, profilePenalty);
+      if (profilePenalty > 0) {
+        confidence = Math.max(0, confidence - profilePenalty);
+        if (unusualGenre) reason += " - unusual genre for this show";
+        if (unusualEra) reason += " - outside this show's usual era";
+        if (unusualCertification) reason += " - unusual rating for this show";
+      }
+    }
+
     const familyKey = [...movieTokens][0] ?? movieCanonical;
 
 
