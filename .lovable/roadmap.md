@@ -1509,7 +1509,7 @@ Built with U60 in one S-band pass — list-episode detection did not push it to 
 
 Adds cluster-level treatment to the existing show-scoped confusion memory: for mutually near-identical catalogue titles (`The Wiz` / `The Wizard` / `The Wizard of Oz`; numbered franchise entries) a rejection of one member is evidence about the confusable neighbourhood, not only that pair, while confirmed membership in the cluster is never demoted. Clusters derived at scoring time from title containment/edit distance plus U58 base-title decomposition — no cluster table, no curated list. Case A / Case B separation and the strong-episode-evidence override are unchanged.
 
-#### Pass U72 — Podcast-profile priors: genre, rating, era — M (~3-5 credits) — depends on U56; do after U57
+#### Pass U72 — Podcast-profile priors: genre, rating, era — M (~3-5 credits) — depends on U56; do after U57 — SHIPPED 2026-09-15, VERIFIED
 
 Soft per-show priors from **confirmed/manual links only** (never auto-links): genre, certification and release-era distributions. No prior at all below a minimum confirmed sample (proposal: 8 confirmed movies, per-dimension coverage ≥60%). Effect is a small bounded demotion (proposal: total profile term capped at −8, never a boost, never an exclusion), fully overridden by exact title or description title+year, and always surfaced as a readable signal ("unusual genre for this show", "outside this show's usual era"). Acceptance: horror-heavy show + rom-com demoted yet linkable; throwback-only show + 2025 candidate demoted unless named exactly; small-sample show unaffected; no confirmed link's stored confidence rewritten; precision/recall gate met. Non-goals: hard filters, profiles from auto-links, per-show manual configuration (U4), ML.
 
