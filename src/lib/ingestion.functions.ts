@@ -3067,8 +3067,10 @@ export const setEpisodeReviewed = createServerFn({ method: "POST" })
       attempted: data.episodeIds.length,
       succeeded: results.length - failures.length,
       results,
+      linksConfirmed,
       failed: failures.slice(0, 10).map((r) => r.error ?? "unknown error"),
     };
+
   });
 
 /**
