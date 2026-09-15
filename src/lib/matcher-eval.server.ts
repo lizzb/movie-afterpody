@@ -118,6 +118,12 @@ const SIGNAL_TESTS: { signal: string; test: (s: Record<string, unknown>) => bool
   { signal: "year ignored (no other evidence)", test: (s) => s["yearGated"] === true },
   { signal: "episode predates the film's release", test: (s) => s["preRelease"] === "early" },
   { signal: "episode just before release", test: (s) => s["preRelease"] === "window" },
+  {
+    signal: "episode names a numbered entry this film is not",
+    test: (s) => s["sequelMismatch"] === true,
+  },
+  { signal: "matched only a subtitle", test: (s) => s["subtitleOnly"] === true },
+
 
   {
     signal: "shared words are distinctive",

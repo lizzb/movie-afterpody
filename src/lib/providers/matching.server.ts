@@ -51,7 +51,12 @@ export interface MatchSignals {
    * "early" = long before release, which is strong negative evidence.
    */
   preRelease: "none" | "window" | "early";
+  /** Pass U58 — the episode names a numbered entry ("2", "II") this film is not. */
+  sequelMismatch: boolean;
+  /** Pass U58 — the only shared words came from a subtitle, not a base title. */
+  subtitleOnly: boolean;
 }
+
 
 
 export interface MovieMatchCandidate {
@@ -292,6 +297,86 @@ const DISTINGUISHER_TOKENS = new Set([
   "again",
 ]);
 
+/**
+ * Pass U58 — sequel identity.
+ *
+ * A bare numbering marker ("II", "2") identifies *which* entry of a franchise an
+ * episode is about. It is never shared positive evidence on its own: two films
+ * both carrying "2" are not the same subject. Roman numerals and digits are
+ * equivalent, so "Evil Dead 2" and "Evil Dead II" are the same entry.
+ */
+const ROMAN_MARKERS: Record<string, number> = {
+  ii: 2,
+  iii: 3,
+  iv: 4,
+  vi: 6,
+  vii: 7,
+  viii: 8,
+  ix: 9,
+};
+
+/** Words before a number that make it an enumeration, not a sequel number. */
+const ENUMERATION_PRECEDERS = new Set([
+  "top",
+  "best",
+  "worst",
+  "episode",
+  "ep",
+  "part",
+  "chapter",
+  "number",
+  "vol",
+  "volume",
+  "season",
+  "day",
+  "week",
+  "round",
+]);
+
+function markerValue(token: string): number | null {
+  if (/^[2-9]$/.test(token)) return Number(token);
+  return ROMAN_MARKERS[token] ?? null;
+}
+
+/**
+ * A numbering marker only counts when it trails a title ("Sharknado 3"), not
+ * when it enumerates something ("Top 5 Stephen King movies").
+ */
+function trailingMarker(orderedTokens: string[]): number | null {
+  const last = orderedTokens[orderedTokens.length - 1];
+  if (!last) return null;
+  const value = markerValue(last);
+  if (value === null) return null;
+  const prev = orderedTokens[orderedTokens.length - 2];
+  if (!prev || ENUMERATION_PRECEDERS.has(prev) || markerValue(prev) !== null) return null;
+  return value;
+}
+
+/** Content words in order, so trailing-position rules can be applied. */
+function orderedTokens(canonicalTitle: string): string[] {
+  const all = canonicalTitle.split(" ").filter(Boolean);
+  const content = all.filter((t) => !STOPWORDS.has(t));
+  return content.length ? content : all;
+}
+
+/**
+ * Every numbering marker a title carries. Segments are split on the raw text,
+ * because canonicalising first would drop the colon that separates a numbered
+ * head ("Ready or Not 2: Here I Come") from its subtitle.
+ */
+function titleMarkers(rawTitle: string): Set<number> {
+  const out = new Set<number>();
+  for (const segment of rawTitle.split(/\s*:\s*/)) {
+    const value = trailingMarker(orderedTokens(canonical(segment)));
+    if (value !== null) out.add(value);
+  }
+  const whole = trailingMarker(orderedTokens(canonical(rawTitle)));
+  if (whole !== null) out.add(whole);
+
+  return out;
+}
+
+
 /** Internal per-candidate bookkeeping for the family post-pass. */
 interface ScoredCandidate extends MovieMatchCandidate {
   movieTokens: Set<string>;
@@ -429,6 +514,24 @@ export function matchEpisodeToMovies(
       ? new Set([...episodeTokens].filter((t) => !headTokens.has(t)))
       : new Set<string>();
 
+  // Pass U58 — sequel identity and subtitle decomposition, episode side.
+  const episodeMarkers = titleMarkers(parsed.titleText);
+  const episodeBaseTokens = new Set(
+    [...episodeTokens].filter((t) => {
+      const v = markerValue(t);
+      return v === null || !episodeMarkers.has(v);
+    }),
+  );
+  const episodeSubtitleTokens =
+    colonSplit.length > 1
+      ? new Set(
+          [...tokenSet(canonical(colonSplit.slice(1).join(" ")))].filter(
+            (t) => !headTokens.has(t),
+          ),
+        )
+      : new Set<string>();
+
+
   // Pass U56 — phrase segments of the episode title. A candidate that is only
   // part of a longer phrase ("Friday" inside "Friday Night Lights", "Drive"
   // inside "License to Drive") is a sub-phrase, not the subject.
@@ -456,8 +559,26 @@ export function matchEpisodeToMovies(
     const movieCanonical = canonical(movie.title);
     const movieTokens = tokenSet(movieCanonical);
     const similarity = jaccard(episodeTokens, movieTokens);
-    const sharedTokens = [...movieTokens].filter((t) => episodeTokens.has(t));
+
+    // Pass U58 — a numbering marker is identity, not overlap. It counts as shared
+    // evidence only when the two base titles are the same film ("Evil Dead 2" /
+    // "Evil Dead II"); otherwise "Shrek 2" lends nothing to "Deadpool 2".
+    const movieMarkers = titleMarkers(movie.title);
+    const movieBaseTokens = new Set(
+      [...movieTokens].filter((t) => {
+        const v = markerValue(t);
+        return v === null || !movieMarkers.has(v);
+      }),
+    );
+    const baseIdentity =
+      movieBaseTokens.size > 0 && [...movieBaseTokens].every((t) => episodeBaseTokens.has(t));
+    const sharedTokens = [...movieTokens].filter((t) => {
+      const v = markerValue(t);
+      if (v !== null && movieMarkers.has(v)) return baseIdentity && episodeMarkers.has(v);
+      return episodeTokens.has(t);
+    });
     const shared = sharedTokens.length;
+
     const coverage = movieTokens.size ? shared / movieTokens.size : 0;
     // Symmetric: how much of what the episode names this title accounts for.
     const episodeCoverage = episodeTokens.size ? shared / episodeTokens.size : 0;
@@ -864,7 +985,36 @@ export function matchEpisodeToMovies(
       reason += " - only matches post-colon chatter";
     }
 
+    // Pass U58 — the episode names a numbered entry and this film carries no
+    // number at all: it is the base film, not the subject ("Ready or Not 2" is
+    // not "Ready or Not"). An exact whole-title hit is exempt, as is a film the
+    // show notes name with its own release year.
+    let sequelMismatch = false;
+    if (episodeMarkers.size > 0 && movieMarkers.size === 0 && rule !== "exact" && !descTitleYear) {
+      sequelMismatch = true;
+      confidence = Math.min(confidence, 20);
+      reason += " - the episode names a numbered entry this film is not";
+    }
+
+    // Pass U58 — base title vs subtitle. Overlap that lives only in a subtitle
+    // (either side) is not identity unless the shared word is distinctive on its
+    // own: "Transformers: Revenge of the Fallen" is not "Revenge of the Nerds".
+    const subtitleOnly =
+      shared > 0 &&
+      rule !== "exact" &&
+      coverage < 1 &&
+      sharedMax < IDENTIFYING_IDF &&
+      !corroboratedU56 &&
+      ((movieSubtitleTokens.size > 0 && sharedTokens.every((t) => movieSubtitleTokens.has(t))) ||
+        (episodeSubtitleTokens.size > 0 &&
+          sharedTokens.every((t) => episodeSubtitleTokens.has(t))));
+    if (subtitleOnly) {
+      confidence = Math.min(confidence, 20);
+      reason += " - only matches a subtitle";
+    }
+
     const familyKey = [...movieTokens][0] ?? movieCanonical;
+
 
     return {
       movieId: movie.id,
@@ -895,6 +1045,9 @@ export function matchEpisodeToMovies(
         descTitleYear,
         yearGated,
         preRelease,
+        sequelMismatch,
+        subtitleOnly,
+
 
       },
       movieTokens,
