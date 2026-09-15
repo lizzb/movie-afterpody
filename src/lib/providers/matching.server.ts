@@ -776,6 +776,8 @@ export function matchEpisodeToMovies(
     let descPromo = false;
     let descYear: MatchSignals["descYear"] = "unknown";
     let descTitleYear = false;
+    // Pass U60 — the show notes call this title something other than a film.
+    let contentTypeMismatch = false;
     /** Years appearing in the same sentence as the title mention (Pass U57). */
     const descSentenceYears = new Set<number>();
     const longEnough = movieCanonical.replace(/ /g, "").length >= 5 || movieTokens.size >= 2;
@@ -787,9 +789,18 @@ export function matchEpisodeToMovies(
         const hits = sentencesContaining(descRaw, movieCanonical);
         const promoOnly =
           hits.length > 0 && hits.every((s) => PROMO_MARKERS.some((marker) => s.includes(marker)));
+        // Pass U60 — sentence-scoped content-type cue: every sentence that names
+        // this title describes it as a series/album/game show, so the thing the
+        // notes name is not this film.
+        const cueOnly =
+          hits.length > 0 &&
+          hits.every((s) => CONTENT_TYPE_CUES.some((cue) => s.includes(` ${cue} `)));
         if (promoOnly) {
           descTitle = false;
           descPromo = true;
+        } else if (cueOnly) {
+          descTitle = false;
+          contentTypeMismatch = true;
         } else {
           // Pass U57 — only a year sitting beside the mention says anything about
           // *this* film; a year somewhere else in long show notes does not.
@@ -799,6 +810,7 @@ export function matchEpisodeToMovies(
         }
       }
     }
+
 
     // Pass U57 — the year gate. A release year is a tie-breaker, never evidence
     // on its own: "π (1998)" must not lift every unrelated 1998 film. The
