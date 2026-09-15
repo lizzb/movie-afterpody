@@ -393,7 +393,7 @@ export const MATCHER_CORPUS: CorpusCase[] = [
   // confirmed. The prior may demote, never exclude.
   {
     show: "Throwback horror show (profile fixture)",
-    episode: "Pretty Woman",
+    episode: "Pretty Woman: our favourite makeover",
     profileFilms: [
       "A Nightmare on Elm Street",
       "An American Werewolf in London",
@@ -411,7 +411,7 @@ export const MATCHER_CORPUS: CorpusCase[] = [
   },
   {
     show: "Throwback horror show (profile fixture)",
-    episode: "Summer camp special: Bone Lake and the new slashers",
+    episode: "Bone Lake: the new slashers",
     profileFilms: [
       "A Nightmare on Elm Street",
       "An American Werewolf in London",
