@@ -1514,7 +1514,7 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
      * same coordinates the RPC pages in, even though unusable titles are
      * skipped rather than processed.
      */
-    const episodes: { id: string; title: string; description: string | null; released_at: string | null; podcasts: { matcher_strategy: typeof rawRows[number]["matcher_strategy"] } }[] = [];
+    const episodes: { id: string; title: string; description: string | null; released_at: string | null; podcast_id: string; podcasts: { matcher_strategy: typeof rawRows[number]["matcher_strategy"] } }[] = [];
     let consumedRaw = 0;
     for (const row of rawRows) {
       if (episodes.length >= data.limit) break;
@@ -1525,6 +1525,7 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
         title: row.title,
         description: row.description,
         released_at: row.released_at,
+        podcast_id: row.podcast_id,
         podcasts: { matcher_strategy: row.matcher_strategy },
       });
     }
