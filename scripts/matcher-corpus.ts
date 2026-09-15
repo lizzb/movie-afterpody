@@ -25,7 +25,13 @@ if (!url || !key) {
 }
 const db = createClient(url, key, { auth: { persistSession: false } });
 
-type Movie = { id: string; title: string; release_year: number | null; collection_id: number | null };
+type Movie = {
+  id: string;
+  title: string;
+  release_year: number | null;
+  release_date: string | null;
+  collection_id: number | null;
+};
 
 const owners = process.argv.slice(2).map((a) => a.toUpperCase());
 const cases = owners.length
@@ -40,7 +46,7 @@ const pool: Movie[] = [];
 for (const title of wanted) {
   const { data, error } = await db
     .from("movies")
-    .select("id, title, release_year, collection_id")
+    .select("id, title, release_year, release_date, collection_id")
     .ilike("title", title)
     .limit(5);
   if (error) {
