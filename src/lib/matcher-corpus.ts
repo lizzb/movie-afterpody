@@ -18,6 +18,12 @@ export interface CorpusCase {
   show: string;
   /** Movie titles that must win (top candidate, at or above the threshold). */
   expect?: string[];
+  /**
+   * Pass U59 — movie titles that must all be suggested at or above the
+   * threshold, in any order. Use this for an episode covering several films,
+   * where no single candidate can be "the" winner.
+   */
+  expectAll?: string[];
   /** Movie titles that must not be suggested (must stay under the threshold). */
   forbid?: string[];
   /** True when the episode is not about a film at all: nothing may be suggested. */
@@ -235,6 +241,32 @@ export const MATCHER_CORPUS: CorpusCase[] = [
     expect: ["xXx"],
     owner: "U59",
     note: "multi-title extraction",
+  },
+  {
+    show: "How Did This Get Made?",
+    episode: "Last Looks: xXx & The Legend of Billie Jean",
+    expectAll: ["xXx", "The Legend of Billie Jean"],
+    owner: "U59",
+    note: "both films of a two-film episode are suggested independently",
+  },
+  {
+    show: "Lady Parts",
+    episode: "18. Waitress & Off the Menu: Getting the Food Right",
+    expectAll: ["Waitress", "Off the Menu"],
+    owner: "U59",
+  },
+  {
+    show: "Lady Parts",
+    episode: "30. Forever My Girl & The Road Less Traveled",
+    expectAll: ["Forever My Girl", "The Road Less Traveled"],
+    owner: "U59",
+  },
+  {
+    show: "You Are Good",
+    episode: "Harold and the Purple Crayon",
+    expect: ["Harold and the Purple Crayon"],
+    owner: "U59",
+    note: "positive control: a real title containing \"and\" is never split",
   },
 
   // ---- Darren and Matt's 80s Adventure ----
