@@ -188,8 +188,17 @@ export async function evaluateMatcher(
         .select("id, title, description, released_at, podcast_id")
         .in("id", ids),
     ),
-    chunkedIn<{ id: string; title: string; release_year: number | null; collection_id: number | null }>(movieIds, (ids) =>
-      admin.from("movies").select("id, title, release_year, collection_id").in("id", ids),
+    chunkedIn<{
+      id: string;
+      title: string;
+      release_year: number | null;
+      release_date: string | null;
+      collection_id: number | null;
+    }>(movieIds, (ids) =>
+      admin
+        .from("movies")
+        .select("id, title, release_year, release_date, collection_id")
+        .in("id", ids),
     ),
     pageAll<{ title: string }>((from, to) =>
       admin.from("podcast_episodes").select("title").range(from, to),
