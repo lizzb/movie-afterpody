@@ -96,8 +96,21 @@ export function useSetEpisodeReviewed() {
   const queryClient = useQueryClient();
   const run = useServerFn(setEpisodeReviewed);
   return useMutation({
-    mutationFn: async (vars: { episodeId: string; reviewed: boolean }) =>
-      run({ data: { episodeIds: [vars.episodeId], reviewed: vars.reviewed } }),
+    /**
+     * Pass U53 — when the caller knows the episode's whole link set (episode-centric
+     * surfaces only), sign-off also confirms those links. `movieIds` doubles as the
+     * snapshot guard, so a link added since the page loaded aborts the write.
+     */
+    mutationFn: async (vars: { episodeId: string; reviewed: boolean; movieIds?: string[] }) =>
+      run({
+        data: {
+          episodeIds: [vars.episodeId],
+          reviewed: vars.reviewed,
+          ...(vars.reviewed && vars.movieIds
+            ? { confirmLinks: true, expectedMovieIds: vars.movieIds }
+            : {}),
+        },
+      }),
     onMutate: (vars) => {
       patchReviewCaches(queryClient, vars.episodeId, vars.reviewed);
     },
@@ -107,7 +120,25 @@ export function useSetEpisodeReviewed() {
         toast.error(result.failed[0] ?? "Could not update this episode");
         return;
       }
-      toast.success(vars.reviewed ? "Episode marked reviewed" : "Episode reopened");
+      const confirmed = result.linksConfirmed ?? 0;
+      toast.success(
+        vars.reviewed
+          ? confirmed > 0
+            ? `Episode marked reviewed — ${confirmed} link${confirmed === 1 ? "" : "s"} confirmed`
+            : "Episode marked reviewed"
+          : "Episode reopened",
+      );
+      if (confirmed > 0 && vars.movieIds) {
+        // Keep the per-link Confirm controls in step without a full reload.
+        queryClient.setQueryData<string[]>(CONFIRMED_KEY, (prev) => {
+          if (!prev) return prev;
+          const next = new Set(prev);
+          for (const movieId of vars.movieIds!) next.add(flagKey(vars.episodeId, movieId));
+          return [...next];
+        });
+        void queryClient.invalidateQueries({ queryKey: CONFIRMED_KEY });
+        void queryClient.invalidateQueries({ queryKey: ["episode-flags"] });
+      }
       void queryClient.invalidateQueries({ queryKey: ["episode-review-states"] });
     },
     onError: (error: unknown, vars) => {
@@ -116,6 +147,7 @@ export function useSetEpisodeReviewed() {
     },
   });
 }
+
 
 /** Admin-only "not about a movie" retirement from consumer episode rows. */
 export function useMarkEpisodeNotAboutMovie() {
