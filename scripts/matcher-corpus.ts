@@ -131,6 +131,8 @@ function evaluate(c: CorpusCase) {
     titleWordStats,
     // Pass U73 — only cases that declare a date carry a temporal signal.
     episodeReleasedAt: c.episodeReleasedAt ?? null,
+    // Pass U72 — only cases that declare a show history carry a prior.
+    podcastProfile: profileFor(c),
   });
   const live = scored.filter((s) => s.confidence >= THRESHOLD);
   const top = live[0] ?? null;
@@ -163,6 +165,13 @@ function evaluate(c: CorpusCase) {
   // Pass U73 — which edition of a re-made title won matters.
   if (c.expectYear && top && top.releaseYear !== c.expectYear) {
     problems.push(`winner is the ${top.releaseYear ?? "undated"} edition, expected ${c.expectYear}`);
+  }
+  // Pass U72 — how much the show prior demoted the winner is part of the case.
+  if (c.expectProfilePenalty !== undefined) {
+    const actual = top?.signals.profilePenalty ?? 0;
+    if (actual !== c.expectProfilePenalty) {
+      problems.push(`show prior cost ${actual} points, expected ${c.expectProfilePenalty}`);
+    }
   }
   return { problems, top, skipped: [] as string[] };
 }
