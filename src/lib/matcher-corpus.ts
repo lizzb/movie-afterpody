@@ -32,6 +32,39 @@ export interface CorpusCase {
 }
 
 export const MATCHER_CORPUS: CorpusCase[] = [
+  // ---- Pass U58: sequel numbering and subtitle identity ----
+  {
+    show: "The Rewatchables",
+    episode: "23: Mission: Impossible II",
+    forbid: ["Ghostbusters II"],
+    owner: "U58",
+    note: "a shared \"II\" is not shared evidence",
+  },
+  {
+    show: "The Rewatchables",
+    episode: "3: Shrek 2",
+    forbid: ["Deadpool 2"],
+    owner: "U58",
+  },
+  {
+    show: "The Rewatchables",
+    episode: "176: The Rage: Carrie 2",
+    forbid: ["Deadpool 2"],
+    owner: "U58",
+  },
+  {
+    show: "The Rewatchables",
+    episode: "6: Transformers: Revenge of the Fallen",
+    forbid: ["Revenge of the Nerds"],
+    owner: "U58",
+  },
+  {
+    show: "The Rewatchables",
+    episode: "4: Pirates of the Caribbean: Dead Man's Chest",
+    forbid: ["The Family Man"],
+    owner: "U58",
+  },
+
   // ---- Pass U73: temporal consistency (episode date vs film release) ----
   {
     show: "The Rewatchables",
