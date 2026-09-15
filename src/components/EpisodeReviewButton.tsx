@@ -41,7 +41,12 @@ export function EpisodeReviewButton({
     // marking reviewed silently undid the action the user just took.
     if (!next && Date.now() - markedAt.current < REVERSE_GUARD_MS) return;
     if (next) markedAt.current = Date.now();
-    mutation.mutate({ episodeId, reviewed: next, movieIds: next ? linkedMovieIds : undefined });
+    mutation.mutate({
+      episodeId,
+      reviewed: next,
+      ...(next && linkedMovieIds ? { movieIds: linkedMovieIds } : {}),
+    });
+
   };
 
   const title = reviewed
