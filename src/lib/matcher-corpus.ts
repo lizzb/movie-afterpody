@@ -32,6 +32,14 @@ export interface CorpusCase {
   episodeReleasedAt?: string;
   /** Pass U73 — the release year the winning candidate must carry. */
   expectYear?: number;
+  /**
+   * Pass U72 — the films this show has *confirmed* before, by title. The runner
+   * resolves each from the catalogue and builds the show's prior from them, so a
+   * case can state the show's history without any per-show configuration.
+   */
+  profileFilms?: string[];
+  /** Pass U72 — points the winning candidate must have lost to the show prior. */
+  expectProfilePenalty?: number;
   /** Pass that owns this case. */
   owner: string;
   note?: string;
@@ -378,5 +386,72 @@ export const MATCHER_CORPUS: CorpusCase[] = [
     expectNoLink: true,
     owner: "U60",
     note: "list episode",
+  },
+
+  // ---- Pass U72: podcast-profile priors (genre, rating, era) ----
+  // A fictional throwback-horror show, described only by the films it has
+  // confirmed. The prior may demote, never exclude.
+  {
+    show: "Throwback horror show (profile fixture)",
+    episode: "Pretty Woman: our favourite makeover",
+    profileFilms: [
+      "A Nightmare on Elm Street",
+      "Bram Stoker's Dracula",
+      "Carrie",
+      "Child's Play",
+      "Christine",
+      "Day of the Dead",
+      "Dawn of the Dead",
+      "Body Parts",
+    ],
+    expect: ["Pretty Woman"],
+    expectProfilePenalty: 4,
+    owner: "U72",
+    note: "unusual genre for this show: demoted, still linkable",
+  },
+  {
+    show: "Throwback horror show (profile fixture)",
+    episode: "Bone Lake: the new slashers",
+    profileFilms: [
+      "A Nightmare on Elm Street",
+      "Bram Stoker's Dracula",
+      "Carrie",
+      "Child's Play",
+      "Christine",
+      "Day of the Dead",
+      "Dawn of the Dead",
+      "Body Parts",
+    ],
+    expect: ["Bone Lake"],
+    expectProfilePenalty: 3,
+    owner: "U72",
+    note: "outside this show's usual era: demoted, still linkable",
+  },
+  {
+    show: "Throwback horror show (profile fixture)",
+    episode: "Splitsville",
+    profileFilms: [
+      "A Nightmare on Elm Street",
+      "Bram Stoker's Dracula",
+      "Carrie",
+      "Child's Play",
+      "Christine",
+      "Day of the Dead",
+      "Dawn of the Dead",
+      "Body Parts",
+    ],
+    expect: ["Splitsville"],
+    expectProfilePenalty: 0,
+    owner: "U72",
+    note: "named exactly: the prior steps aside entirely",
+  },
+  {
+    show: "Small-sample show (profile fixture)",
+    episode: "Pretty Woman",
+    profileFilms: ["Carrie", "Christine", "Child's Play"],
+    expect: ["Pretty Woman"],
+    expectProfilePenalty: 0,
+    owner: "U72",
+    note: "too few confirmed films for a prior at all",
   },
 ];

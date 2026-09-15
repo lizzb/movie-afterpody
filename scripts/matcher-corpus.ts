@@ -14,6 +14,7 @@ import {
   matchEpisodeToMovies,
   computeTitleWordStats,
 } from "../src/lib/providers/matching.server";
+import { buildPodcastProfile } from "../src/lib/podcast-profile";
 
 const THRESHOLD = 25;
 
@@ -31,6 +32,9 @@ type Movie = {
   release_year: number | null;
   release_date: string | null;
   collection_id: number | null;
+  /** Pass U72 — profile dimensions, filled in after the pool is loaded. */
+  certification: string | null;
+  genre_ids: string[];
 };
 
 const owners = process.argv.slice(2).map((a) => a.toUpperCase());
@@ -44,18 +48,59 @@ for (const c of cases)
   for (const t of [...(c.expect ?? []), ...(c.expectAll ?? []), ...(c.forbid ?? [])])
     wanted.add(t);
 
+/** Pass U72 — films named only by a case's show profile also need loading. */
+const profileWanted = new Set<string>();
+for (const c of cases) for (const t of c.profileFilms ?? []) profileWanted.add(t);
+
 const pool: Movie[] = [];
-for (const title of wanted) {
+const profilePool: Movie[] = [];
+for (const title of new Set([...wanted, ...profileWanted])) {
   const { data, error } = await db
     .from("movies")
-    .select("id, title, release_year, release_date, collection_id")
+    .select("id, title, release_year, release_date, collection_id, certification")
     .ilike("title", title)
     .limit(5);
   if (error) {
     console.error(`Lookup failed for "${title}": ${error.message}`);
     process.exit(2);
   }
-  for (const row of data ?? []) pool.push(row as Movie);
+  for (const row of data ?? []) {
+    const movie = { ...(row as Omit<Movie, "genre_ids">), genre_ids: [] as string[] };
+    if (wanted.has(title)) pool.push(movie);
+    if (profileWanted.has(title)) profilePool.push(movie);
+  }
+}
+
+// Pass U72 — genres for every loaded film, so priors and candidates compare.
+{
+  const ids = [...new Set([...pool, ...profilePool].map((m) => m.id))];
+  const { data, error } = await db
+    .from("movie_genres")
+    .select("movie_id, genre_id")
+    .in("movie_id", ids);
+  if (error) {
+    console.error(`Genre read failed: ${error.message}`);
+    process.exit(2);
+  }
+  const byMovie = new Map<string, string[]>();
+  for (const row of (data ?? []) as { movie_id: string; genre_id: string }[]) {
+    byMovie.set(row.movie_id, [...(byMovie.get(row.movie_id) ?? []), row.genre_id]);
+  }
+  for (const m of [...pool, ...profilePool]) m.genre_ids = byMovie.get(m.id) ?? [];
+}
+
+/** Builds a case's show prior from the films it says the show has confirmed. */
+function profileFor(c: CorpusCase) {
+  if (!c.profileFilms?.length) return null;
+  const films = c.profileFilms
+    .map((t) => profilePool.find((m) => m.title.toLowerCase() === t.toLowerCase()))
+    .filter((m): m is Movie => Boolean(m))
+    .map((m) => ({
+      genreIds: m.genre_ids,
+      certification: m.certification,
+      releaseYear: m.release_year,
+    }));
+  return buildPodcastProfile(films);
 }
 
 /**
@@ -86,6 +131,8 @@ function evaluate(c: CorpusCase) {
     titleWordStats,
     // Pass U73 — only cases that declare a date carry a temporal signal.
     episodeReleasedAt: c.episodeReleasedAt ?? null,
+    // Pass U72 — only cases that declare a show history carry a prior.
+    podcastProfile: profileFor(c),
   });
   const live = scored.filter((s) => s.confidence >= THRESHOLD);
   const top = live[0] ?? null;
@@ -118,6 +165,13 @@ function evaluate(c: CorpusCase) {
   // Pass U73 — which edition of a re-made title won matters.
   if (c.expectYear && top && top.releaseYear !== c.expectYear) {
     problems.push(`winner is the ${top.releaseYear ?? "undated"} edition, expected ${c.expectYear}`);
+  }
+  // Pass U72 — how much the show prior demoted the winner is part of the case.
+  if (c.expectProfilePenalty !== undefined) {
+    const actual = top?.signals.profilePenalty ?? 0;
+    if (actual !== c.expectProfilePenalty) {
+      problems.push(`show prior cost ${actual} points, expected ${c.expectProfilePenalty}`);
+    }
   }
   return { problems, top, skipped: [] as string[] };
 }

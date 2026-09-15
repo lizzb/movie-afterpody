@@ -5,6 +5,14 @@ import {
   contentWordCount,
 } from "./episode-parse.server";
 import { strategyConfig, type MatcherStrategy } from "@/lib/matcher-strategies";
+import {
+  CERT_PENALTY,
+  ERA_PENALTY,
+  GENRE_PENALTY,
+  PROFILE_PENALTY_CAP,
+  UNUSUAL_GENRE_SHARE,
+  type PodcastProfile,
+} from "@/lib/podcast-profile";
 
 
 export interface MatchSignals {
@@ -76,6 +84,14 @@ export interface MatchSignals {
    * of those title segments outright.
    */
   multiTitle: boolean;
+  /** Pass U72 — a genre this show's confirmed catalogue almost never covers. */
+  unusualGenre: boolean;
+  /** Pass U72 — a release era outside this show's confirmed catalogue. */
+  unusualEra: boolean;
+  /** Pass U72 — a certification this show's confirmed catalogue never carries. */
+  unusualCertification: boolean;
+  /** Pass U72 — points subtracted by the show profile (0 when no prior applied). */
+  profilePenalty: number;
 
 }
 
@@ -116,6 +132,13 @@ export interface MatchOptions {
    * or unparseable means no temporal signal at all — never a penalty.
    */
   episodeReleasedAt?: string | null | undefined;
+  /**
+   * Pass U72 — the show's soft prior, built from its *confirmed* links only.
+   * Omitted, null, or a small-sample show means no prior at all. The prior can
+   * only ever demote, by a bounded amount, and exact-title or description
+   * title+year evidence overrides it.
+   */
+  podcastProfile?: PodcastProfile | null | undefined;
 }
 
 
@@ -586,6 +609,10 @@ export function matchEpisodeToMovies(
     collection_id?: number | null;
     /** Pass U73 — exact release date when the catalogue holds one. */
     release_date?: string | null;
+    /** Pass U72 — genre ids, scored against the show's confirmed profile. */
+    genre_ids?: string[] | null;
+    /** Pass U72 — certification, scored against the show's confirmed profile. */
+    certification?: string | null;
   }[],
   options: MatchOptions = {},
 ): MovieMatchCandidate[] {
@@ -1199,6 +1226,54 @@ export function matchEpisodeToMovies(
       reason += " - only matches a subtitle";
     }
 
+    // Pass U72 — soft show priors. Built from confirmed links only, they can
+    // only ever subtract a small bounded amount, never boost and never exclude,
+    // and they step aside entirely for an exact title or a description
+    // title+year hit. A show with too small a confirmed sample has no profile.
+    let unusualGenre = false;
+    let unusualEra = false;
+    let unusualCertification = false;
+    let profilePenalty = 0;
+    const profile = options.podcastProfile ?? null;
+    if (profile && rule !== "exact" && !descTitleYear && !multiTitle) {
+      const movieGenres = movie.genre_ids ?? [];
+      if (profile.hasGenre && movieGenres.length > 0) {
+        const familiarity = [...new Set(movieGenres)].reduce(
+          (sum, g) => sum + (profile.genreShare[g] ?? 0),
+          0,
+        );
+        if (familiarity < UNUSUAL_GENRE_SHARE) {
+          unusualGenre = true;
+          profilePenalty += GENRE_PENALTY;
+        }
+      }
+      if (profile.hasEra && movie.release_year) {
+        const decade = Math.floor(movie.release_year / 10) * 10;
+        // Neighbouring decades count, so a show's era is a span, not a bucket.
+        const nearby =
+          (profile.decadeShare[decade] ?? 0) +
+          (profile.decadeShare[decade - 10] ?? 0) +
+          (profile.decadeShare[decade + 10] ?? 0);
+        if (nearby === 0) {
+          unusualEra = true;
+          profilePenalty += ERA_PENALTY;
+        }
+      }
+      if (profile.hasCert && movie.certification) {
+        if ((profile.certShare[movie.certification] ?? 0) === 0) {
+          unusualCertification = true;
+          profilePenalty += CERT_PENALTY;
+        }
+      }
+      profilePenalty = Math.min(PROFILE_PENALTY_CAP, profilePenalty);
+      if (profilePenalty > 0) {
+        confidence = Math.max(0, confidence - profilePenalty);
+        if (unusualGenre) reason += " - unusual genre for this show";
+        if (unusualEra) reason += " - outside this show's usual era";
+        if (unusualCertification) reason += " - unusual rating for this show";
+      }
+    }
+
     const familyKey = [...movieTokens][0] ?? movieCanonical;
 
 
@@ -1238,6 +1313,10 @@ export function matchEpisodeToMovies(
         listEpisode,
         formatWordOnly,
         multiTitle,
+        unusualGenre,
+        unusualEra,
+        unusualCertification,
+        profilePenalty,
 
 
 

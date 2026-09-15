@@ -134,6 +134,9 @@ const SIGNAL_TESTS: { signal: string; test: (s: Record<string, unknown>) => bool
     signal: "one of several films named in the episode title",
     test: (s) => s["multiTitle"] === true,
   },
+  { signal: "unusual genre for this show", test: (s) => s["unusualGenre"] === true },
+  { signal: "outside this show's usual era", test: (s) => s["unusualEra"] === true },
+  { signal: "unusual rating for this show", test: (s) => s["unusualCertification"] === true },
 
 
 
@@ -226,6 +229,11 @@ export async function evaluateMatcher(
     pageAll<{ title: string }>((from, to) => admin.from("movies").select("title").range(from, to)),
   ]);
 
+  // Pass U72 — show priors from confirmed links only, plus the genre and
+  // certification metadata each candidate is scored against.
+  const { fetchPodcastProfiles } = await import("./podcast-profile.server");
+  const { profiles, movieMeta } = await fetchPodcastProfiles(admin);
+
   const commonEpisodeWords = computeCommonEpisodeWords(allTitles.map((t) => t.title));
   const titleWordStats = computeTitleWordStats(allMovieTitles.map((t) => t.title));
   const movieById = new Map(movies.map((m) => [m.id, m]));
@@ -272,7 +280,13 @@ export async function evaluateMatcher(
     }
     const candidateMovies = pairs
       .map((p) => movieById.get(p.movieId))
-      .filter((m): m is { id: string; title: string; release_year: number | null; release_date: string | null; collection_id: number | null } => Boolean(m));
+      .filter((m): m is { id: string; title: string; release_year: number | null; release_date: string | null; collection_id: number | null } => Boolean(m))
+      // Pass U72 — genre / certification for the show-profile comparison.
+      .map((m) => ({
+        ...m,
+        genre_ids: movieMeta.get(m.id)?.genre_ids ?? [],
+        certification: movieMeta.get(m.id)?.certification ?? null,
+      }));
 
     // Pass U4 — score with the override strategy, or with the show's own.
     const strategy =
@@ -285,6 +299,8 @@ export async function evaluateMatcher(
       strategy,
       // Pass U73 — temporal sanity uses the episode's publication date.
       episodeReleasedAt: episode.released_at,
+      // Pass U72 — this show's confirmed-link prior, when it has one.
+      podcastProfile: profiles.get(episode.podcast_id) ?? null,
     });
 
     const byMovie = new Map(scores.map((c) => [c.movieId, c]));

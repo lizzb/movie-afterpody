@@ -522,9 +522,18 @@ export const suggestEpisodeMatches = createServerFn({ method: "POST" })
     }));
     if (data.episodeId) episodes = episodes.filter((ep) => ep.id === data.episodeId);
 
-    const movieList = await pageAll<{ id: string; title: string; release_year: number | null; release_date: string | null; collection_id: number | null }>(
+    const baseMovies = await pageAll<{ id: string; title: string; release_year: number | null; release_date: string | null; collection_id: number | null }>(
       (from, to) => supabaseAdmin.from("movies").select("id, title, release_year, release_date, collection_id").range(from, to),
     );
+    // Pass U72 — per-show priors from confirmed links, plus the genre and
+    // certification metadata each candidate is scored against.
+    const { fetchPodcastProfiles } = await import("./podcast-profile.server");
+    const { profiles, movieMeta } = await fetchPodcastProfiles(supabaseAdmin);
+    const movieList = baseMovies.map((m) => ({
+      ...m,
+      genre_ids: movieMeta.get(m.id)?.genre_ids ?? [],
+      certification: movieMeta.get(m.id)?.certification ?? null,
+    }));
 
     const [rejectedPairs, rejectionCountByMovie] = await Promise.all([
       fetchRejectedPairsForEpisodes(
@@ -552,6 +561,8 @@ export const suggestEpisodeMatches = createServerFn({ method: "POST" })
           strategy: asMatcherStrategy(ep.podcasts.matcher_strategy),
           // Pass U73 — the episode's own publication date.
           episodeReleasedAt: ep.released_at,
+          // Pass U72 — this show's confirmed-link prior, when it has one.
+          podcastProfile: profiles.get(ep.podcast_id) ?? null,
         }).filter((c) => !rejectedPairs.has(`${ep.id}:${c.movieId}`));
 
 
@@ -1503,7 +1514,7 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
      * same coordinates the RPC pages in, even though unusable titles are
      * skipped rather than processed.
      */
-    const episodes: { id: string; title: string; description: string | null; released_at: string | null; podcasts: { matcher_strategy: typeof rawRows[number]["matcher_strategy"] } }[] = [];
+    const episodes: { id: string; title: string; description: string | null; released_at: string | null; podcast_id: string; podcasts: { matcher_strategy: typeof rawRows[number]["matcher_strategy"] } }[] = [];
     let consumedRaw = 0;
     for (const row of rawRows) {
       if (episodes.length >= data.limit) break;
@@ -1514,6 +1525,7 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
         title: row.title,
         description: row.description,
         released_at: row.released_at,
+        podcast_id: row.podcast_id,
         podcasts: { matcher_strategy: row.matcher_strategy },
       });
     }
@@ -1541,9 +1553,17 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
       fetchRejectedPairsForEpisodes(supabaseAdmin, episodeIds),
       fetchRejectionCountsByMovieFast(supabaseAdmin),
     ]);
-    const movieList = await pageAll<{ id: string; title: string; release_year: number | null; release_date: string | null; collection_id: number | null }>(
+    const baseMovies = await pageAll<{ id: string; title: string; release_year: number | null; release_date: string | null; collection_id: number | null }>(
       (from, to) => supabaseAdmin.from("movies").select("id, title, release_year, release_date, collection_id").range(from, to),
     );
+    // Pass U72 — per-show priors from confirmed links only.
+    const { fetchPodcastProfiles } = await import("./podcast-profile.server");
+    const { profiles, movieMeta } = await fetchPodcastProfiles(supabaseAdmin);
+    const movieList = baseMovies.map((m) => ({
+      ...m,
+      genre_ids: movieMeta.get(m.id)?.genre_ids ?? [],
+      certification: movieMeta.get(m.id)?.certification ?? null,
+    }));
 
     type LinkRow = {
       episode_id: string;
@@ -1621,6 +1641,8 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
         strategy,
         // Pass U73 — the episode's own publication date.
         episodeReleasedAt: ep.released_at,
+        // Pass U72 — this show's confirmed-link prior, when it has one.
+        podcastProfile: profiles.get(ep.podcast_id) ?? null,
       }).filter((c) => !rejected.has(`${ep.id}:${c.movieId}`));
 
 
