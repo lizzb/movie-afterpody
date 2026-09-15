@@ -116,6 +116,8 @@ const SIGNAL_TESTS: { signal: string; test: (s: Record<string, unknown>) => bool
   { signal: "matched only post-colon chatter", test: (s) => s["chatterOnly"] === true },
   { signal: "named in description with its year", test: (s) => s["descTitleYear"] === true },
   { signal: "year ignored (no other evidence)", test: (s) => s["yearGated"] === true },
+  { signal: "episode predates the film's release", test: (s) => s["preRelease"] === "early" },
+  { signal: "episode just before release", test: (s) => s["preRelease"] === "window" },
 
   {
     signal: "shared words are distinctive",
@@ -174,13 +176,29 @@ export async function evaluateMatcher(
   const movieIds = [...new Set([...label.keys()].map((k) => k.split(":")[1]!))];
 
   const [episodes, movies, allTitles, allMovieTitles] = await Promise.all([
-    chunkedIn<{ id: string; title: string; description: string | null; podcast_id: string }>(
-      episodeIds,
-      (ids) =>
-        admin.from("podcast_episodes").select("id, title, description, podcast_id").in("id", ids),
+    chunkedIn<{
+      id: string;
+      title: string;
+      description: string | null;
+      released_at: string | null;
+      podcast_id: string;
+    }>(episodeIds, (ids) =>
+      admin
+        .from("podcast_episodes")
+        .select("id, title, description, released_at, podcast_id")
+        .in("id", ids),
     ),
-    chunkedIn<{ id: string; title: string; release_year: number | null; collection_id: number | null }>(movieIds, (ids) =>
-      admin.from("movies").select("id, title, release_year, collection_id").in("id", ids),
+    chunkedIn<{
+      id: string;
+      title: string;
+      release_year: number | null;
+      release_date: string | null;
+      collection_id: number | null;
+    }>(movieIds, (ids) =>
+      admin
+        .from("movies")
+        .select("id, title, release_year, release_date, collection_id")
+        .in("id", ids),
     ),
     pageAll<{ title: string }>((from, to) =>
       admin.from("podcast_episodes").select("title").range(from, to),
@@ -236,7 +254,7 @@ export async function evaluateMatcher(
     }
     const candidateMovies = pairs
       .map((p) => movieById.get(p.movieId))
-      .filter((m): m is { id: string; title: string; release_year: number | null; collection_id: number | null } => Boolean(m));
+      .filter((m): m is { id: string; title: string; release_year: number | null; release_date: string | null; collection_id: number | null } => Boolean(m));
 
     // Pass U4 — score with the override strategy, or with the show's own.
     const strategy =
@@ -247,6 +265,8 @@ export async function evaluateMatcher(
       commonEpisodeWords,
       titleWordStats,
       strategy,
+      // Pass U73 — temporal sanity uses the episode's publication date.
+      episodeReleasedAt: episode.released_at,
     });
 
     const byMovie = new Map(scores.map((c) => [c.movieId, c]));

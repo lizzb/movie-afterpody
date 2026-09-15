@@ -272,7 +272,7 @@ export const ingestPodcast = createServerFn({ method: "POST" })
     const strategyBoost = strategyConfig(showStrategy).writeThresholdBoost;
 
     const episodes = await clients.getEpisodesByFeedUrl(apiKey, apiSecret, feed.url, data.maxEpisodes);
-    const { data: movies } = await clients.supabaseAdmin.from("movies").select("id, title, release_year, collection_id");
+    const { data: movies } = await clients.supabaseAdmin.from("movies").select("id, title, release_year, release_date, collection_id");
 
     const movieList = movies ?? [];
 
@@ -394,6 +394,8 @@ export const ingestPodcast = createServerFn({ method: "POST" })
       const candidates = clients.matchEpisodeToMovies(storedTitle.title, movieList, {
         description: ep.description || null,
         strategy: showStrategy,
+        // Pass U73 — the episode's own publication date.
+        episodeReleasedAt: releasedAt,
       });
       const top = candidates.find((c) => !rejectedPairs.has(`${upsertedEp.id}:${c.movieId}`));
       if (top) {
@@ -520,8 +522,8 @@ export const suggestEpisodeMatches = createServerFn({ method: "POST" })
     }));
     if (data.episodeId) episodes = episodes.filter((ep) => ep.id === data.episodeId);
 
-    const movieList = await pageAll<{ id: string; title: string; release_year: number | null; collection_id: number | null }>(
-      (from, to) => supabaseAdmin.from("movies").select("id, title, release_year, collection_id").range(from, to),
+    const movieList = await pageAll<{ id: string; title: string; release_year: number | null; release_date: string | null; collection_id: number | null }>(
+      (from, to) => supabaseAdmin.from("movies").select("id, title, release_year, release_date, collection_id").range(from, to),
     );
 
     const [rejectedPairs, rejectionCountByMovie] = await Promise.all([
@@ -548,6 +550,8 @@ export const suggestEpisodeMatches = createServerFn({ method: "POST" })
           commonEpisodeWords,
           // Pass U4 — score with this show's assigned strategy.
           strategy: asMatcherStrategy(ep.podcasts.matcher_strategy),
+          // Pass U73 — the episode's own publication date.
+          episodeReleasedAt: ep.released_at,
         }).filter((c) => !rejectedPairs.has(`${ep.id}:${c.movieId}`));
 
 
@@ -1499,7 +1503,7 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
      * same coordinates the RPC pages in, even though unusable titles are
      * skipped rather than processed.
      */
-    const episodes: { id: string; title: string; description: string | null; podcasts: { matcher_strategy: typeof rawRows[number]["matcher_strategy"] } }[] = [];
+    const episodes: { id: string; title: string; description: string | null; released_at: string | null; podcasts: { matcher_strategy: typeof rawRows[number]["matcher_strategy"] } }[] = [];
     let consumedRaw = 0;
     for (const row of rawRows) {
       if (episodes.length >= data.limit) break;
@@ -1509,6 +1513,7 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
         id: row.id,
         title: row.title,
         description: row.description,
+        released_at: row.released_at,
         podcasts: { matcher_strategy: row.matcher_strategy },
       });
     }
@@ -1536,8 +1541,8 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
       fetchRejectedPairsForEpisodes(supabaseAdmin, episodeIds),
       fetchRejectionCountsByMovieFast(supabaseAdmin),
     ]);
-    const movieList = await pageAll<{ id: string; title: string; release_year: number | null; collection_id: number | null }>(
-      (from, to) => supabaseAdmin.from("movies").select("id, title, release_year, collection_id").range(from, to),
+    const movieList = await pageAll<{ id: string; title: string; release_year: number | null; release_date: string | null; collection_id: number | null }>(
+      (from, to) => supabaseAdmin.from("movies").select("id, title, release_year, release_date, collection_id").range(from, to),
     );
 
     type LinkRow = {
@@ -1614,6 +1619,8 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
         description: ep.description,
         commonEpisodeWords,
         strategy,
+        // Pass U73 — the episode's own publication date.
+        episodeReleasedAt: ep.released_at,
       }).filter((c) => !rejected.has(`${ep.id}:${c.movieId}`));
 
 
