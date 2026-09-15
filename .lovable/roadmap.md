@@ -1424,9 +1424,12 @@ Acceptance checklist — **Verified:** all 7 U58-owned corpus cases pass (`bun s
 
 Detect multiple title segments (`&`, `and`) only when both sides independently resolve to plausible catalogue titles, then evaluate each candidate independently through the normal rules with per-relationship confirm/reject behaviour unchanged. Extraction only — Pass U2 still owns multi-movie editing and coverage roles; no UI work here. Regression: `18. Waitress & Off the Menu: …` yields independent `Waitress` and `Off the Menu`; `30. Forever My Girl & The Road Less Traveled: …` yields both titles. **Band flag:** if independent per-candidate linking touches the write path more than expected this reaches L — stop and report rather than expand.
 
-#### Pass U60 — Contextual non-movie content-type exclusion — S (~1-2 credits) — independent
+#### Pass U60 — Contextual non-movie content-type exclusion — S (~1-2 credits) — independent — SHIPPED 2026-09-14, VERIFIED
 
 Sentence-scoped content-type cues (`documentary series`, `album`, similar) act as strong negative evidence only when the cue sits in the same sentence as the candidate title, overridable by an exact title or a title+year mention. Not a keyword ban. Regression: `42 Up` + "documentary series" ≠ `Up, up, and Away`; `PLAY` + "one of the most influential albums" ≠ `Foul Play`; plus a positive control where unrelated use of "series"/"album" does not suppress a strong movie match.
+
+Built together with the U60 extension below (one pass, S band). Acceptance checklist — **Verified:** all 11 U60-owned corpus cases pass, including the four new extension cases (`Bill's 50 Most Rewatchable Movies…`, `The Definitive Action Hero Ranking Pt. 2`, `Gilmore Girls - S02E18…`, and the `Best in Show` positive control) and the previously failing `Niall Matter Interview (Much About Love)`; 40 of 41 judged corpus cases pass with no regression in U55/U56/U57/U58/U73/U75 cases (the one remaining failure owned by U59, 5 skipped for absent catalogue titles); scoring over 10,779 labelled pairs at threshold 25 — precision 89.06% → 89.45% (+0.39), recall 96.63% → 96.10% (-0.53), inside the ≤2-point gate; typecheck clean. **Not applicable:** no schema, UI or write-path changes; no per-show exceptions; no replay/recheck run.
+
 
 #### Pass U61 — Show-scoped confusion memory (derived) — M (~3-5 credits) — independent, do last
 
@@ -1491,9 +1494,12 @@ Plan: `.lovable/plan/plan-backlog-only-matcherimprovementinitiative-extensions-a
 
 **Revised initiative sequence:** U75 (corpus) alongside U55 → U56 → U57 → U73 → U58 → U60(+ext) → U59 → U72 → U74 → U61(+ext). Total if all built ≈ 32–46 credits.
 
-#### U60 extension — additional contextual content-type cues (no new ID)
+#### U60 extension — additional contextual content-type cues (no new ID) — SHIPPED 2026-09-14, VERIFIED (with U60)
 
 Same sentence-scoped, overridable rule; cue vocabulary grows: `game show` (also a strong `not_about_a_movie` signal — "Nickelodeon's most competitive game show"), `album` (regression: "one of the most popular albums of all-time, 'Hybrid Theory' by Linkin Park"), `television series`; plus **episode-designator titles** (`Season 2 Episode 18`, `Episode 5`, `S02E18` ⇒ TV, not film — `Gilmore Girls - Season 2 Episode 18…` → no link, `Paris is Always a Good Idea - Episode 5 (Hallmark+ - 2026)` must not reach `Always (1989)`); plus **compilation/list episodes** (`BRUNCH: The Greatest Drinks in Movie History`, `Bill's 50 Most Rewatchable Movies of the 21st Century`, `FH Mini #150 - Best Stephen King Movies`, `The Definitive Action Hero Ranking Pt. 2`, `A 2026 Rewatchables Mailbag`). Cue must describe the candidate/content, not merely appear; exact title or title+year overrides. List-episode detection may push U60 from S to M — report rather than expand.
+
+Built with U60 in one S-band pass — list-episode detection did not push it to M. Content-type cues are matched only inside the sentences that name the candidate, and every such sentence must carry the cue, so an unrelated "series"/"album" elsewhere in long show notes changes nothing. TV designators (`SxxEyy`, `Season N`, `Episode N`) count only away from the start of the title, so podcast numbering (`Ep. #441 - …`) is untouched. List detection requires a superlative applied to a plural category (`Best … Movies`, `Greatest Drinks in Movie History`), an explicit ranking/draft/bracket, or a mailbag — a superlative alone never fires, so `Best in Show` still matches. A fourth rule (`formatWordOnly`) caps candidates whose only shared words are show-format words, which is what let `The Interview` win on `Niall Matter Interview (Much About Love)`. New signals `contentTypeMismatch` / `tvDesignator` / `listEpisode` / `formatWordOnly` are surfaced in the matcher scorecard.
+
 
 #### U61 extension — recurring confusion clusters (no new ID)
 

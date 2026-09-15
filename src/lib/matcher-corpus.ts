@@ -32,6 +32,36 @@ export interface CorpusCase {
 }
 
 export const MATCHER_CORPUS: CorpusCase[] = [
+  // ---- Pass U60: contextual content-type exclusion ----
+  {
+    show: "The Rewatchables",
+    episode: "Bill's 50 Most Rewatchable Movies of the 21st Century",
+    expectNoLink: true,
+    owner: "U60",
+    note: "list episode: no single film is the subject",
+  },
+  {
+    show: "The Rewatchables",
+    episode: "The Definitive Action Hero Ranking Pt. 2",
+    expectNoLink: true,
+    owner: "U60",
+  },
+  {
+    show: "Deck the Hallmark",
+    episode: "Gilmore Girls - S02E18 - Back in the Saddle Again",
+    expectNoLink: true,
+    owner: "U60",
+    note: "compact episode designator",
+  },
+  {
+    show: "You Are Good",
+    episode: "Best in Show",
+    expect: ["Best in Show"],
+    owner: "U60",
+    note: "positive control: a superlative in a real title is not a list episode",
+  },
+
+
   // ---- Pass U58: sequel numbering and subtitle identity ----
   {
     show: "The Rewatchables",

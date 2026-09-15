@@ -55,6 +55,19 @@ export interface MatchSignals {
   sequelMismatch: boolean;
   /** Pass U58 — the only shared words came from a subtitle, not a base title. */
   subtitleOnly: boolean;
+  /**
+   * Pass U60 — the show notes describe this title as something other than a
+   * film (a documentary/TV series, an album, a game show) in the very sentence
+   * that names it.
+   */
+  contentTypeMismatch: boolean;
+  /** Pass U60 — the episode title carries a TV episode designator (S02E18). */
+  tvDesignator: boolean;
+  /** Pass U60 — the episode is a list/ranking/mailbag episode, not a film discussion. */
+  listEpisode: boolean;
+  /** Pass U60 — the only shared words were show-format words ("interview", "live"). */
+  formatWordOnly: boolean;
+
 }
 
 
@@ -154,7 +167,93 @@ const COMMON_WORD_TITLES = new Set([
   "unhinged",
 ]);
 
+/**
+ * Pass U60 — content-type cues.
+ *
+ * When the show notes describe the thing they just named as a documentary or
+ * television series, an album, or a game show, that named thing is not the film
+ * of the same title. The cue only counts inside the sentence that names the
+ * candidate, so an unrelated mention of "series" elsewhere in long show notes
+ * changes nothing.
+ */
+const CONTENT_TYPE_CUES = [
+  "documentary series",
+  "docuseries",
+  "documentary",
+  "television series",
+  "tv series",
+  "tv show",
+  "miniseries",
+  "mini series",
+  "limited series",
+  "game show",
+  "reality show",
+  "album",
+  "albums",
+  "record",
+  "novel",
+  "video game",
+];
+
+/**
+ * Pass U60 — words that describe the episode's format rather than name a film.
+ * A candidate whose only shared words are these is matching the format, not the
+ * subject ("The Interview" against "Niall Matter Interview").
+ */
+const FORMAT_ONLY_WORDS = new Set([
+  "live",
+  "interview",
+  "interviews",
+  "mailbag",
+  "trailer",
+  "trailers",
+  "bonus",
+  "patreon",
+  "brunch",
+  "redux",
+  "recap",
+  "preview",
+  "review",
+  "commentary",
+  "minisode",
+  "episode",
+  "episodes",
+  "season",
+  "ranking",
+  "rankings",
+  "draft",
+  "classic",
+]);
+
+/**
+ * Pass U60 — a TV episode designator anywhere but the very start of the title
+ * says the subject is a television episode, not a film. A leading designator is
+ * the podcast's own numbering ("Ep. #441 - …") and is handled by the prefix
+ * rules instead.
+ */
+const TV_DESIGNATORS = [
+  /\bs\d{1,2}\s?e\d{1,2}\b/i,
+  /\bseason\s*\d+\b/i,
+  /\bepisode\s*\d+\b/i,
+];
+
+/**
+ * Pass U60 — list / ranking / mailbag episodes discuss many films at once, so no
+ * single film is the subject. A superlative alone is never enough ("Best in
+ * Show" is a film): it has to be applied to a plural category.
+ */
+const LIST_CATEGORY =
+  "(movies|films|scenes|moments|characters|performances|songs|soundtracks|villains|heroes|sequels|remakes|endings|deaths|kills|drinks|posters|cameos|romances|comedies|thrillers|episodes|books|shows)";
+const LIST_EPISODE_PATTERNS = [
+  new RegExp(`\\b(best|greatest|worst|most|top)\\b[^:]{0,60}\\b${LIST_CATEGORY}\\b`, "i"),
+  new RegExp(`\\b${LIST_CATEGORY}\\b[^:]{0,30}\\b(ranking|ranked|rankings|draft|bracket)\\b`, "i"),
+  /\bdefinitive\b[^:]{0,60}\branking\b/i,
+  /\bin movie history\b/i,
+  /\bmailbag\b/i,
+];
+
 /** Episode-title markers that mean "this is not a film discussion episode". */
+
 const NON_FILM_KEYWORDS = [
   /\binterview(s|ed)?\b/i,
   /\bq\s*&?\s*a\b/i,
@@ -498,6 +597,16 @@ export function matchEpisodeToMovies(
     [...tokenSet(canonical(parsed.guestText))].filter((t) => !episodeTokens.has(t)),
   );
   const keywordSuppressed = NON_FILM_KEYWORDS.some((re) => re.test(episodeTitle));
+
+  // Pass U60 — episode-level content-type context. A TV episode designator after
+  // the opening of the title, or a list/ranking framing, means no single film is
+  // the subject. Both are overridable only by an exact whole-title match.
+  const tvDesignator = TV_DESIGNATORS.some((re) => {
+    const m = re.exec(episodeTitle);
+    return m !== null && m.index > 0 && /[a-z]/i.test(episodeTitle.slice(0, m.index));
+  });
+  const listEpisode = LIST_EPISODE_PATTERNS.some((re) => re.test(episodeTitle));
+
   const episodeDistinguishers = new Set(
     [...episodeTokens].filter((t) => DISTINGUISHER_TOKENS.has(t)),
   );
@@ -667,6 +776,8 @@ export function matchEpisodeToMovies(
     let descPromo = false;
     let descYear: MatchSignals["descYear"] = "unknown";
     let descTitleYear = false;
+    // Pass U60 — the show notes call this title something other than a film.
+    let contentTypeMismatch = false;
     /** Years appearing in the same sentence as the title mention (Pass U57). */
     const descSentenceYears = new Set<number>();
     const longEnough = movieCanonical.replace(/ /g, "").length >= 5 || movieTokens.size >= 2;
@@ -678,9 +789,18 @@ export function matchEpisodeToMovies(
         const hits = sentencesContaining(descRaw, movieCanonical);
         const promoOnly =
           hits.length > 0 && hits.every((s) => PROMO_MARKERS.some((marker) => s.includes(marker)));
+        // Pass U60 — sentence-scoped content-type cue: every sentence that names
+        // this title describes it as a series/album/game show, so the thing the
+        // notes name is not this film.
+        const cueOnly =
+          hits.length > 0 &&
+          hits.every((s) => CONTENT_TYPE_CUES.some((cue) => s.includes(` ${cue} `)));
         if (promoOnly) {
           descTitle = false;
           descPromo = true;
+        } else if (cueOnly) {
+          descTitle = false;
+          contentTypeMismatch = true;
         } else {
           // Pass U57 — only a year sitting beside the mention says anything about
           // *this* film; a year somewhere else in long show notes does not.
@@ -690,6 +810,7 @@ export function matchEpisodeToMovies(
         }
       }
     }
+
 
     // Pass U57 — the year gate. A release year is a tie-breaker, never evidence
     // on its own: "π (1998)" must not lift every unrelated 1998 film. The
@@ -901,6 +1022,37 @@ export function matchEpisodeToMovies(
       reason += " - episode looks like an interview/bonus";
     }
 
+    // Pass U60 — the shared words only describe the episode's format
+    // ("Interview", "Live", "Mailbag"), so the candidate is matching the wrapper
+    // rather than the subject. An exact whole-title hit is exempt.
+    const formatWordOnly =
+      rule !== "exact" &&
+      sharedTokens.length > 0 &&
+      sharedTokens.every((t) => FORMAT_ONLY_WORDS.has(t)) &&
+      !(descTitle && descYear === "same");
+    if (formatWordOnly) {
+      confidence = Math.min(confidence, 15);
+      reason += " - only matches a show-format word";
+    }
+
+    // Pass U60 — the show notes describe this title as a series/album/game show.
+    if (contentTypeMismatch && rule !== "exact") {
+      confidence = Math.min(confidence, 15);
+      reason += " - the show notes describe this as something other than a film";
+    }
+
+    // Pass U60 — a TV episode designator, or a list/ranking framing, means no
+    // single film is the episode's subject.
+    if (tvDesignator && rule !== "exact") {
+      confidence = Math.min(confidence, 12);
+      reason += " - the episode title names a television episode";
+    }
+    if (listEpisode && rule !== "exact") {
+      confidence = Math.min(confidence, 12);
+      reason += " - list/ranking episode, not a single film";
+    }
+
+
     // Sequel markers the candidate lacks ("Halloweentown" against "…town II").
     let distinguisherPenalty = false;
     if (episodeDistinguishers.size > 0 && rule !== "exact") {
@@ -1047,6 +1199,11 @@ export function matchEpisodeToMovies(
         preRelease,
         sequelMismatch,
         subtitleOnly,
+        contentTypeMismatch,
+        tvDesignator,
+        listEpisode,
+        formatWordOnly,
+
 
 
       },
