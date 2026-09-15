@@ -1497,9 +1497,28 @@ Adds cluster-level treatment to the existing show-scoped confusion memory: for m
 
 Soft per-show priors from **confirmed/manual links only** (never auto-links): genre, certification and release-era distributions. No prior at all below a minimum confirmed sample (proposal: 8 confirmed movies, per-dimension coverage ≥60%). Effect is a small bounded demotion (proposal: total profile term capped at −8, never a boost, never an exclusion), fully overridden by exact title or description title+year, and always surfaced as a readable signal ("unusual genre for this show", "outside this show's usual era"). Acceptance: horror-heavy show + rom-com demoted yet linkable; throwback-only show + 2025 candidate demoted unless named exactly; small-sample show unaffected; no confirmed link's stored confidence rewritten; precision/recall gate met. Non-goals: hard filters, profiles from auto-links, per-show manual configuration (U4), ML.
 
-#### Pass U73 — Temporal consistency: episode date vs movie release — S (~1-2 credits) — no dependencies
+#### Pass U73 — Temporal consistency: episode date vs movie release — S (~1-2 credits) — no dependencies — SHIPPED 2026-09-15, VERIFIED
 
 An episode published clearly before a candidate's release is strong negative evidence; exact dates preferred over years. Bands (proposal): after release → neutral; within ~60 days before → neutral-to-slightly-negative (press/preview); more than ~6 months before → strong negative unless the episode text names that year. Missing date on either side → no signal, never a penalty. Acceptance: a 2019 `Mean Girls` episode prefers the 2004 film; legitimate pre-release coverage survives; dateless episodes unaffected; precision/recall gate met.
+
+Built: new `episodeReleasedAt` matcher option (strictly the podcast episode's publication date — never a source programme's air date, which stays U74's concern) and an optional `release_date` on candidate films, now selected in every matcher call site (sync, unmatched list, recheck, evaluator, corpus runner). Per candidate, `preRelease` is `none` / `window` / `early`: with both exact dates, more than 180 days before release is `early` and 1–180 days is `window`; with year granularity only, a 2-year-or-more gap is `early` and a 1-year gap is `window`. `early` caps confidence at 12 unless the episode's own title or the description sentence names that release year; `window` costs 4 points and never touches an exact-title hit. A missing date on either side yields `none` — no bonus, no penalty. New `preRelease` signal surfaced in the matcher scorecard as "episode predates the film's release" / "episode just before release". Corpus gained `episodeReleasedAt` and `expectYear` so the winning edition of a remade title is checked.
+
+Acceptance checklist — **Verified:** both U73 corpus cases pass (a 2019-dated `Mean Girls` episode wins the 2004 edition; the same episode with no stored date is unchanged); 29 of 32 judged corpus cases pass with no regression in U55/U56/U57/U75 cases (remaining failures owned by U58/U59/U60, 5 skipped for absent catalogue titles); scoring over 10,779 labelled pairs at threshold 25 — precision 87.67% → 88.21% (+0.54), recall 96.95% → 96.77% (-0.18), inside the ≤2-point gate, which also lifts precision back above the U56 baseline of 87.82%; typecheck clean. **Not applicable:** no schema, UI or write-path changes; no replay/recheck run.
+
+#### Pass U57b — Tuning pass: the 55–69 wrong-but-suggested band — S (~1-2 credits) — depends on U57, U73 — BACKLOG
+
+Filed 2026-09-15 as planning only (no code). Scope: re-tune the mid-confidence band where wrong-but-suggested pairs now concentrate — nothing else. No new signals, no schema, no UI, no per-show exceptions, no replay/recheck run.
+
+Current measured position (10,779 human-labelled pairs, threshold 25, after U73): precision 88.21%, recall 96.77%, worst band 55–69. Band distribution (positives / negatives): 0–24 181/4,442 · 25–39 35/85 · 40–54 32/153 · **55–69 106/200** · 70–79 340/174 · 80–89 423/29 · 90–100 4,494/85. The 40–54 and 55–69 bands together hold 353 wrong-but-suggested pairs against 138 right ones — that is where precision is lost.
+
+Goal threshold: precision ≥ 89.5% with recall no lower than 96.0% (i.e. at least +1.3 points of precision for at most 0.8 points of recall). Stop and report rather than trade recall further.
+
+Expected work: read the 55–69 negatives out of the evaluator by dominant signal, identify the two or three signal combinations that account for most of them (the standing suspects are token/coverage-rule wins with mid weighted coverage, and description-only floors on one-word titles), then adjust only those weights or caps in `src/lib/providers/matching.server.ts`. Evidence required: `bun scripts/matcher-corpus.ts` with no regression in shipped-pass cases, plus a before/after score over the full labelled set.
+
+Dependencies: U57 and U73 must stay as shipped — this pass re-tunes their weights, it does not replace their rules. Unknowns: whether the band is dominated by a small number of shows (which would make it a U72 profile problem instead) or spread across the catalogue; measure first. Complexity drivers: every weight change moves all seven bands at once, so each candidate change needs a full re-score. Confidence: medium — the diagnosis is measured, the size of the achievable gain is not.
+
+Note: U57 remains recorded as IMPLEMENTED, NOT VERIFIED for its own gate, even though U73 has since lifted overall precision above the U56 baseline.
+
 
 #### Pass U74 — Episode lineage: reissue / re-release inheritance — M (~3-5 credits) — pairs with U65
 
