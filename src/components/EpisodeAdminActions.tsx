@@ -35,7 +35,9 @@ export function EpisodeAdminActions({
   retired = false,
   variant = "inline",
   includeReview = true,
+  linkedMovieIds,
 }: Props) {
+
   const retire = useMarkEpisodeNotAboutMovie();
   const undo = useUndoEpisodeRetirement();
   const isRetired = (retired || retire.isSuccess) && !undo.isSuccess;
