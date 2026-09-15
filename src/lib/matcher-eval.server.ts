@@ -280,7 +280,13 @@ export async function evaluateMatcher(
     }
     const candidateMovies = pairs
       .map((p) => movieById.get(p.movieId))
-      .filter((m): m is { id: string; title: string; release_year: number | null; release_date: string | null; collection_id: number | null } => Boolean(m));
+      .filter((m): m is { id: string; title: string; release_year: number | null; release_date: string | null; collection_id: number | null } => Boolean(m))
+      // Pass U72 — genre / certification for the show-profile comparison.
+      .map((m) => ({
+        ...m,
+        genre_ids: movieMeta.get(m.id)?.genre_ids ?? [],
+        certification: movieMeta.get(m.id)?.certification ?? null,
+      }));
 
     // Pass U4 — score with the override strategy, or with the show's own.
     const strategy =
@@ -293,6 +299,8 @@ export async function evaluateMatcher(
       strategy,
       // Pass U73 — temporal sanity uses the episode's publication date.
       episodeReleasedAt: episode.released_at,
+      // Pass U72 — this show's confirmed-link prior, when it has one.
+      podcastProfile: profiles.get(episode.podcast_id) ?? null,
     });
 
     const byMovie = new Map(scores.map((c) => [c.movieId, c]));
