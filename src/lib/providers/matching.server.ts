@@ -1199,6 +1199,11 @@ export function matchEpisodeToMovies(
         preRelease,
         sequelMismatch,
         subtitleOnly,
+        contentTypeMismatch,
+        tvDesignator,
+        listEpisode,
+        formatWordOnly,
+
 
 
       },
