@@ -40,7 +40,12 @@ export interface MatchSignals {
   missingDistinctive: boolean;
   /** Pass U56 — the only shared words sat in post-colon chatter. */
   chatterOnly: boolean;
+  /** Pass U57 — the description names the title and its release year in one sentence. */
+  descTitleYear: boolean;
+  /** Pass U57 — a year agreed but carried no weight: the candidate had no other evidence. */
+  yearGated: boolean;
 }
+
 
 export interface MovieMatchCandidate {
   movieId: string;
@@ -345,6 +350,12 @@ function makeDistinctiveness(
 /** Distinctive enough that its absence from the episode title means something. */
 const MISSING_IDF_FLOOR = 0.55;
 
+/** Distinctive enough that sharing it is real lexical evidence (Pass U57 gate). */
+const IDENTIFYING_IDF = 0.65;
+
+/** Pass U57 — a title named with its release year in one sentence is strong evidence. */
+const DESC_TITLE_YEAR_FLOOR = 72;
+
 
 /** Post-colon chatter still counts, but at a fraction of its face value. */
 const CHATTER_WEIGHT = 0.4;
@@ -414,9 +425,7 @@ export function matchEpisodeToMovies(
     .replace(/<[^>]*>/g, " ")
     .slice(0, DESC_CHARS);
   const descPadded = descRaw ? ` ${canonical(descRaw)} ` : "";
-  const descYears = new Set<number>(
-    descRaw ? (descRaw.match(YEAR_ALL_RE) ?? []).map((y) => Number(y)) : [],
-  );
+
 
   const candidates: ScoredCandidate[] = movies.map((movie) => {
     const movieCanonical = canonical(movie.title);
@@ -475,8 +484,11 @@ export function matchEpisodeToMovies(
       episodeCanonical.includes(` ${movieCanonical} `) ||
       episodeCanonical.startsWith(`${movieCanonical} `) ||
       episodeCanonical.endsWith(` ${movieCanonical}`) ||
-      movieCanonical.includes(episodeCanonical)
+      // Pass U57 — a very short or empty episode title ("π") is contained in
+      // every movie title as a string; that is not containment evidence.
+      (episodeCanonical.length >= 4 && movieCanonical.includes(episodeCanonical))
     ) {
+
       confidence = 90;
       reason = "title contained";
       rule = "contained";
@@ -502,40 +514,15 @@ export function matchEpisodeToMovies(
       rule = "weak";
     }
 
-    // Year bonus/penalty (weights come from the show's strategy; the default
-    // strategy uses the pre-U4 values).
-    let yearMatch: MatchSignals["yearMatch"] = "unknown";
-    if (movie.release_year && episodeYear) {
-      if (movie.release_year === episodeYear) {
-        confidence = Math.min(100, confidence + cfg.yearBonus);
-        reason += " + year match";
-        yearMatch = "same";
-      } else if (Math.abs(movie.release_year - episodeYear) <= 1) {
-        confidence = Math.min(100, confidence + cfg.yearNearBonus);
-        reason += " + year near";
-        yearMatch = "near";
-      } else {
-        yearMatch = "mismatch";
-        if (confidence < cfg.yearMismatchCeiling) {
-          confidence = Math.max(0, confidence - cfg.yearMismatchPenalty);
-          reason += " - year mismatch";
-        }
-      }
-    }
-
-
-    // Learned penalties: generic one-word titles and movies rejected before.
+    // Pass U57 — the description is *read* before the year is scored, because the
+    // year gate has to know whether this candidate has any evidence at all.
     const genericTitle = isGenericTitle(movie.title);
-    if (genericTitle && rule !== "exact") {
-      confidence = Math.max(0, confidence - 12);
-      reason += " - generic title";
-    }
-
-    // Description-aware evidence: the show notes usually name the film outright,
-    // often with its release year, even when the episode title is a pun.
     let descTitle = false;
     let descPromo = false;
     let descYear: MatchSignals["descYear"] = "unknown";
+    let descTitleYear = false;
+    /** Years appearing in the same sentence as the title mention (Pass U57). */
+    const descSentenceYears = new Set<number>();
     const longEnough = movieCanonical.replace(/ /g, "").length >= 5 || movieTokens.size >= 2;
     if (descPadded && longEnough && !(genericTitle && movieCanonical.length <= 4)) {
       descTitle = descPadded.includes(` ${movieCanonical} `);
@@ -548,43 +535,116 @@ export function matchEpisodeToMovies(
         if (promoOnly) {
           descTitle = false;
           descPromo = true;
+        } else {
+          // Pass U57 — only a year sitting beside the mention says anything about
+          // *this* film; a year somewhere else in long show notes does not.
+          for (const s of hits) {
+            for (const y of s.match(YEAR_ALL_RE) ?? []) descSentenceYears.add(Number(y));
+          }
         }
       }
     }
 
+    // Pass U57 — the year gate. A release year is a tie-breaker, never evidence
+    // on its own: "π (1998)" must not lift every unrelated 1998 film. The
+    // candidate needs non-generic lexical evidence (an exact/contained hit, full
+    // coverage, or a distinctive shared word) or a description mention first.
+    const lexicalEvidence =
+      rule === "exact" ||
+      (shared > 0 &&
+        (rule === "contained" ||
+          coverage === 1 ||
+          (weightedCoverage >= 0.5 && sharedMax >= IDENTIFYING_IDF)));
+    const yearGated = !lexicalEvidence && !descTitle;
+
+
+    // Year bonus/penalty (weights come from the show's strategy; the default
+    // strategy uses the pre-U4 values).
+    let yearMatch: MatchSignals["yearMatch"] = "unknown";
+    if (movie.release_year && episodeYear) {
+      if (movie.release_year === episodeYear) {
+        yearMatch = "same";
+        if (yearGated) {
+          reason += " (year ignored - nothing else points to this film)";
+        } else {
+          confidence = Math.min(100, confidence + cfg.yearBonus);
+          reason += " + year match";
+        }
+      } else if (Math.abs(movie.release_year - episodeYear) <= 1) {
+        yearMatch = "near";
+        if (yearGated) {
+          reason += " (year ignored - nothing else points to this film)";
+        } else {
+          confidence = Math.min(100, confidence + cfg.yearNearBonus);
+          reason += " + year near";
+        }
+      } else {
+        yearMatch = "mismatch";
+        if (confidence < cfg.yearMismatchCeiling) {
+          confidence = Math.max(0, confidence - cfg.yearMismatchPenalty);
+          reason += " - year mismatch";
+        }
+      }
+    }
+
+
+    // Learned penalties: generic one-word titles and movies rejected before.
+    if (genericTitle && rule !== "exact") {
+      confidence = Math.max(0, confidence - 12);
+      reason += " - generic title";
+    }
+
+    // Description-aware evidence: the show notes usually name the film outright,
+    // often with its release year, even when the episode title is a pun.
     if (descTitle) {
+      const release = movie.release_year;
+      const sentenceYearSame = Boolean(release && descSentenceYears.has(release));
+      const sentenceYearNear =
+        !sentenceYearSame &&
+        Boolean(release && [...descSentenceYears].some((y) => Math.abs(y - release) <= 1));
+
       if (rule === "weak") {
-        // Title gave us nothing; the description alone is decent-but-unconfirmed evidence.
-        confidence = Math.max(
-          confidence,
-          genericTitle ? cfg.descriptionOnlyGenericFloor : cfg.descriptionOnlyFloor,
-        );
-        reason = "named in description";
+        // Pass U57 — a title named with its own release year in one sentence is
+        // strictly stronger than a bare mention, and outranks generic overlap.
+        // The stronger floor is for a real, multi-word title named beside its
+        // year; a one-word title still needs corroboration of its own.
+        const strongMention = sentenceYearSame && !genericTitle && movieTokens.size >= 2;
+        const floor = strongMention
+          ? DESC_TITLE_YEAR_FLOOR
+          : genericTitle
+            ? cfg.descriptionOnlyGenericFloor
+            : cfg.descriptionOnlyFloor;
+        confidence = Math.max(confidence, floor);
+        reason = strongMention
+          ? "named in description with its release year"
+          : "named in description";
+
         rule = "description";
       } else {
         confidence = Math.min(100, confidence + cfg.descriptionBonus);
         reason += " + named in description";
       }
 
-      if (movie.release_year && descYears.size > 0) {
-        if (descYears.has(movie.release_year)) {
+      if (release && descSentenceYears.size > 0) {
+        if (sentenceYearSame) {
           confidence = Math.min(100, confidence + cfg.yearBonus);
           reason += " + year in description";
           descYear = "same";
-        } else if ([...descYears].some((y) => Math.abs(y - movie.release_year!) <= 1)) {
+          descTitleYear = true;
+        } else if (sentenceYearNear) {
           confidence = Math.min(100, confidence + cfg.yearNearBonus);
           reason += " + year near in description";
           descYear = "near";
         } else {
-
           descYear = "mismatch";
           if (rule === "description") {
             confidence = Math.max(0, confidence - 8);
-            reason += " - year not in description";
+            reason += " - year beside the mention is a different film";
           }
         }
       }
     }
+
 
     const rejectedBefore = rejectionCounts[movie.id] ?? 0;
     if (rejectedBefore >= 2 && rule !== "exact") {
@@ -775,6 +835,9 @@ export function matchEpisodeToMovies(
         weightedCoverage: Math.round(weightedCoverage * 100) / 100,
         missingDistinctive,
         chatterOnly,
+        descTitleYear,
+        yearGated,
+
       },
       movieTokens,
       familyKey,

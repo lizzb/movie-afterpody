@@ -28,7 +28,31 @@ export interface CorpusCase {
 }
 
 export const MATCHER_CORPUS: CorpusCase[] = [
+  // ---- Pass U57: description title+year evidence and the year gate ----
+  {
+    show: "The Big Picture",
+    episode: "82: My Blueberry Nights with David Sims",
+    expect: ["My Blueberry Nights"],
+    forbid: ["White Nights"],
+    owner: "U57",
+    note: "\"nights\" alone must not carry a match",
+  },
+  {
+    show: "The Big Picture",
+    episode: "63: What Planet Are You From?",
+    expect: ["What Planet Are You From?"],
+    owner: "U57",
+  },
+  {
+    show: "The Rewatchables",
+    episode: "π (1998)",
+    forbid: ["Pokémon: The First Movie", "The Man in the Iron Mask", "The Truman Show"],
+    owner: "U57",
+    note: "a year alone is never evidence for a film",
+  },
+
   // ---- You Are Good ----
+
   {
     show: "You Are Good",
     episode: "Rosemary's Baby w. Sarah Archer!",
