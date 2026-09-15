@@ -32,6 +32,14 @@ export interface CorpusCase {
   episodeReleasedAt?: string;
   /** Pass U73 — the release year the winning candidate must carry. */
   expectYear?: number;
+  /**
+   * Pass U72 — the films this show has *confirmed* before, by title. The runner
+   * resolves each from the catalogue and builds the show's prior from them, so a
+   * case can state the show's history without any per-show configuration.
+   */
+  profileFilms?: string[];
+  /** Pass U72 — points the winning candidate must have lost to the show prior. */
+  expectProfilePenalty?: number;
   /** Pass that owns this case. */
   owner: string;
   note?: string;
