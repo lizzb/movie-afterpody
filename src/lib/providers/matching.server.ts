@@ -384,6 +384,8 @@ export function matchEpisodeToMovies(
     title: string;
     release_year: number | null;
     collection_id?: number | null;
+    /** Pass U73 — exact release date when the catalogue holds one. */
+    release_date?: string | null;
   }[],
   options: MatchOptions = {},
 ): MovieMatchCandidate[] {
@@ -392,6 +394,8 @@ export function matchEpisodeToMovies(
   const commonEpisodeWords = options.commonEpisodeWords ?? new Set<string>();
 
   const episodeYear = extractYear(episodeTitle);
+  // Pass U73 — the episode's publication date, used only for temporal sanity.
+  const episodePublished = parseDate(options.episodeReleasedAt ?? null);
   // Pass U55 — parse first: guest credits stop counting as title evidence.
   const parsed = parseEpisodeTitle(removeYear(episodeTitle));
   const episodeFullCanonical = canonical(stripEpisodePrefixes(removeYear(episodeTitle)));
