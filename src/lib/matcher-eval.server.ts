@@ -114,6 +114,9 @@ const SIGNAL_TESTS: { signal: string; test: (s: Record<string, unknown>) => bool
     test: (s) => s["missingDistinctive"] === true,
   },
   { signal: "matched only post-colon chatter", test: (s) => s["chatterOnly"] === true },
+  { signal: "named in description with its year", test: (s) => s["descTitleYear"] === true },
+  { signal: "year ignored (no other evidence)", test: (s) => s["yearGated"] === true },
+
   {
     signal: "shared words are distinctive",
     test: (s) => Number(s["weightedCoverage"] ?? 0) >= 0.75,
