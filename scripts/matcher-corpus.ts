@@ -80,7 +80,11 @@ const titleWordStats = computeTitleWordStats(allTitles);
 console.log(`Distinctiveness corpus: ${allTitles.length} catalogue titles.\n`);
 
 function evaluate(c: CorpusCase) {
-  const scored = matchEpisodeToMovies(c.episode, pool, { titleWordStats });
+  const scored = matchEpisodeToMovies(c.episode, pool, {
+    titleWordStats,
+    // Pass U73 — only cases that declare a date carry a temporal signal.
+    episodeReleasedAt: c.episodeReleasedAt ?? null,
+  });
   const live = scored.filter((s) => s.confidence >= THRESHOLD);
   const top = live[0] ?? null;
   const problems: string[] = [];
@@ -103,6 +107,10 @@ function evaluate(c: CorpusCase) {
     const hit = live.find((s) => s.title.toLowerCase() === good.toLowerCase());
     if (!hit) problems.push(`missing "${good}"`);
     else if (top && hit !== top) problems.push(`"${good}" lost to "${top.title}" (${top.confidence})`);
+  }
+  // Pass U73 — which edition of a re-made title won matters.
+  if (c.expectYear && top && top.releaseYear !== c.expectYear) {
+    problems.push(`winner is the ${top.releaseYear ?? "undated"} edition, expected ${c.expectYear}`);
   }
   return { problems, top, skipped: [] as string[] };
 }
