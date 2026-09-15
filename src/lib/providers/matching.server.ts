@@ -609,6 +609,10 @@ export function matchEpisodeToMovies(
     collection_id?: number | null;
     /** Pass U73 — exact release date when the catalogue holds one. */
     release_date?: string | null;
+    /** Pass U72 — genre ids, scored against the show's confirmed profile. */
+    genre_ids?: string[] | null;
+    /** Pass U72 — certification, scored against the show's confirmed profile. */
+    certification?: string | null;
   }[],
   options: MatchOptions = {},
 ): MovieMatchCandidate[] {
@@ -1306,6 +1310,10 @@ export function matchEpisodeToMovies(
         listEpisode,
         formatWordOnly,
         multiTitle,
+        unusualGenre,
+        unusualEra,
+        unusualCertification,
+        profilePenalty,
 
 
 
