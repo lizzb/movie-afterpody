@@ -44,6 +44,13 @@ export interface MatchSignals {
   descTitleYear: boolean;
   /** Pass U57 — a year agreed but carried no weight: the candidate had no other evidence. */
   yearGated: boolean;
+  /**
+   * Pass U73 — how the episode's publication date sits against this film's
+   * release. "none" = published on/after release (or no comparison possible),
+   * "window" = shortly before release (legitimate press/festival coverage),
+   * "early" = long before release, which is strong negative evidence.
+   */
+  preRelease: "none" | "window" | "early";
 }
 
 
@@ -75,6 +82,13 @@ export interface MatchOptions {
    * is used.
    */
   titleWordStats?: TitleWordStats | null | undefined;
+  /**
+   * Pass U73 — the episode's own publication date (ISO date or timestamp). This
+   * is strictly the podcast episode's publication date: never a source
+   * programme's original air date, and never the film's release date. Omitted
+   * or unparseable means no temporal signal at all — never a penalty.
+   */
+  episodeReleasedAt?: string | null | undefined;
 }
 
 
