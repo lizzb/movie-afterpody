@@ -559,8 +559,26 @@ export function matchEpisodeToMovies(
     const movieCanonical = canonical(movie.title);
     const movieTokens = tokenSet(movieCanonical);
     const similarity = jaccard(episodeTokens, movieTokens);
-    const sharedTokens = [...movieTokens].filter((t) => episodeTokens.has(t));
+
+    // Pass U58 — a numbering marker is identity, not overlap. It counts as shared
+    // evidence only when the two base titles are the same film ("Evil Dead 2" /
+    // "Evil Dead II"); otherwise "Shrek 2" lends nothing to "Deadpool 2".
+    const movieMarkers = titleMarkers(movie.title);
+    const movieBaseTokens = new Set(
+      [...movieTokens].filter((t) => {
+        const v = markerValue(t);
+        return v === null || !movieMarkers.has(v);
+      }),
+    );
+    const baseIdentity =
+      movieBaseTokens.size > 0 && [...movieBaseTokens].every((t) => episodeBaseTokens.has(t));
+    const sharedTokens = [...movieTokens].filter((t) => {
+      const v = markerValue(t);
+      if (v !== null && movieMarkers.has(v)) return baseIdentity && episodeMarkers.has(v);
+      return episodeTokens.has(t);
+    });
     const shared = sharedTokens.length;
+
     const coverage = movieTokens.size ? shared / movieTokens.size : 0;
     // Symmetric: how much of what the episode names this title accounts for.
     const episodeCoverage = episodeTokens.size ? shared / episodeTokens.size : 0;
