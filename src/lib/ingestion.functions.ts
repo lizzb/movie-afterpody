@@ -1640,6 +1640,8 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
         strategy,
         // Pass U73 — the episode's own publication date.
         episodeReleasedAt: ep.released_at,
+        // Pass U72 — this show's confirmed-link prior, when it has one.
+        podcastProfile: profiles.get(ep.podcast_id) ?? null,
       }).filter((c) => !rejected.has(`${ep.id}:${c.movieId}`));
 
 

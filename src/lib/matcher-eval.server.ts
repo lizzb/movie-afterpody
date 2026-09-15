@@ -134,6 +134,9 @@ const SIGNAL_TESTS: { signal: string; test: (s: Record<string, unknown>) => bool
     signal: "one of several films named in the episode title",
     test: (s) => s["multiTitle"] === true,
   },
+  { signal: "unusual genre for this show", test: (s) => s["unusualGenre"] === true },
+  { signal: "outside this show's usual era", test: (s) => s["unusualEra"] === true },
+  { signal: "unusual rating for this show", test: (s) => s["unusualCertification"] === true },
 
 
 
