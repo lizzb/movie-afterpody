@@ -828,6 +828,9 @@ export function matchEpisodeToMovies(
         weightedCoverage: Math.round(weightedCoverage * 100) / 100,
         missingDistinctive,
         chatterOnly,
+        descTitleYear,
+        yearGated,
+
       },
       movieTokens,
       familyKey,
