@@ -764,6 +764,11 @@ export function matchEpisodeToMovies(
       confidence = 100;
       reason = "exact title";
       rule = "exact";
+    } else if (multiTitle) {
+      // Pass U59 — one of several films the episode names, matched in full.
+      confidence = 100;
+      reason = "exact title (one of several films in this episode)";
+      rule = "exact";
     } else if (
       episodeCanonical.includes(` ${movieCanonical} `) ||
       episodeCanonical.startsWith(`${movieCanonical} `) ||
