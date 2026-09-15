@@ -484,8 +484,11 @@ export function matchEpisodeToMovies(
       episodeCanonical.includes(` ${movieCanonical} `) ||
       episodeCanonical.startsWith(`${movieCanonical} `) ||
       episodeCanonical.endsWith(` ${movieCanonical}`) ||
-      movieCanonical.includes(episodeCanonical)
+      // Pass U57 — a very short or empty episode title ("π") is contained in
+      // every movie title as a string; that is not containment evidence.
+      (episodeCanonical.length >= 4 && movieCanonical.includes(episodeCanonical))
     ) {
+
       confidence = 90;
       reason = "title contained";
       rule = "contained";
