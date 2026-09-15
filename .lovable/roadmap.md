@@ -1332,9 +1332,18 @@ Dependency:
 
 Acceptance should include a real large result set and verify that the user can move through substantially more than the first 30/40 results without repeated disruptive stops, while maintaining safe render cost and correct result counts.
 
-#### Pass U53 — "Mark episode reviewed" also confirms the episode's current links — M (~3-5 credits) — backlog, filed 2026-09-07
+#### Pass U53 — "Mark episode reviewed" also confirms the episode's current links — M (~3-5 credits) — SHIPPED 2026-09-15, VERIFIED
 
 Full analysis: `.lovable/plan/plan-backlog-only-three-filings-2026-09-07.md` (section A).
+
+Implemented: `confirmCurrentEpisodeLinks` in `src/lib/ingestion.functions.ts` re-reads `episode_movies` and open `episode_link_flags` at click time, refuses with "Resolve the flagged link first", aborts with "This episode changed — reload before signing off" on a snapshot mismatch, and confirms only non-confirmed links (already-confirmed keep their original reviewer/timestamp). Opt-in via `confirmLinks` + `expectedMovieIds`, honoured for single-episode sign-off only; the bulk path in `MatchReviewCard` stays review-only. Client: `useSetEpisodeReviewed` takes `movieIds`, patches `CONFIRMED_KEY` and invalidates `episode-flags`; `EpisodeReviewButton`/`EpisodeAdminActions` accept `linkedMovieIds`, supplied on `/podcasts/$slug` cards only. No migration, no matching run, no rejection or movie writes.
+
+Acceptance (verified in a signed-in admin session, 2026-09-15):
+- Verified — "Magic (1978)" (4 auto-linked links): sign-off confirmed all 4 with reviewer + timestamp and wrote one current review record.
+- Verified — flagged episode "Patriot Games": refused; no review record, link still `proposed`.
+- Verified — typecheck clean; bulk mark-reviewed unchanged (no `confirmLinks` at its call site).
+- Implemented, not verified in UI — stale-snapshot abort and zero-link/retired no-op paths (code-level only).
+
 
 Logically safe, with one hard condition: the button may only sit on surfaces that show the episode's whole link set (U38 already removed it from movie-detail cards via `includeReview={false}` — that is now a safety rule, not cosmetics), and the write must re-read the database rather than trust the rendered page.
 
