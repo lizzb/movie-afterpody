@@ -606,15 +606,19 @@ export function matchEpisodeToMovies(
       if (rule === "weak") {
         // Pass U57 — a title named with its own release year in one sentence is
         // strictly stronger than a bare mention, and outranks generic overlap.
-        const floor = sentenceYearSame
+        // The stronger floor is for a real, multi-word title named beside its
+        // year; a one-word title still needs corroboration of its own.
+        const strongMention = sentenceYearSame && !genericTitle && movieTokens.size >= 2;
+        const floor = strongMention
           ? DESC_TITLE_YEAR_FLOOR
           : genericTitle
             ? cfg.descriptionOnlyGenericFloor
             : cfg.descriptionOnlyFloor;
         confidence = Math.max(confidence, floor);
-        reason = sentenceYearSame
+        reason = strongMention
           ? "named in description with its release year"
           : "named in description";
+
         rule = "description";
       } else {
         confidence = Math.min(100, confidence + cfg.descriptionBonus);
