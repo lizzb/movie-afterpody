@@ -51,7 +51,12 @@ export interface MatchSignals {
    * "early" = long before release, which is strong negative evidence.
    */
   preRelease: "none" | "window" | "early";
+  /** Pass U58 — the episode names a numbered entry ("2", "II") this film is not. */
+  sequelMismatch: boolean;
+  /** Pass U58 — the only shared words came from a subtitle, not a base title. */
+  subtitleOnly: boolean;
 }
+
 
 
 export interface MovieMatchCandidate {
