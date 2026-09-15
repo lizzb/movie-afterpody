@@ -753,6 +753,8 @@ export function matchEpisodeToMovies(
     let confidence = 0;
     let reason = "";
     let rule: MatchSignals["rule"] = "weak";
+    // Pass U59 — this candidate is one of the films the episode title names.
+    const multiTitle = titleSegments.includes(movieCanonical);
 
     // Coverage-first: how much of the *movie* title the episode contains, so
     // extra episode chatter ("Ep 43 - …") no longer dilutes a full match.
