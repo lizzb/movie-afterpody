@@ -215,6 +215,13 @@ function canonical(input: string): string {
   return normalizeTitle(input.replace(/&/g, " and "));
 }
 
+/** Pass U73 — lenient ISO date/timestamp parse; anything unusable means "no date". */
+function parseDate(value: string | null | undefined): Date | null {
+  if (!value) return null;
+  const d = new Date(value.length === 10 ? `${value}T00:00:00Z` : value);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
 function extractYear(title: string): number | null {
   const m = title.match(YEAR_RE);
   return m ? Number(m[1]) : null;
@@ -664,6 +671,38 @@ export function matchEpisodeToMovies(
     }
 
 
+    // Pass U73 — temporal consistency. An episode published well before a film
+    // existed is almost never about that film. Exact dates are preferred; a
+    // year-only comparison falls back to calendar-year distance. A missing date
+    // on either side produces no signal and never a penalty.
+    let preRelease: MatchSignals["preRelease"] = "none";
+    if (episodePublished) {
+      const releaseDate = parseDate(movie.release_date ?? null);
+      if (releaseDate) {
+        const days = (releaseDate.getTime() - episodePublished.getTime()) / 86_400_000;
+        if (days > 180) preRelease = "early";
+        else if (days > 0) preRelease = "window";
+      } else if (movie.release_year) {
+        const diff = movie.release_year - episodePublished.getUTCFullYear();
+        if (diff >= 2) preRelease = "early";
+        else if (diff === 1) preRelease = "window";
+      }
+    }
+    if (preRelease === "early") {
+      // The episode's own text naming that year is an explicit claim about a
+      // future/announced film, so it survives; everything else is blocked.
+      const namesTheYear =
+        (episodeYear !== null && movie.release_year === episodeYear) ||
+        Boolean(movie.release_year && descSentenceYears.has(movie.release_year));
+      if (!namesTheYear) {
+        confidence = Math.min(confidence, 12);
+        reason += " - episode predates this film's release";
+      }
+    } else if (preRelease === "window" && rule !== "exact") {
+      confidence = Math.max(0, confidence - 4);
+      reason += " - episode published just before release";
+    }
+
     const rejectedBefore = rejectionCounts[movie.id] ?? 0;
     if (rejectedBefore >= 2 && rule !== "exact") {
       confidence = Math.max(0, confidence - Math.min(25, rejectedBefore * 6));
@@ -855,6 +894,7 @@ export function matchEpisodeToMovies(
         chatterOnly,
         descTitleYear,
         yearGated,
+        preRelease,
 
       },
       movieTokens,
