@@ -7,6 +7,13 @@ interface Props {
   reviewed: boolean;
   /** "inline" for compact rows, "block" for detail cards. */
   variant?: "inline" | "block";
+  /**
+   * Pass U53 — the movie ids currently linked on this card. Supplying them opts
+   * this sign-off into confirming those links, and guards against confirming a
+   * link that appeared after the page loaded. Omit on surfaces that do not show
+   * the episode's whole link set.
+   */
+  linkedMovieIds?: string[];
 }
 
 /** A reopen this soon after marking reviewed is a stray second tap, not intent. */
@@ -16,7 +23,12 @@ const REVERSE_GUARD_MS = 2500;
  * Admin-only "Mark episode reviewed" control for episode rows. Render only when
  * the viewer is an admin (see `useEpisodeReviewStates().isAdmin`).
  */
-export function EpisodeReviewButton({ episodeId, reviewed, variant = "inline" }: Props) {
+export function EpisodeReviewButton({
+  episodeId,
+  reviewed,
+  variant = "inline",
+  linkedMovieIds,
+}: Props) {
   const mutation = useSetEpisodeReviewed();
   const pending = mutation.isPending;
   const markedAt = useRef(0);
@@ -29,12 +41,15 @@ export function EpisodeReviewButton({ episodeId, reviewed, variant = "inline" }:
     // marking reviewed silently undid the action the user just took.
     if (!next && Date.now() - markedAt.current < REVERSE_GUARD_MS) return;
     if (next) markedAt.current = Date.now();
-    mutation.mutate({ episodeId, reviewed: next });
+    mutation.mutate({ episodeId, reviewed: next, movieIds: next ? linkedMovieIds : undefined });
   };
 
   const title = reviewed
     ? "Reopen this episode — it returns to the unreviewed queue"
-    : "Mark this episode reviewed — its links look right and none are missing";
+    : linkedMovieIds && linkedMovieIds.length > 0
+      ? "Mark this episode reviewed — its links look right and none are missing. This also confirms the links shown."
+      : "Mark this episode reviewed — its links look right and none are missing";
+
 
   return (
     <button
