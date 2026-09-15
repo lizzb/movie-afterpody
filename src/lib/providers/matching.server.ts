@@ -354,15 +354,20 @@ function orderedTokens(canonicalTitle: string): string[] {
   return content.length ? content : all;
 }
 
-/** Every numbering marker a title carries, from its head and its whole text. */
-function titleMarkers(canonicalTitle: string): Set<number> {
+/**
+ * Every numbering marker a title carries. Segments are split on the raw text,
+ * because canonicalising first would drop the colon that separates a numbered
+ * head ("Ready or Not 2: Here I Come") from its subtitle.
+ */
+function titleMarkers(rawTitle: string): Set<number> {
   const out = new Set<number>();
-  for (const segment of canonicalTitle.split(/\s*:\s*/)) {
-    const value = trailingMarker(orderedTokens(segment));
+  for (const segment of rawTitle.split(/\s*:\s*/)) {
+    const value = trailingMarker(orderedTokens(canonical(segment)));
     if (value !== null) out.add(value);
   }
-  const whole = trailingMarker(orderedTokens(canonicalTitle));
+  const whole = trailingMarker(orderedTokens(canonical(rawTitle)));
   if (whole !== null) out.add(whole);
+
   return out;
 }
 
