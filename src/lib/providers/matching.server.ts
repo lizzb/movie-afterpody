@@ -514,6 +514,24 @@ export function matchEpisodeToMovies(
       ? new Set([...episodeTokens].filter((t) => !headTokens.has(t)))
       : new Set<string>();
 
+  // Pass U58 — sequel identity and subtitle decomposition, episode side.
+  const episodeMarkers = titleMarkers(parsed.titleText);
+  const episodeBaseTokens = new Set(
+    [...episodeTokens].filter((t) => {
+      const v = markerValue(t);
+      return v === null || !episodeMarkers.has(v);
+    }),
+  );
+  const episodeSubtitleTokens =
+    colonSplit.length > 1
+      ? new Set(
+          [...tokenSet(canonical(colonSplit.slice(1).join(" ")))].filter(
+            (t) => !headTokens.has(t),
+          ),
+        )
+      : new Set<string>();
+
+
   // Pass U56 — phrase segments of the episode title. A candidate that is only
   // part of a longer phrase ("Friday" inside "Friday Night Lights", "Drive"
   // inside "License to Drive") is a sub-phrase, not the subject.
