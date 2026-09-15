@@ -123,6 +123,14 @@ const SIGNAL_TESTS: { signal: string; test: (s: Record<string, unknown>) => bool
     test: (s) => s["sequelMismatch"] === true,
   },
   { signal: "matched only a subtitle", test: (s) => s["subtitleOnly"] === true },
+  {
+    signal: "show notes describe this as something other than a film",
+    test: (s) => s["contentTypeMismatch"] === true,
+  },
+  { signal: "episode title names a television episode", test: (s) => s["tvDesignator"] === true },
+  { signal: "list/ranking episode", test: (s) => s["listEpisode"] === true },
+  { signal: "matched only a show-format word", test: (s) => s["formatWordOnly"] === true },
+
 
 
   {
