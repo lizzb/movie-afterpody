@@ -522,9 +522,18 @@ export const suggestEpisodeMatches = createServerFn({ method: "POST" })
     }));
     if (data.episodeId) episodes = episodes.filter((ep) => ep.id === data.episodeId);
 
-    const movieList = await pageAll<{ id: string; title: string; release_year: number | null; release_date: string | null; collection_id: number | null }>(
+    const baseMovies = await pageAll<{ id: string; title: string; release_year: number | null; release_date: string | null; collection_id: number | null }>(
       (from, to) => supabaseAdmin.from("movies").select("id, title, release_year, release_date, collection_id").range(from, to),
     );
+    // Pass U72 — per-show priors from confirmed links, plus the genre and
+    // certification metadata each candidate is scored against.
+    const { fetchPodcastProfiles } = await import("./podcast-profile.server");
+    const { profiles, movieMeta } = await fetchPodcastProfiles(supabaseAdmin);
+    const movieList = baseMovies.map((m) => ({
+      ...m,
+      genre_ids: movieMeta.get(m.id)?.genre_ids ?? [],
+      certification: movieMeta.get(m.id)?.certification ?? null,
+    }));
 
     const [rejectedPairs, rejectionCountByMovie] = await Promise.all([
       fetchRejectedPairsForEpisodes(
