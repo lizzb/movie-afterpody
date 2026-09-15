@@ -40,7 +40,9 @@ const cases = owners.length
 
 /** Candidate pool: every movie named by the corpus, loaded once. */
 const wanted = new Set<string>();
-for (const c of cases) for (const t of [...(c.expect ?? []), ...(c.forbid ?? [])]) wanted.add(t);
+for (const c of cases)
+  for (const t of [...(c.expect ?? []), ...(c.expectAll ?? []), ...(c.forbid ?? [])])
+    wanted.add(t);
 
 const pool: Movie[] = [];
 for (const title of wanted) {
