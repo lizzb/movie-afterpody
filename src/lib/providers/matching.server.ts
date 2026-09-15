@@ -1022,6 +1022,37 @@ export function matchEpisodeToMovies(
       reason += " - episode looks like an interview/bonus";
     }
 
+    // Pass U60 — the shared words only describe the episode's format
+    // ("Interview", "Live", "Mailbag"), so the candidate is matching the wrapper
+    // rather than the subject. An exact whole-title hit is exempt.
+    const formatWordOnly =
+      rule !== "exact" &&
+      sharedTokens.length > 0 &&
+      sharedTokens.every((t) => FORMAT_ONLY_WORDS.has(t)) &&
+      !(descTitle && descYear === "same");
+    if (formatWordOnly) {
+      confidence = Math.min(confidence, 15);
+      reason += " - only matches a show-format word";
+    }
+
+    // Pass U60 — the show notes describe this title as a series/album/game show.
+    if (contentTypeMismatch && rule !== "exact") {
+      confidence = Math.min(confidence, 15);
+      reason += " - the show notes describe this as something other than a film";
+    }
+
+    // Pass U60 — a TV episode designator, or a list/ranking framing, means no
+    // single film is the episode's subject.
+    if (tvDesignator && rule !== "exact") {
+      confidence = Math.min(confidence, 12);
+      reason += " - the episode title names a television episode";
+    }
+    if (listEpisode && rule !== "exact") {
+      confidence = Math.min(confidence, 12);
+      reason += " - list/ranking episode, not a single film";
+    }
+
+
     // Sequel markers the candidate lacks ("Halloweentown" against "…town II").
     let distinguisherPenalty = false;
     if (episodeDistinguishers.size > 0 && rule !== "exact") {
