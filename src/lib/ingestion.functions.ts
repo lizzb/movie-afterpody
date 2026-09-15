@@ -2876,7 +2876,19 @@ export const backfillContentRatings = createServerFn({ method: "POST" })
 const EpisodeReviewInput = z.object({
   episodeIds: z.array(z.string().uuid()).min(1).max(200),
   reviewed: z.boolean(),
+  /**
+   * Pass U53 — single-episode sign-off also confirms that episode's current
+   * links. Opt-in, and never honoured for a bulk selection: mass-confirming
+   * links nobody looked at is exactly what this guard prevents.
+   */
+  confirmLinks: z.boolean().optional(),
+  /**
+   * What the client had on screen. A mismatch against the database at click
+   * time aborts, so we only ever confirm links the admin actually saw.
+   */
+  expectedMovieIds: z.array(z.string().uuid()).max(50).optional(),
 });
+
 
 type EpisodeGenerationRow = {
   id: string;
@@ -2920,9 +2932,66 @@ async function loadEpisodeGenerations(
   return map;
 }
 
+/**
+ * Pass U53 — confirms every current, non-confirmed link on one episode as part
+ * of episode sign-off. The link set is re-read from the database at click time,
+ * never taken from client input; the client's snapshot is only used to detect
+ * that the episode changed underneath it.
+ *
+ * Refuses when any current link carries an open flag: a flag is an explicit
+ * "this is wrong", so it must be resolved by a human, not overwritten.
+ * Never creates links, never touches rejections, never runs matching.
+ */
+async function confirmCurrentEpisodeLinks(
+  admin: Awaited<typeof import("@/integrations/supabase/client.server")>["supabaseAdmin"],
+  episodeId: string,
+  expectedMovieIds: string[] | undefined,
+  userId: string,
+): Promise<number> {
+  const [{ data: links, error: linkError }, { data: flags, error: flagError }] = await Promise.all([
+    admin.from("episode_movies").select("movie_id, review_state").eq("episode_id", episodeId),
+    admin
+      .from("episode_link_flags")
+      .select("movie_id")
+      .eq("episode_id", episodeId)
+      .is("resolved_at", null),
+  ]);
+  if (linkError) throw linkError;
+  if (flagError) throw flagError;
 
+  const current = links ?? [];
+  const currentIds = current.map((l) => l.movie_id);
+
+  if (expectedMovieIds) {
+    const seen = [...currentIds].sort().join(",");
+    const expected = [...new Set(expectedMovieIds)].sort().join(",");
+    if (seen !== expected) throw new Error("This episode changed — reload before signing off");
+  }
+
+  const flagged = new Set((flags ?? []).map((f) => f.movie_id));
+  if (currentIds.some((id) => flagged.has(id))) {
+    throw new Error("Resolve the flagged link first");
+  }
+
+  // Already-confirmed links keep their original reviewer and timestamp.
+  const pending = current.filter((l) => l.review_state !== "confirmed").map((l) => l.movie_id);
+  if (pending.length === 0) return 0;
+
+  const { error } = await admin
+    .from("episode_movies")
+    .update({
+      review_state: "confirmed",
+      reviewed_at: new Date().toISOString(),
+      reviewed_by: userId,
+    })
+    .eq("episode_id", episodeId)
+    .in("movie_id", pending);
+  if (error) throw error;
+  return pending.length;
+}
 
 /** Mark reviewed / Reopen, one episode or a bulk selection, verified per episode. */
+
 export const setEpisodeReviewed = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data) => EpisodeReviewInput.parse(data))
@@ -2932,6 +3001,9 @@ export const setEpisodeReviewed = createServerFn({ method: "POST" })
     const generations = await loadEpisodeGenerations(supabaseAdmin, data.episodeIds);
 
     const results: { episodeId: string; ok: boolean; error?: string }[] = [];
+    // Confirm-on-review is single-episode only (roadmap U53 item 9).
+    const confirmLinks = data.reviewed === true && data.confirmLinks === true && data.episodeIds.length === 1;
+    let linksConfirmed = 0;
 
     for (const episodeId of data.episodeIds) {
       try {
@@ -2939,7 +3011,17 @@ export const setEpisodeReviewed = createServerFn({ method: "POST" })
           const meta = generations.get(episodeId);
           if (!meta) throw new Error("episode not found");
           const generation = meta.podcasts?.sync_generation ?? 1;
+          // Links first: a refusal here must leave no review record behind.
+          if (confirmLinks) {
+            linksConfirmed += await confirmCurrentEpisodeLinks(
+              supabaseAdmin,
+              episodeId,
+              data.expectedMovieIds,
+              context.userId,
+            );
+          }
           // One row per episode: re-marking updates in place, never duplicates.
+
           const { error } = await supabaseAdmin.from("episode_reviews").upsert(
             {
               episode_id: episodeId,
@@ -2985,8 +3067,10 @@ export const setEpisodeReviewed = createServerFn({ method: "POST" })
       attempted: data.episodeIds.length,
       succeeded: results.length - failures.length,
       results,
+      linksConfirmed,
       failed: failures.slice(0, 10).map((r) => r.error ?? "unknown error"),
     };
+
   });
 
 /**

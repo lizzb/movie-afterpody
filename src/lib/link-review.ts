@@ -10,7 +10,7 @@ import { useIsAdmin } from "@/hooks/useIsAdmin";
 const LOCAL_KEY = ["link-confirmations"] as const;
 type LocalState = Record<string, boolean>;
 
-const CONFIRMED_KEY = ["episode-links", "confirmed"] as const;
+export const CONFIRMED_KEY = ["episode-links", "confirmed"] as const;
 
 async function fetchConfirmedKeys(): Promise<string[]> {
   const out: string[] = [];

@@ -13,6 +13,12 @@ interface Props {
    * A relationship-only card (one movie's episode) sets this to false.
    */
   includeReview?: boolean;
+  /**
+   * Pass U53 — movie ids linked on this card. Only pass them where the card shows
+   * the episode's whole link set; sign-off then confirms those links too.
+   */
+  linkedMovieIds?: string[];
+
 }
 
 /**
@@ -29,7 +35,9 @@ export function EpisodeAdminActions({
   retired = false,
   variant = "inline",
   includeReview = true,
+  linkedMovieIds,
 }: Props) {
+
   const retire = useMarkEpisodeNotAboutMovie();
   const undo = useUndoEpisodeRetirement();
   const isRetired = (retired || retire.isSuccess) && !undo.isSuccess;
@@ -72,7 +80,13 @@ export function EpisodeAdminActions({
         </button>
       )}
       {includeReview ? (
-        <EpisodeReviewButton episodeId={episodeId} reviewed={reviewed} variant={variant} />
+        <EpisodeReviewButton
+          episodeId={episodeId}
+          reviewed={reviewed}
+          variant={variant}
+          {...(linkedMovieIds ? { linkedMovieIds } : {})}
+        />
+
       ) : null}
     </div>
   );

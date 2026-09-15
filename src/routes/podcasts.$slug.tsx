@@ -638,7 +638,12 @@ function PodcastEpisodeCard({
       <CardFooter
         trailing={
           showReview ? (
-            <EpisodeAdminActions episodeId={episode.id} reviewed={reviewed} retired={retired} />
+            <EpisodeAdminActions
+              episodeId={episode.id}
+              reviewed={reviewed}
+              retired={retired}
+              linkedMovieIds={linked.map((m) => m.id)}
+            />
           ) : null
         }
       >
