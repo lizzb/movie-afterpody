@@ -93,7 +93,7 @@ function evaluate(c: CorpusCase) {
 
   // A case whose expected film is not in the catalogue cannot be judged here —
   // report it rather than counting it as a matcher failure.
-  const absent = (c.expect ?? []).filter(
+  const absent = [...(c.expect ?? []), ...(c.expectAll ?? [])].filter(
     (t) => !pool.some((m) => m.title.toLowerCase() === t.toLowerCase()),
   );
   if (absent.length) return { problems, top, skipped: absent };
@@ -109,6 +109,11 @@ function evaluate(c: CorpusCase) {
     const hit = live.find((s) => s.title.toLowerCase() === good.toLowerCase());
     if (!hit) problems.push(`missing "${good}"`);
     else if (top && hit !== top) problems.push(`"${good}" lost to "${top.title}" (${top.confidence})`);
+  }
+  // Pass U59 — every film of a multi-film episode must be suggested, order free.
+  for (const good of c.expectAll ?? []) {
+    const hit = live.find((s) => s.title.toLowerCase() === good.toLowerCase());
+    if (!hit) problems.push(`missing "${good}"`);
   }
   // Pass U73 — which edition of a re-made title won matters.
   if (c.expectYear && top && top.releaseYear !== c.expectYear) {
