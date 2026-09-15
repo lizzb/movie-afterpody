@@ -80,7 +80,13 @@ export function EpisodeAdminActions({
         </button>
       )}
       {includeReview ? (
-        <EpisodeReviewButton episodeId={episodeId} reviewed={reviewed} variant={variant} />
+        <EpisodeReviewButton
+          episodeId={episodeId}
+          reviewed={reviewed}
+          variant={variant}
+          {...(linkedMovieIds ? { linkedMovieIds } : {})}
+        />
+
       ) : null}
     </div>
   );
