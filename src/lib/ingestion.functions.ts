@@ -561,6 +561,8 @@ export const suggestEpisodeMatches = createServerFn({ method: "POST" })
           strategy: asMatcherStrategy(ep.podcasts.matcher_strategy),
           // Pass U73 — the episode's own publication date.
           episodeReleasedAt: ep.released_at,
+          // Pass U72 — this show's confirmed-link prior, when it has one.
+          podcastProfile: profiles.get(ep.podcast_id) ?? null,
         }).filter((c) => !rejectedPairs.has(`${ep.id}:${c.movieId}`));
 
 
