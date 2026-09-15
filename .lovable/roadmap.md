@@ -1420,9 +1420,13 @@ Acceptance checklist — **Verified:** all 7 U58-owned corpus cases pass (`bun s
 
 
 
-#### Pass U59 — Multi-title extraction — M (~3-5 credits) — depends on U55
+#### Pass U59 — Multi-title extraction — M (~3-5 credits) — depends on U55 — SHIPPED 2026-09-14, VERIFIED
 
 Detect multiple title segments (`&`, `and`) only when both sides independently resolve to plausible catalogue titles, then evaluate each candidate independently through the normal rules with per-relationship confirm/reject behaviour unchanged. Extraction only — Pass U2 still owns multi-movie editing and coverage roles; no UI work here. Regression: `18. Waitress & Off the Menu: …` yields independent `Waitress` and `Off the Menu`; `30. Forever My Girl & The Road Less Traveled: …` yields both titles. **Band flag:** if independent per-candidate linking touches the write path more than expected this reaches L — stop and report rather than expand.
+
+Built: `splitTitleCandidates` / `contentWordCount` in `episode-parse.server.ts` split a title-bearing segment on a spaced `&` / `and` / `+` into at most three parts, each of which must keep a content word. The matcher enables the split only when every part is title-shaped (two or more content words) and at least one part resolves to a catalogue title outright, and never when the whole string is itself a catalogue title — so `Harold and the Purple Crayon` stays whole. A candidate whose title equals one of the extracted segments scores as an exact hit (new `multiTitle` signal, surfaced in the scorecard as "one of several films named in the episode title"), so each film of a two-film episode stands on its own instead of being diluted by the other one's words — this is what lifts `xXx` out of the very-short-title cap in `Last Looks: xXx & The Legend of Billie Jean`. No write-path, schema or UI change: per-relationship confirm/reject is untouched, so the pass stayed inside its band. Corpus gained an `expectAll` case shape (all named films must be suggested, order free) plus four U59 cases including the "and" positive control.
+
+Acceptance checklist — **Verified:** all judged U59 corpus cases pass (`bun scripts/matcher-corpus.ts`), 42 of 42 judged cases pass with no regression in U55/U56/U57/U58/U60/U73/U75 cases (8 skipped for titles absent from the catalogue, including three U59 cases whose films are not ingested); scoring over 10,779 labelled pairs at threshold 25 — precision 89.45% → 89.46% (flat), recall 96.10% → 96.17% (+0.07), i.e. no precision regression and a small recall gain; typecheck clean. **Not applicable:** no schema, UI or write-path changes; no per-show exceptions; no replay/recheck run.
 
 #### Pass U60 — Contextual non-movie content-type exclusion — S (~1-2 credits) — independent — SHIPPED 2026-09-14, VERIFIED
 
