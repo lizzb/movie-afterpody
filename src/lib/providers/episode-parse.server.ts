@@ -211,3 +211,58 @@ export function parseEpisodeTitle(episodeTitle: string): ParsedEpisodeTitle {
 
   return { prefixText: prefix, titleText: titleText || rest, guestText, segments };
 }
+
+/** Words that never stand as a title part on their own. */
+const PART_STOPWORDS = new Set([
+  "the",
+  "a",
+  "an",
+  "of",
+  "and",
+  "in",
+  "on",
+  "to",
+  "is",
+  "it",
+  "our",
+  "with",
+]);
+
+/**
+ * Pass U59 — multi-title extraction.
+ *
+ * Splits a title-bearing segment on a spaced "&" / "and" / "+" into the
+ * separate films an episode covers ("xXx & The Legend of Billie Jean",
+ * "Waitress & Off the Menu: …"). Extraction only: the caller decides whether
+ * each side actually resolves to a catalogue title, and a title that merely
+ * contains "and" is left whole when nothing resolves.
+ *
+ * Conservative by construction: at most three parts, each of which must keep at
+ * least one content word, and a part is never allowed to be a bare stopword.
+ */
+export function splitTitleCandidates(titleText: string): string[] {
+  const text = (titleText ?? "").trim();
+  if (!text) return [];
+  const raw = text.split(/\s+(?:&|\+|and)\s+/i);
+  if (raw.length < 2 || raw.length > 3) return [];
+
+  const parts: string[] = [];
+  for (const piece of raw) {
+    const part = piece.replace(/^[\s\-–—|:,]+|[\s\-–—|:,]+$/g, "").trim();
+    const contentWords = part
+      .split(/\s+/)
+      .map((w) => w.replace(/[^A-Za-z0-9'’]/g, "").toLowerCase())
+      .filter((w) => w.length > 0 && !PART_STOPWORDS.has(w));
+    if (contentWords.length === 0) return [];
+    parts.push(part);
+  }
+  return parts;
+}
+
+/** How many content words a candidate part carries — a title-shape check. */
+export function contentWordCount(part: string): number {
+  return part
+    .split(/\s+/)
+    .map((w) => w.replace(/[^A-Za-z0-9'’]/g, "").toLowerCase())
+    .filter((w) => w.length > 0 && !PART_STOPWORDS.has(w)).length;
+}
