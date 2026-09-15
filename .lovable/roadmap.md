@@ -1491,9 +1491,12 @@ Plan: `.lovable/plan/plan-backlog-only-matcherimprovementinitiative-extensions-a
 
 **Revised initiative sequence:** U75 (corpus) alongside U55 → U56 → U57 → U73 → U58 → U60(+ext) → U59 → U72 → U74 → U61(+ext). Total if all built ≈ 32–46 credits.
 
-#### U60 extension — additional contextual content-type cues (no new ID)
+#### U60 extension — additional contextual content-type cues (no new ID) — SHIPPED 2026-09-14, VERIFIED (with U60)
 
 Same sentence-scoped, overridable rule; cue vocabulary grows: `game show` (also a strong `not_about_a_movie` signal — "Nickelodeon's most competitive game show"), `album` (regression: "one of the most popular albums of all-time, 'Hybrid Theory' by Linkin Park"), `television series`; plus **episode-designator titles** (`Season 2 Episode 18`, `Episode 5`, `S02E18` ⇒ TV, not film — `Gilmore Girls - Season 2 Episode 18…` → no link, `Paris is Always a Good Idea - Episode 5 (Hallmark+ - 2026)` must not reach `Always (1989)`); plus **compilation/list episodes** (`BRUNCH: The Greatest Drinks in Movie History`, `Bill's 50 Most Rewatchable Movies of the 21st Century`, `FH Mini #150 - Best Stephen King Movies`, `The Definitive Action Hero Ranking Pt. 2`, `A 2026 Rewatchables Mailbag`). Cue must describe the candidate/content, not merely appear; exact title or title+year overrides. List-episode detection may push U60 from S to M — report rather than expand.
+
+Built with U60 in one S-band pass — list-episode detection did not push it to M. Content-type cues are matched only inside the sentences that name the candidate, and every such sentence must carry the cue, so an unrelated "series"/"album" elsewhere in long show notes changes nothing. TV designators (`SxxEyy`, `Season N`, `Episode N`) count only away from the start of the title, so podcast numbering (`Ep. #441 - …`) is untouched. List detection requires a superlative applied to a plural category (`Best … Movies`, `Greatest Drinks in Movie History`), an explicit ranking/draft/bracket, or a mailbag — a superlative alone never fires, so `Best in Show` still matches. A fourth rule (`formatWordOnly`) caps candidates whose only shared words are show-format words, which is what let `The Interview` win on `Niall Matter Interview (Much About Love)`. New signals `contentTypeMismatch` / `tvDesignator` / `listEpisode` / `formatWordOnly` are surfaced in the matcher scorecard.
+
 
 #### U61 extension — recurring confusion clusters (no new ID)
 
