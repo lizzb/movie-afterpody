@@ -292,6 +292,81 @@ const DISTINGUISHER_TOKENS = new Set([
   "again",
 ]);
 
+/**
+ * Pass U58 — sequel identity.
+ *
+ * A bare numbering marker ("II", "2") identifies *which* entry of a franchise an
+ * episode is about. It is never shared positive evidence on its own: two films
+ * both carrying "2" are not the same subject. Roman numerals and digits are
+ * equivalent, so "Evil Dead 2" and "Evil Dead II" are the same entry.
+ */
+const ROMAN_MARKERS: Record<string, number> = {
+  ii: 2,
+  iii: 3,
+  iv: 4,
+  vi: 6,
+  vii: 7,
+  viii: 8,
+  ix: 9,
+};
+
+/** Words before a number that make it an enumeration, not a sequel number. */
+const ENUMERATION_PRECEDERS = new Set([
+  "top",
+  "best",
+  "worst",
+  "episode",
+  "ep",
+  "part",
+  "chapter",
+  "number",
+  "vol",
+  "volume",
+  "season",
+  "day",
+  "week",
+  "round",
+]);
+
+function markerValue(token: string): number | null {
+  if (/^[2-9]$/.test(token)) return Number(token);
+  return ROMAN_MARKERS[token] ?? null;
+}
+
+/**
+ * A numbering marker only counts when it trails a title ("Sharknado 3"), not
+ * when it enumerates something ("Top 5 Stephen King movies").
+ */
+function trailingMarker(orderedTokens: string[]): number | null {
+  const last = orderedTokens[orderedTokens.length - 1];
+  if (!last) return null;
+  const value = markerValue(last);
+  if (value === null) return null;
+  const prev = orderedTokens[orderedTokens.length - 2];
+  if (!prev || ENUMERATION_PRECEDERS.has(prev) || markerValue(prev) !== null) return null;
+  return value;
+}
+
+/** Content words in order, so trailing-position rules can be applied. */
+function orderedTokens(canonicalTitle: string): string[] {
+  const all = canonicalTitle.split(" ").filter(Boolean);
+  const content = all.filter((t) => !STOPWORDS.has(t));
+  return content.length ? content : all;
+}
+
+/** Every numbering marker a title carries, from its head and its whole text. */
+function titleMarkers(canonicalTitle: string): Set<number> {
+  const out = new Set<number>();
+  for (const segment of canonicalTitle.split(/\s*:\s*/)) {
+    const value = trailingMarker(orderedTokens(segment));
+    if (value !== null) out.add(value);
+  }
+  const whole = trailingMarker(orderedTokens(canonicalTitle));
+  if (whole !== null) out.add(whole);
+  return out;
+}
+
+
 /** Internal per-candidate bookkeeping for the family post-pass. */
 interface ScoredCandidate extends MovieMatchCandidate {
   movieTokens: Set<string>;
