@@ -1238,8 +1238,11 @@ export function matchEpisodeToMovies(
     if (profile && rule !== "exact" && !descTitleYear && !multiTitle) {
       const movieGenres = movie.genre_ids ?? [];
       if (profile.hasGenre && movieGenres.length > 0) {
-        const bestShare = Math.max(...movieGenres.map((g) => profile.genreShare[g] ?? 0));
-        if (bestShare < UNUSUAL_GENRE_SHARE) {
+        const familiarity = [...new Set(movieGenres)].reduce(
+          (sum, g) => sum + (profile.genreShare[g] ?? 0),
+          0,
+        );
+        if (familiarity < UNUSUAL_GENRE_SHARE) {
           unusualGenre = true;
           profilePenalty += GENRE_PENALTY;
         }

@@ -40,8 +40,13 @@ export const PROFILE_MIN_SAMPLE = 8;
 /** A dimension is only trusted when this share of the sample declares it. */
 export const PROFILE_MIN_COVERAGE = 0.6;
 
-/** A genre this rare in the show's history counts as unusual. */
-export const UNUSUAL_GENRE_SHARE = 0.1;
+/**
+ * Combined familiarity of a candidate's genres in the show's history, below
+ * which the candidate counts as an unusual genre for this show. Summing the
+ * candidate's genres rather than taking the best one keeps a single incidental
+ * overlap (one horror-comedy in a horror show) from excusing a rom-com.
+ */
+export const UNUSUAL_GENRE_SHARE = 0.25;
 
 /** Bounded demotions — the total is capped, and they are never boosts. */
 export const GENRE_PENALTY = 4;
