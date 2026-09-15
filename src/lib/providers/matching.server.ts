@@ -551,10 +551,12 @@ export function matchEpisodeToMovies(
     // coverage, or a distinctive shared word) or a description mention first.
     const lexicalEvidence =
       rule === "exact" ||
-      rule === "contained" ||
-      coverage === 1 ||
-      (shared > 0 && weightedCoverage >= 0.5 && sharedMax >= IDENTIFYING_IDF);
+      (shared > 0 &&
+        (rule === "contained" ||
+          coverage === 1 ||
+          (weightedCoverage >= 0.5 && sharedMax >= IDENTIFYING_IDF)));
     const yearGated = !lexicalEvidence && !descTitle;
+
 
     // Year bonus/penalty (weights come from the show's strategy; the default
     // strategy uses the pre-U4 values).
