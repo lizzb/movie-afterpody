@@ -229,6 +229,11 @@ export async function evaluateMatcher(
     pageAll<{ title: string }>((from, to) => admin.from("movies").select("title").range(from, to)),
   ]);
 
+  // Pass U72 — show priors from confirmed links only, plus the genre and
+  // certification metadata each candidate is scored against.
+  const { fetchPodcastProfiles } = await import("./podcast-profile.server");
+  const { profiles, movieMeta } = await fetchPodcastProfiles(admin);
+
   const commonEpisodeWords = computeCommonEpisodeWords(allTitles.map((t) => t.title));
   const titleWordStats = computeTitleWordStats(allMovieTitles.map((t) => t.title));
   const movieById = new Map(movies.map((m) => [m.id, m]));
