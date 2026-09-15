@@ -1424,9 +1424,12 @@ Acceptance checklist — **Verified:** all 7 U58-owned corpus cases pass (`bun s
 
 Detect multiple title segments (`&`, `and`) only when both sides independently resolve to plausible catalogue titles, then evaluate each candidate independently through the normal rules with per-relationship confirm/reject behaviour unchanged. Extraction only — Pass U2 still owns multi-movie editing and coverage roles; no UI work here. Regression: `18. Waitress & Off the Menu: …` yields independent `Waitress` and `Off the Menu`; `30. Forever My Girl & The Road Less Traveled: …` yields both titles. **Band flag:** if independent per-candidate linking touches the write path more than expected this reaches L — stop and report rather than expand.
 
-#### Pass U60 — Contextual non-movie content-type exclusion — S (~1-2 credits) — independent
+#### Pass U60 — Contextual non-movie content-type exclusion — S (~1-2 credits) — independent — SHIPPED 2026-09-14, VERIFIED
 
 Sentence-scoped content-type cues (`documentary series`, `album`, similar) act as strong negative evidence only when the cue sits in the same sentence as the candidate title, overridable by an exact title or a title+year mention. Not a keyword ban. Regression: `42 Up` + "documentary series" ≠ `Up, up, and Away`; `PLAY` + "one of the most influential albums" ≠ `Foul Play`; plus a positive control where unrelated use of "series"/"album" does not suppress a strong movie match.
+
+Built together with the U60 extension below (one pass, S band). Acceptance checklist — **Verified:** all 11 U60-owned corpus cases pass, including the four new extension cases (`Bill's 50 Most Rewatchable Movies…`, `The Definitive Action Hero Ranking Pt. 2`, `Gilmore Girls - S02E18…`, and the `Best in Show` positive control) and the previously failing `Niall Matter Interview (Much About Love)`; 40 of 41 judged corpus cases pass with no regression in U55/U56/U57/U58/U73/U75 cases (the one remaining failure owned by U59, 5 skipped for absent catalogue titles); scoring over 10,779 labelled pairs at threshold 25 — precision 89.06% → 89.45% (+0.39), recall 96.63% → 96.10% (-0.53), inside the ≤2-point gate; typecheck clean. **Not applicable:** no schema, UI or write-path changes; no per-show exceptions; no replay/recheck run.
+
 
 #### Pass U61 — Show-scoped confusion memory (derived) — M (~3-5 credits) — independent, do last
 
