@@ -167,7 +167,93 @@ const COMMON_WORD_TITLES = new Set([
   "unhinged",
 ]);
 
+/**
+ * Pass U60 — content-type cues.
+ *
+ * When the show notes describe the thing they just named as a documentary or
+ * television series, an album, or a game show, that named thing is not the film
+ * of the same title. The cue only counts inside the sentence that names the
+ * candidate, so an unrelated mention of "series" elsewhere in long show notes
+ * changes nothing.
+ */
+const CONTENT_TYPE_CUES = [
+  "documentary series",
+  "docuseries",
+  "documentary",
+  "television series",
+  "tv series",
+  "tv show",
+  "miniseries",
+  "mini series",
+  "limited series",
+  "game show",
+  "reality show",
+  "album",
+  "albums",
+  "record",
+  "novel",
+  "video game",
+];
+
+/**
+ * Pass U60 — words that describe the episode's format rather than name a film.
+ * A candidate whose only shared words are these is matching the format, not the
+ * subject ("The Interview" against "Niall Matter Interview").
+ */
+const FORMAT_ONLY_WORDS = new Set([
+  "live",
+  "interview",
+  "interviews",
+  "mailbag",
+  "trailer",
+  "trailers",
+  "bonus",
+  "patreon",
+  "brunch",
+  "redux",
+  "recap",
+  "preview",
+  "review",
+  "commentary",
+  "minisode",
+  "episode",
+  "episodes",
+  "season",
+  "ranking",
+  "rankings",
+  "draft",
+  "classic",
+]);
+
+/**
+ * Pass U60 — a TV episode designator anywhere but the very start of the title
+ * says the subject is a television episode, not a film. A leading designator is
+ * the podcast's own numbering ("Ep. #441 - …") and is handled by the prefix
+ * rules instead.
+ */
+const TV_DESIGNATORS = [
+  /\bs\d{1,2}\s?e\d{1,2}\b/i,
+  /\bseason\s*\d+\b/i,
+  /\bepisode\s*\d+\b/i,
+];
+
+/**
+ * Pass U60 — list / ranking / mailbag episodes discuss many films at once, so no
+ * single film is the subject. A superlative alone is never enough ("Best in
+ * Show" is a film): it has to be applied to a plural category.
+ */
+const LIST_CATEGORY =
+  "(movies|films|scenes|moments|characters|performances|songs|soundtracks|villains|heroes|sequels|remakes|endings|deaths|kills|drinks|posters|cameos|romances|comedies|thrillers|episodes|books|shows)";
+const LIST_EPISODE_PATTERNS = [
+  new RegExp(`\\b(best|greatest|worst|most|top)\\b[^:]{0,60}\\b${LIST_CATEGORY}\\b`, "i"),
+  new RegExp(`\\b${LIST_CATEGORY}\\b[^:]{0,30}\\b(ranking|ranked|rankings|draft|bracket)\\b`, "i"),
+  /\bdefinitive\b[^:]{0,60}\branking\b/i,
+  /\bin movie history\b/i,
+  /\bmailbag\b/i,
+];
+
 /** Episode-title markers that mean "this is not a film discussion episode". */
+
 const NON_FILM_KEYWORDS = [
   /\binterview(s|ed)?\b/i,
   /\bq\s*&?\s*a\b/i,
