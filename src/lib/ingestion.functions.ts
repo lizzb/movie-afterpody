@@ -2932,9 +2932,66 @@ async function loadEpisodeGenerations(
   return map;
 }
 
+/**
+ * Pass U53 — confirms every current, non-confirmed link on one episode as part
+ * of episode sign-off. The link set is re-read from the database at click time,
+ * never taken from client input; the client's snapshot is only used to detect
+ * that the episode changed underneath it.
+ *
+ * Refuses when any current link carries an open flag: a flag is an explicit
+ * "this is wrong", so it must be resolved by a human, not overwritten.
+ * Never creates links, never touches rejections, never runs matching.
+ */
+async function confirmCurrentEpisodeLinks(
+  admin: Awaited<typeof import("@/integrations/supabase/client.server")>["supabaseAdmin"],
+  episodeId: string,
+  expectedMovieIds: string[] | undefined,
+  userId: string,
+): Promise<number> {
+  const [{ data: links, error: linkError }, { data: flags, error: flagError }] = await Promise.all([
+    admin.from("episode_movies").select("movie_id, review_state").eq("episode_id", episodeId),
+    admin
+      .from("episode_link_flags")
+      .select("movie_id")
+      .eq("episode_id", episodeId)
+      .is("resolved_at", null),
+  ]);
+  if (linkError) throw linkError;
+  if (flagError) throw flagError;
 
+  const current = links ?? [];
+  const currentIds = current.map((l) => l.movie_id);
+
+  if (expectedMovieIds) {
+    const seen = [...currentIds].sort().join(",");
+    const expected = [...new Set(expectedMovieIds)].sort().join(",");
+    if (seen !== expected) throw new Error("This episode changed — reload before signing off");
+  }
+
+  const flagged = new Set((flags ?? []).map((f) => f.movie_id));
+  if (currentIds.some((id) => flagged.has(id))) {
+    throw new Error("Resolve the flagged link first");
+  }
+
+  // Already-confirmed links keep their original reviewer and timestamp.
+  const pending = current.filter((l) => l.review_state !== "confirmed").map((l) => l.movie_id);
+  if (pending.length === 0) return 0;
+
+  const { error } = await admin
+    .from("episode_movies")
+    .update({
+      review_state: "confirmed",
+      reviewed_at: new Date().toISOString(),
+      reviewed_by: userId,
+    })
+    .eq("episode_id", episodeId)
+    .in("movie_id", pending);
+  if (error) throw error;
+  return pending.length;
+}
 
 /** Mark reviewed / Reopen, one episode or a bulk selection, verified per episode. */
+
 export const setEpisodeReviewed = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data) => EpisodeReviewInput.parse(data))
