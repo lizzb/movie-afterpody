@@ -672,6 +672,24 @@ export function matchEpisodeToMovies(
     .slice(0, DESC_CHARS);
   const descPadded = descRaw ? ` ${canonical(descRaw)} ` : "";
 
+  // Pass U59 — multi-title extraction. An episode covering two films
+  // ("xXx & The Legend of Billie Jean") should let each side win on its own
+  // merits instead of scoring both against the diluted whole string. The split
+  // only counts when every side is title-shaped and at least one side resolves
+  // to a catalogue title outright; a real title containing "and" therefore stays
+  // whole, and a title that is itself in the catalogue is never split.
+  const wholeIsCatalogueTitle = movies.some((m) => canonical(m.title) === episodeCanonical);
+  const rawParts = wholeIsCatalogueTitle ? [] : splitTitleCandidates(parsed.titleText);
+  const partCanonicals = rawParts.map((p) => canonical(p));
+  const resolvedParts = partCanonicals.filter((p) =>
+    movies.some((m) => canonical(m.title) === p),
+  );
+  const multiTitleEnabled =
+    rawParts.length >= 2 &&
+    resolvedParts.length >= 1 &&
+    rawParts.every((p, i) => resolvedParts.includes(partCanonicals[i]!) || contentWordCount(p) >= 2);
+  /** Canonical text of each extracted film segment, empty when no split applies. */
+  const titleSegments = multiTitleEnabled ? partCanonicals : [];
 
   const candidates: ScoredCandidate[] = movies.map((movie) => {
     const movieCanonical = canonical(movie.title);
