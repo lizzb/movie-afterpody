@@ -5,6 +5,14 @@ import {
   contentWordCount,
 } from "./episode-parse.server";
 import { strategyConfig, type MatcherStrategy } from "@/lib/matcher-strategies";
+import {
+  CERT_PENALTY,
+  ERA_PENALTY,
+  GENRE_PENALTY,
+  PROFILE_PENALTY_CAP,
+  UNUSUAL_GENRE_SHARE,
+  type PodcastProfile,
+} from "@/lib/podcast-profile";
 
 
 export interface MatchSignals {
@@ -76,6 +84,14 @@ export interface MatchSignals {
    * of those title segments outright.
    */
   multiTitle: boolean;
+  /** Pass U72 — a genre this show's confirmed catalogue almost never covers. */
+  unusualGenre: boolean;
+  /** Pass U72 — a release era outside this show's confirmed catalogue. */
+  unusualEra: boolean;
+  /** Pass U72 — a certification this show's confirmed catalogue never carries. */
+  unusualCertification: boolean;
+  /** Pass U72 — points subtracted by the show profile (0 when no prior applied). */
+  profilePenalty: number;
 
 }
 
@@ -116,6 +132,13 @@ export interface MatchOptions {
    * or unparseable means no temporal signal at all — never a penalty.
    */
   episodeReleasedAt?: string | null | undefined;
+  /**
+   * Pass U72 — the show's soft prior, built from its *confirmed* links only.
+   * Omitted, null, or a small-sample show means no prior at all. The prior can
+   * only ever demote, by a bounded amount, and exact-title or description
+   * title+year evidence overrides it.
+   */
+  podcastProfile?: PodcastProfile | null | undefined;
 }
 
 
