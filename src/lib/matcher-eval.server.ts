@@ -116,6 +116,8 @@ const SIGNAL_TESTS: { signal: string; test: (s: Record<string, unknown>) => bool
   { signal: "matched only post-colon chatter", test: (s) => s["chatterOnly"] === true },
   { signal: "named in description with its year", test: (s) => s["descTitleYear"] === true },
   { signal: "year ignored (no other evidence)", test: (s) => s["yearGated"] === true },
+  { signal: "episode predates the film's release", test: (s) => s["preRelease"] === "early" },
+  { signal: "episode just before release", test: (s) => s["preRelease"] === "window" },
 
   {
     signal: "shared words are distinctive",
