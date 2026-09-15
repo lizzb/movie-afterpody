@@ -2876,7 +2876,19 @@ export const backfillContentRatings = createServerFn({ method: "POST" })
 const EpisodeReviewInput = z.object({
   episodeIds: z.array(z.string().uuid()).min(1).max(200),
   reviewed: z.boolean(),
+  /**
+   * Pass U53 — single-episode sign-off also confirms that episode's current
+   * links. Opt-in, and never honoured for a bulk selection: mass-confirming
+   * links nobody looked at is exactly what this guard prevents.
+   */
+  confirmLinks: z.boolean().optional(),
+  /**
+   * What the client had on screen. A mismatch against the database at click
+   * time aborts, so we only ever confirm links the admin actually saw.
+   */
+  expectedMovieIds: z.array(z.string().uuid()).max(50).optional(),
 });
+
 
 type EpisodeGenerationRow = {
   id: string;
