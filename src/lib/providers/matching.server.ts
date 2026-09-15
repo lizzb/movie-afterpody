@@ -1045,6 +1045,9 @@ export function matchEpisodeToMovies(
         descTitleYear,
         yearGated,
         preRelease,
+        sequelMismatch,
+        subtitleOnly,
+
 
       },
       movieTokens,
