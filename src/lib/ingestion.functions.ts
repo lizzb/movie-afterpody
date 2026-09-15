@@ -272,7 +272,7 @@ export const ingestPodcast = createServerFn({ method: "POST" })
     const strategyBoost = strategyConfig(showStrategy).writeThresholdBoost;
 
     const episodes = await clients.getEpisodesByFeedUrl(apiKey, apiSecret, feed.url, data.maxEpisodes);
-    const { data: movies } = await clients.supabaseAdmin.from("movies").select("id, title, release_year, collection_id");
+    const { data: movies } = await clients.supabaseAdmin.from("movies").select("id, title, release_year, release_date, collection_id");
 
     const movieList = movies ?? [];
 
@@ -520,8 +520,8 @@ export const suggestEpisodeMatches = createServerFn({ method: "POST" })
     }));
     if (data.episodeId) episodes = episodes.filter((ep) => ep.id === data.episodeId);
 
-    const movieList = await pageAll<{ id: string; title: string; release_year: number | null; collection_id: number | null }>(
-      (from, to) => supabaseAdmin.from("movies").select("id, title, release_year, collection_id").range(from, to),
+    const movieList = await pageAll<{ id: string; title: string; release_year: number | null; release_date: string | null; collection_id: number | null }>(
+      (from, to) => supabaseAdmin.from("movies").select("id, title, release_year, release_date, collection_id").range(from, to),
     );
 
     const [rejectedPairs, rejectionCountByMovie] = await Promise.all([
@@ -1536,8 +1536,8 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
       fetchRejectedPairsForEpisodes(supabaseAdmin, episodeIds),
       fetchRejectionCountsByMovieFast(supabaseAdmin),
     ]);
-    const movieList = await pageAll<{ id: string; title: string; release_year: number | null; collection_id: number | null }>(
-      (from, to) => supabaseAdmin.from("movies").select("id, title, release_year, collection_id").range(from, to),
+    const movieList = await pageAll<{ id: string; title: string; release_year: number | null; release_date: string | null; collection_id: number | null }>(
+      (from, to) => supabaseAdmin.from("movies").select("id, title, release_year, release_date, collection_id").range(from, to),
     );
 
     type LinkRow = {
