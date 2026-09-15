@@ -1,5 +1,9 @@
 import { normalizeTitle } from "./shared.server";
-import { parseEpisodeTitle } from "./episode-parse.server";
+import {
+  parseEpisodeTitle,
+  splitTitleCandidates,
+  contentWordCount,
+} from "./episode-parse.server";
 import { strategyConfig, type MatcherStrategy } from "@/lib/matcher-strategies";
 
 
@@ -67,6 +71,11 @@ export interface MatchSignals {
   listEpisode: boolean;
   /** Pass U60 — the only shared words were show-format words ("interview", "live"). */
   formatWordOnly: boolean;
+  /**
+   * Pass U59 — the episode title names several films and this candidate is one
+   * of those title segments outright.
+   */
+  multiTitle: boolean;
 
 }
 
