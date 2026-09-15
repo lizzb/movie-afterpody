@@ -3001,6 +3001,9 @@ export const setEpisodeReviewed = createServerFn({ method: "POST" })
     const generations = await loadEpisodeGenerations(supabaseAdmin, data.episodeIds);
 
     const results: { episodeId: string; ok: boolean; error?: string }[] = [];
+    // Confirm-on-review is single-episode only (roadmap U53 item 9).
+    const confirmLinks = data.reviewed === true && data.confirmLinks === true && data.episodeIds.length === 1;
+    let linksConfirmed = 0;
 
     for (const episodeId of data.episodeIds) {
       try {
@@ -3008,7 +3011,17 @@ export const setEpisodeReviewed = createServerFn({ method: "POST" })
           const meta = generations.get(episodeId);
           if (!meta) throw new Error("episode not found");
           const generation = meta.podcasts?.sync_generation ?? 1;
+          // Links first: a refusal here must leave no review record behind.
+          if (confirmLinks) {
+            linksConfirmed += await confirmCurrentEpisodeLinks(
+              supabaseAdmin,
+              episodeId,
+              data.expectedMovieIds,
+              context.userId,
+            );
+          }
           // One row per episode: re-marking updates in place, never duplicates.
+
           const { error } = await supabaseAdmin.from("episode_reviews").upsert(
             {
               episode_id: episodeId,
