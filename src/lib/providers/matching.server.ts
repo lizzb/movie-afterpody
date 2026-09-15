@@ -985,7 +985,36 @@ export function matchEpisodeToMovies(
       reason += " - only matches post-colon chatter";
     }
 
+    // Pass U58 — the episode names a numbered entry and this film carries no
+    // number at all: it is the base film, not the subject ("Ready or Not 2" is
+    // not "Ready or Not"). An exact whole-title hit is exempt, as is a film the
+    // show notes name with its own release year.
+    let sequelMismatch = false;
+    if (episodeMarkers.size > 0 && movieMarkers.size === 0 && rule !== "exact" && !descTitleYear) {
+      sequelMismatch = true;
+      confidence = Math.min(confidence, 20);
+      reason += " - the episode names a numbered entry this film is not";
+    }
+
+    // Pass U58 — base title vs subtitle. Overlap that lives only in a subtitle
+    // (either side) is not identity unless the shared word is distinctive on its
+    // own: "Transformers: Revenge of the Fallen" is not "Revenge of the Nerds".
+    const subtitleOnly =
+      shared > 0 &&
+      rule !== "exact" &&
+      coverage < 1 &&
+      sharedMax < IDENTIFYING_IDF &&
+      !corroboratedU56 &&
+      ((movieSubtitleTokens.size > 0 && sharedTokens.every((t) => movieSubtitleTokens.has(t))) ||
+        (episodeSubtitleTokens.size > 0 &&
+          sharedTokens.every((t) => episodeSubtitleTokens.has(t))));
+    if (subtitleOnly) {
+      confidence = Math.min(confidence, 20);
+      reason += " - only matches a subtitle";
+    }
+
     const familyKey = [...movieTokens][0] ?? movieCanonical;
+
 
     return {
       movieId: movie.id,
