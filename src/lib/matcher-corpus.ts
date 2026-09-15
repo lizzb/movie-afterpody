@@ -22,12 +22,34 @@ export interface CorpusCase {
   forbid?: string[];
   /** True when the episode is not about a film at all: nothing may be suggested. */
   expectNoLink?: boolean;
+  /** Pass U73 — the episode's publication date, when the case depends on it. */
+  episodeReleasedAt?: string;
+  /** Pass U73 — the release year the winning candidate must carry. */
+  expectYear?: number;
   /** Pass that owns this case. */
   owner: string;
   note?: string;
 }
 
 export const MATCHER_CORPUS: CorpusCase[] = [
+  // ---- Pass U73: temporal consistency (episode date vs film release) ----
+  {
+    show: "The Rewatchables",
+    episode: "Mean Girls",
+    episodeReleasedAt: "2019-04-02",
+    expect: ["Mean Girls"],
+    expectYear: 2004,
+    owner: "U73",
+    note: "a 2019 episode cannot be about the 2024 film",
+  },
+  {
+    show: "The Rewatchables",
+    episode: "Mean Girls",
+    expect: ["Mean Girls"],
+    owner: "U73",
+    note: "no stored episode date — temporal rules must not change anything",
+  },
+
   // ---- Pass U57: description title+year evidence and the year gate ----
   {
     show: "The Big Picture",
