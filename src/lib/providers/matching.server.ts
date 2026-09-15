@@ -425,9 +425,7 @@ export function matchEpisodeToMovies(
     .replace(/<[^>]*>/g, " ")
     .slice(0, DESC_CHARS);
   const descPadded = descRaw ? ` ${canonical(descRaw)} ` : "";
-  const descYears = new Set<number>(
-    descRaw ? (descRaw.match(YEAR_ALL_RE) ?? []).map((y) => Number(y)) : [],
-  );
+
 
   const candidates: ScoredCandidate[] = movies.map((movie) => {
     const movieCanonical = canonical(movie.title);
