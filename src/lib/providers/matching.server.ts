@@ -1,5 +1,9 @@
 import { normalizeTitle } from "./shared.server";
-import { parseEpisodeTitle } from "./episode-parse.server";
+import {
+  parseEpisodeTitle,
+  splitTitleCandidates,
+  contentWordCount,
+} from "./episode-parse.server";
 import { strategyConfig, type MatcherStrategy } from "@/lib/matcher-strategies";
 
 
@@ -67,6 +71,11 @@ export interface MatchSignals {
   listEpisode: boolean;
   /** Pass U60 — the only shared words were show-format words ("interview", "live"). */
   formatWordOnly: boolean;
+  /**
+   * Pass U59 — the episode title names several films and this candidate is one
+   * of those title segments outright.
+   */
+  multiTitle: boolean;
 
 }
 
@@ -663,6 +672,24 @@ export function matchEpisodeToMovies(
     .slice(0, DESC_CHARS);
   const descPadded = descRaw ? ` ${canonical(descRaw)} ` : "";
 
+  // Pass U59 — multi-title extraction. An episode covering two films
+  // ("xXx & The Legend of Billie Jean") should let each side win on its own
+  // merits instead of scoring both against the diluted whole string. The split
+  // only counts when every side is title-shaped and at least one side resolves
+  // to a catalogue title outright; a real title containing "and" therefore stays
+  // whole, and a title that is itself in the catalogue is never split.
+  const wholeIsCatalogueTitle = movies.some((m) => canonical(m.title) === episodeCanonical);
+  const rawParts = wholeIsCatalogueTitle ? [] : splitTitleCandidates(parsed.titleText);
+  const partCanonicals = rawParts.map((p) => canonical(p));
+  const resolvedParts = partCanonicals.filter((p) =>
+    movies.some((m) => canonical(m.title) === p),
+  );
+  const multiTitleEnabled =
+    rawParts.length >= 2 &&
+    resolvedParts.length >= 1 &&
+    rawParts.every((p, i) => resolvedParts.includes(partCanonicals[i]!) || contentWordCount(p) >= 2);
+  /** Canonical text of each extracted film segment, empty when no split applies. */
+  const titleSegments = multiTitleEnabled ? partCanonicals : [];
 
   const candidates: ScoredCandidate[] = movies.map((movie) => {
     const movieCanonical = canonical(movie.title);
@@ -726,6 +753,8 @@ export function matchEpisodeToMovies(
     let confidence = 0;
     let reason = "";
     let rule: MatchSignals["rule"] = "weak";
+    // Pass U59 — this candidate is one of the films the episode title names.
+    const multiTitle = titleSegments.includes(movieCanonical);
 
     // Coverage-first: how much of the *movie* title the episode contains, so
     // extra episode chatter ("Ep 43 - …") no longer dilutes a full match.
@@ -734,6 +763,11 @@ export function matchEpisodeToMovies(
     if (episodeCanonical === movieCanonical || episodeFullCanonical === movieCanonical) {
       confidence = 100;
       reason = "exact title";
+      rule = "exact";
+    } else if (multiTitle) {
+      // Pass U59 — one of several films the episode names, matched in full.
+      confidence = 100;
+      reason = "exact title (one of several films in this episode)";
       rule = "exact";
     } else if (
       episodeCanonical.includes(` ${movieCanonical} `) ||
@@ -1203,6 +1237,7 @@ export function matchEpisodeToMovies(
         tvDesignator,
         listEpisode,
         formatWordOnly,
+        multiTitle,
 
 
 

@@ -130,6 +130,10 @@ const SIGNAL_TESTS: { signal: string; test: (s: Record<string, unknown>) => bool
   { signal: "episode title names a television episode", test: (s) => s["tvDesignator"] === true },
   { signal: "list/ranking episode", test: (s) => s["listEpisode"] === true },
   { signal: "matched only a show-format word", test: (s) => s["formatWordOnly"] === true },
+  {
+    signal: "one of several films named in the episode title",
+    test: (s) => s["multiTitle"] === true,
+  },
 
 
 
