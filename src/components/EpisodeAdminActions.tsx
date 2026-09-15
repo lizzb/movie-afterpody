@@ -13,6 +13,12 @@ interface Props {
    * A relationship-only card (one movie's episode) sets this to false.
    */
   includeReview?: boolean;
+  /**
+   * Pass U53 — movie ids linked on this card. Only pass them where the card shows
+   * the episode's whole link set; sign-off then confirms those links too.
+   */
+  linkedMovieIds?: string[];
+
 }
 
 /**
