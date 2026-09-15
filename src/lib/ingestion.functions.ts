@@ -394,6 +394,8 @@ export const ingestPodcast = createServerFn({ method: "POST" })
       const candidates = clients.matchEpisodeToMovies(storedTitle.title, movieList, {
         description: ep.description || null,
         strategy: showStrategy,
+        // Pass U73 — the episode's own publication date.
+        episodeReleasedAt: releasedAt,
       });
       const top = candidates.find((c) => !rejectedPairs.has(`${upsertedEp.id}:${c.movieId}`));
       if (top) {
@@ -548,6 +550,8 @@ export const suggestEpisodeMatches = createServerFn({ method: "POST" })
           commonEpisodeWords,
           // Pass U4 — score with this show's assigned strategy.
           strategy: asMatcherStrategy(ep.podcasts.matcher_strategy),
+          // Pass U73 — the episode's own publication date.
+          episodeReleasedAt: ep.released_at,
         }).filter((c) => !rejectedPairs.has(`${ep.id}:${c.movieId}`));
 
 
@@ -1614,6 +1618,8 @@ export const rescanEpisodeMatches = createServerFn({ method: "POST" })
         description: ep.description,
         commonEpisodeWords,
         strategy,
+        // Pass U73 — the episode's own publication date.
+        episodeReleasedAt: ep.released_at,
       }).filter((c) => !rejected.has(`${ep.id}:${c.movieId}`));
 
 
