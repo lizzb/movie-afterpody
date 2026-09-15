@@ -238,7 +238,7 @@ export async function evaluateMatcher(
     }
     const candidateMovies = pairs
       .map((p) => movieById.get(p.movieId))
-      .filter((m): m is { id: string; title: string; release_year: number | null; collection_id: number | null } => Boolean(m));
+      .filter((m): m is { id: string; title: string; release_year: number | null; release_date: string | null; collection_id: number | null } => Boolean(m));
 
     // Pass U4 — score with the override strategy, or with the show's own.
     const strategy =
@@ -249,6 +249,8 @@ export async function evaluateMatcher(
       commonEpisodeWords,
       titleWordStats,
       strategy,
+      // Pass U73 — temporal sanity uses the episode's publication date.
+      episodeReleasedAt: episode.released_at,
     });
 
     const byMovie = new Map(scores.map((c) => [c.movieId, c]));
