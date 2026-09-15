@@ -55,6 +55,19 @@ export interface MatchSignals {
   sequelMismatch: boolean;
   /** Pass U58 — the only shared words came from a subtitle, not a base title. */
   subtitleOnly: boolean;
+  /**
+   * Pass U60 — the show notes describe this title as something other than a
+   * film (a documentary/TV series, an album, a game show) in the very sentence
+   * that names it.
+   */
+  contentTypeMismatch: boolean;
+  /** Pass U60 — the episode title carries a TV episode designator (S02E18). */
+  tvDesignator: boolean;
+  /** Pass U60 — the episode is a list/ranking/mailbag episode, not a film discussion. */
+  listEpisode: boolean;
+  /** Pass U60 — the only shared words were show-format words ("interview", "live"). */
+  formatWordOnly: boolean;
+
 }
 
 
