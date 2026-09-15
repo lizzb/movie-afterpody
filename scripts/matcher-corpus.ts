@@ -31,6 +31,9 @@ type Movie = {
   release_year: number | null;
   release_date: string | null;
   collection_id: number | null;
+  /** Pass U72 — profile dimensions, filled in after the pool is loaded. */
+  certification: string | null;
+  genre_ids: string[];
 };
 
 const owners = process.argv.slice(2).map((a) => a.toUpperCase());
