@@ -1,21 +1,13 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Bookmark, CalendarCheck, ExternalLink, Headphones, Plus, Trash2 } from "lucide-react";
+import { Bookmark, Plus, Trash2 } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { PageHeader } from "@/components/PageHeader";
 import { PartialDataNotice } from "@/components/PartialDataNotice";
 import { EpisodeCard } from "@/components/card/EpisodeCard";
 import { MovieCard } from "@/components/card/MovieCard";
-import { accentFor, accentSoft, toAccent } from "@/lib/accents";
-import {
-  formatEpisodeDate,
-  formatWatchedOn,
-  LISTENING_LABEL,
-  RATING_LABEL,
-  useListenLater,
-  useListened,
-  useLists,
-} from "@/lib/lists";
+import { accentFor, toAccent } from "@/lib/accents";
+import { useListenLater, useListened, useLists } from "@/lib/lists";
 import { useEpisodeDetails, EMPTY_EPISODE_DETAIL } from "@/lib/details";
 import { prefsActions, usePrefs } from "@/lib/prefs";
 
