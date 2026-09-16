@@ -498,7 +498,7 @@ NEW BACKLOG ADDITIONS - REVIEWED 2026.09.06 832AM
 
 Filed from `.lovable/plan/plan-backlog-only-11-filings-2026-09-14.md`. The other six items in that plan extend existing passes (U37-A, H4, U42-H/I/J, U70-B) and were not given new IDs.
 
-#### Pass U81 — One shared podcast-episode card (Listen Later, movie detail, podcast page)
+#### Pass U81 — One shared podcast-episode card (Listen Later, movie detail, podcast page) — SUPERSEDED 2026-09-16 by Passes K7–K12 — do not build
 
 - Effort: M (~3-5 credits). Confidence in estimate: Medium.
 - Scope: the episode card currently local to `src/routes/podcasts.$slug.tsx`, its new shared home under `src/components/card/`, and the Listen Later + movie-detail call sites (`src/routes/lists.index.tsx` ~lines 205-280, `src/routes/movies.$slug.tsx`).
