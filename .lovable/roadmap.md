@@ -446,6 +446,26 @@ Acceptance: Verified at 390px on `/movies/titanic` — 11 episode cards, round c
 No thumbnail, small-caps date over episode title, mark-listened upper-right, duration subheader, one body row per linked movie (title + year, circular flag right), same footer and rating footer as K5. Episode listen URL + platform sources added to `PodcastEpisodeRow`.
 Acceptance: Verified at 390px on `/podcasts/that-aged-well` — 403 episode cards with date eyebrow, duration, linked-movie rows, Listen, rating footer, existing J3 search/filter/sort/count intact, zero overflow. Implemented, not verified — circular per-link flag (signed-in only) and platform badges (no extra listings in this data).
 
+#### Passes K7–K12 — Card architecture reconciliation: three canonical semantic cards — SHIPPED 2026-09-16 — VERIFIED 2026-09-16 (in-app)
+
+Plan: `.lovable/plan/card-architecture-reconciliation-three-canonical-semantic-ca-2026-09-16.md`. K1–K6 primitives preserved; the six route-local card bodies were consolidated, not redesigned. **Pass U81 is superseded — do not build it.**
+
+Canonical components and consumers (structural acceptance, grep-verified):
+- `src/components/card/MediaCardFrame.tsx` (K7) + `src/components/card/parts/` — `StatusActions`, `PodcastCoverage`, `RelationshipRow` (+ shared `formatDuration`), `ConsumedDate`, `AvailabilityFooter` (`StreamingFooter` / `ListenFooter`).
+- `card/MovieCard.tsx` (K8) — variants `browse` / `compact` / `relationship`, density `rows` / `tiles`. Consumers: Tonight, Movies, Show Details → Movies (`relationship`, episode-link rows + inline moderation), Watchlists (`compact`), Watched history (`compact` + `consumedDate`).
+- `card/EpisodeCard.tsx` (K9/K10) — variants `detail` / `compact`, `media` on/off. Consumers: Movie Details (`detail`, `moderatedMovie`, `episodeContext="partial"`), Show Details → Episodes (`detail`, `media={false}`, `episodeContext="complete"` so sign-off confirms the shown links), Listen Later (`compact`), Listened history (`compact`).
+- `card/ShowCard.tsx` (K11) — variants `browse` / `compact`, density `rows` / `tiles`; the 2-line description preview was dropped per spec. Consumer: Shows.
+- Admin surfaces (`MatchReviewCard`, curation rows) deliberately excluded from the consumer card system.
+
+Episode-level sign-off is gated on information completeness (`episodeContext`), not on route identity. `rg CardShell src/routes` returns nothing — no route defines card markup any more; `src/components/MovieCard.tsx` was deleted.
+
+Acceptance:
+- Verified in-app at 390px and 1280px: Movies, Tonight, Shows, Show Details (Movies + Episodes), Movie Details, and all four Lists tabs render through the canonical components; zero horizontal overflow; no console errors; Listen Later and Listened history now carry listened + bookmark + rating controls they previously lacked; saving/marking listened from a movie-detail card still lands in Lists.
+- Implemented, not verified: admin-only relationship moderation (confirm/flag) and admin footer actions inside the new cards were not re-exercised with an admin session in this pass.
+- Needs follow-up: on the show-detail and Lists surfaces every movie card shows the same Commentary Score (83) — pre-existing data-path behaviour surfaced (not caused) by showing the score there; worth its own triage.
+
+Optional slots reserved but empty (no data source today, none added in this pass): user movie reactions (`userRatingSlot`, Pass U83), external movie rating (`externalRating`), podcast genres (`ShowCard genres`), episode number on show-page cards where the feed omits it, external listen counts, listened/consumed date for listened history (no date is stored).
+
 ### Pass E — Card cleanup — RESOLVED 2026-09-09 — superseded 2026-09-04 by Pass K3 (+ E4 for badge alternatives)
 
 Original scope (drop the redundant "Watched" badge, shrink the commentary badge to icon + number) is now inside Pass K3. Do not build separately.
