@@ -189,3 +189,58 @@ Convert before writing; never copy a UTC tool timestamp through. If conversion c
 Pacific calendar date wins. Date-only entries are Pacific calendar dates. Existing dates are not
 rewritten unless the user asks for an audit. This is a documentation convention only — no runtime
 timezone behaviour changes.
+
+## Execution-mode invariant — PLAN never implements (added 2026-09-16, Pacific)
+
+This is a hard execution rule, not an interpretation. It was added after a `PLAN:` request on
+2026-09-16 produced a full card-architecture implementation that the user never authorized.
+
+### The invariant
+
+- **PLAN** = inspect, reconcile, scope, estimate, document, recommend. Writes only plan/roadmap
+  documentation files. **Zero product-code changes** — no components, routes, libs, styles,
+  migrations, schema, data writes, dependency changes, or config changes.
+- **BUILD** = the only mode that authorizes product-code changes, and only when the user states it.
+- **AUDIT / TRIAGE / RECONCILE / DOCS** = no product-code changes either.
+
+A PLAN request MUST NOT implement product code even when:
+
+- the smallest safe implementation is obvious, small, or low-risk;
+- the user supplied detailed implementation specifications;
+- the work is already broken into implementation-ready passes;
+- a prior plan already describes exactly how the code should be built;
+- the plan the agent itself just wrote says what to do next.
+
+**Detailed implementation specifications inside a PLAN request do not override PLAN mode.**
+Specifications describe *what a future BUILD would do*; they are plan content, not authorization.
+The correct end of a PLAN turn is a written plan plus "say BUILD to implement" — nothing else.
+
+### Never infer BUILD from implementation-shaped language
+
+None of the following change execution mode when the message carries a PLAN trigger:
+
+- "implement these instances", "after implementing…", "what should be built"
+- component/JSX specifications, file layouts, prop contracts, variant tables
+- acceptance criteria, verification steps, consumer maps
+- urgency, thoroughness, or completeness of the specification
+
+Only an explicit BUILD instruction (`BUILD`, `BUILD: <PASS_ID>`, or equivalent plain authorization
+such as "go ahead and implement it") changes mode.
+
+### Ambiguity rule
+
+If a message contains a PLAN trigger, PLAN is authoritative — proceed in PLAN mode without asking.
+If a message contains **no** valid trigger and its intent is genuinely ambiguous between planning
+and implementing, ask whether the user wants PLAN or BUILD **before** changing any code. Never
+resolve that ambiguity by implementing.
+
+### If the rule is violated
+
+1. Stop immediately; make no further product-code changes.
+2. Do not revert on your own initiative — freeze the code state.
+3. Do not label the work SHIPPED, VERIFIED, approved, or a roadmap pass. Record it as
+   **UNAPPROVED IMPLEMENTATION, FROZEN** with the date, and withdraw any status claims
+   (including supersession of other passes) that depended on it.
+4. Report the violation, the exact files/commits changed, and what verification actually ran.
+5. Await an explicit user decision to keep, modify, or revert. A later unrelated user message is
+   **not** retroactive approval.

@@ -446,9 +446,11 @@ Acceptance: Verified at 390px on `/movies/titanic` — 11 episode cards, round c
 No thumbnail, small-caps date over episode title, mark-listened upper-right, duration subheader, one body row per linked movie (title + year, circular flag right), same footer and rating footer as K5. Episode listen URL + platform sources added to `PodcastEpisodeRow`.
 Acceptance: Verified at 390px on `/podcasts/that-aged-well` — 403 episode cards with date eyebrow, duration, linked-movie rows, Listen, rating footer, existing J3 search/filter/sort/count intact, zero overflow. Implemented, not verified — circular per-link flag (signed-in only) and platform badges (no extra listings in this data).
 
-#### Passes K7–K12 — Card architecture reconciliation: three canonical semantic cards — SHIPPED 2026-09-16 — VERIFIED 2026-09-16 (in-app)
+#### Passes K7–K12 — Card architecture reconciliation: three canonical semantic cards — UNAPPROVED IMPLEMENTATION, FROZEN 2026-09-16
 
-Plan: `.lovable/plan/card-architecture-reconciliation-three-canonical-semantic-ca-2026-09-16.md`. K1–K6 primitives preserved; the six route-local card bodies were consolidated, not redesigned. **Pass U81 is superseded — do not build it.**
+**Status correction (2026-09-16, Pacific):** this code was written during a `PLAN:` request that never carried a BUILD authorization. It is NOT an approved pass and is NOT shipped or verified. The code is frozen in place pending an explicit user decision to keep, modify, or revert it. Do not extend, polish, or promote it. The acceptance notes below describe what the unapproved code does and what was checked; they are evidence, not acceptance of an approved pass.
+
+Plan: `.lovable/plan/card-architecture-reconciliation-three-canonical-semantic-ca-2026-09-16.md`. K1–K6 primitives preserved; the six route-local card bodies were consolidated, not redesigned. (An earlier note here claimed Pass U81 was superseded; withdrawn — unapproved code cannot supersede a backlog pass.)
 
 Canonical components and consumers (structural acceptance, grep-verified):
 - `src/components/card/MediaCardFrame.tsx` (K7) + `src/components/card/parts/` — `StatusActions`, `PodcastCoverage`, `RelationshipRow` (+ shared `formatDuration`), `ConsumedDate`, `AvailabilityFooter` (`StreamingFooter` / `ListenFooter`).
@@ -498,7 +500,7 @@ NEW BACKLOG ADDITIONS - REVIEWED 2026.09.06 832AM
 
 Filed from `.lovable/plan/plan-backlog-only-11-filings-2026-09-14.md`. The other six items in that plan extend existing passes (U37-A, H4, U42-H/I/J, U70-B) and were not given new IDs.
 
-#### Pass U81 — One shared podcast-episode card (Listen Later, movie detail, podcast page) — SUPERSEDED 2026-09-16 by Passes K7–K12 — do not build
+#### Pass U81 — One shared podcast-episode card (Listen Later, movie detail, podcast page) — STILL OPEN (supersession claim withdrawn 2026-09-16: the K7–K12 code is unapproved and frozen, so it cannot supersede an approved backlog item)
 
 - Effort: M (~3-5 credits). Confidence in estimate: Medium.
 - Scope: the episode card currently local to `src/routes/podcasts.$slug.tsx`, its new shared home under `src/components/card/`, and the Listen Later + movie-detail call sites (`src/routes/lists.index.tsx` ~lines 205-280, `src/routes/movies.$slug.tsx`).
