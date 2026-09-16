@@ -25,7 +25,6 @@ A credit band on its own is not an estimate. Every new or re-scoped pass records
 
 All dates in this file are **America/Los_Angeles** (PDT/PST) calendar dates, converted from UTC tool timestamps before writing. Existing dates stay as-is unless an audit is requested.
 
-
 ## Roadmap status conventions
 
 Use status labels precisely:
@@ -36,6 +35,8 @@ Use status labels precisely:
 - **NEEDS DESIGN / PLAN** — planning or design must happen before implementation.
 - **HELD** — intentionally paused by the user; do not resume without authorization.
 - **DEFERRED** — intentionally postponed in favor of other work.
+
+* **UNAPPROVED IMPLEMENTATION, FROZEN** — product code exists from an implementation that was not authorized by the user for that pass; the code must not be extended, polished, verified/promoted, or treated as shipped until the user explicitly decides whether to keep, modify, or revert it.
 
 Do not describe a pass as SHIPPED when its own acceptance section says it is not verified.
 
@@ -63,19 +64,19 @@ Use `BUILD` only when product code is expected to change. Expect `VERIFY SWEEP` 
 Effort: S; Confidence in estimate: High. Not U53 (that pass still owns making "Mark reviewed" confirm the links); this was a state-presentation defect only.
 
 Root cause (data-confirmed, two parts — neither was a race, a trigger, or a failed write):
+
 1. `Mark episode reviewed` only flipped once a page-wide `episode-review-states` refetch returned (~1–2s in preview, longer on mobile), so the tap looked ignored. `episode_reviews` shows 12 rows where `reopened_at - reviewed_at` is 1–7s with reason `manual_reopen` — i.e. a second tap on the same control, now labelled "Reopen", silently undid the review that had just been recorded.
 2. On a fresh load, already-confirmed links painted as unconfirmed for ~3s while `fetchConfirmedKeys` read all 5,894 confirmed pairs in six sequential 1,000-row pages — which invited re-confirming (and hence toggling off) links that were already confirmed. That read also ordered by `episode_id` alone, which is not unique, so offset paging over a tie could skip or repeat rows.
 3. Disproved: no reopen trigger fires on confirm (`stale_episode_review` fires on non-confirmed link INSERT, link DELETE and flag INSERT only; `resolveOpenFlags` is an UPDATE). `setEpisodeReviewed` and `confirmEpisodeMatch` both re-read and verify their writes. No `new_link` reopens exist in the data.
 
 Fix:
+
 - `src/lib/episode-reviews.ts` — `useSetEpisodeReviewed` writes the new reviewed state straight into every cached `episode-review-states` result on mutate (rolled back on failure), then still invalidates.
 - `src/components/EpisodeReviewButton.tsx` — a reopen within 2.5s of marking reviewed is treated as a stray second tap and ignored; the confirm direction is unguarded.
 - `src/lib/link-review.ts` — confirmed-pairs read ordered by `episode_id, movie_id`; confirm/unconfirm patches the fetched set as well as the session overrides; hook exposes `isLoading`.
 - `src/components/ConfirmMatchButton.tsx` — spinner + disabled while the confirmed set loads instead of drawing "unconfirmed".
 
 Verified at 390px, signed-in admin, real workflow: confirm → mark reviewed 120ms later → reviewed shows at +300ms, confirmed at +700ms; a stray third tap inside the guard window did not undo it; both states survive navigate-away-and-back and a hard reload; database read confirms `review_state = confirmed`, `reviewed_at` set, `reopened_at` null. No console errors.
-
-
 
 ### Pass U86 — "Wrong movie?" flag state never rendered — S — SHIPPED 2026-09-14, VERIFIED (preview, 390px)
 
@@ -92,7 +93,6 @@ Two causes, both fixed: the client refetch list did not include the L2b server-r
 - `src/lib/episode-reviews.ts` — `RETIREMENT_KEYS` (shared by retire and undo) now also invalidates `movie-page`, `show-page`, `show-detail`, `episode-details`, `facets`.
 - `src/lib/catalog.server.ts` — new `expireCatalog()` drops the cached snapshot; called by `markEpisodeNotAboutMovie` and `undoEpisodeRetirement` after the write.
 - Not verified in-app: needs one retire + undo on a show with visible links, confirming the links disappear within one navigation and return on undo. Snapshot cache is per-worker, so a multi-worker deployment may still serve one stale read; noted, not addressed here.
-
 
 ### Pass U63 — Admin server functions no longer load whole tables — M — IMPLEMENTED, NOT VERIFIED (status re-confirmed 2026-09-09; blocked on U76)
 
@@ -123,7 +123,6 @@ The D/O/T5/G/H/Y repair pass is verified and closed (see "Already done"). The re
 - **Pass H3 — Surface sorting on Tonight — S (~1-2 credits) — NEEDS DESIGN.** Options: sort chip row above results; single sort button beside the result count; mode segmented control (Best match / Short / New / Most covered); right-aligned results-toolbar dropdown.
 - **Pass H4 — Best-only / minimum Commentary Score — S (~1-2 credits).** No hard default minimum until score distribution is measured; ship a "Best only" toggle with a visible match count first.
   - **Scope extended 2026-09-14** (plan: `.lovable/plan/plan-backlog-only-11-filings-2026-09-14.md` item 2) — H4 absorbs the minimum-score control; no separate pass. Effort: S (~1-2 credits). Confidence in estimate: Medium. Scope: advanced filters in `src/components/FilterBar.tsx` plus the pref that feeds `applyFilters`. Steps: compact popover `Min score: Any ▾` offering **Any / 25 / 50 / 75 / 90 only** — deliberately no 1- or 5-point granularity, which would imply precision the score does not have; Movies defaults to Any (no filter), Tonight defaults to 50. Dependency: before shipping the Tonight default, confirm from live data that 50 leaves a useful result set; if it starves Tonight, ship Any on both and revisit. Unknown: the real score distribution (this is H4's original measurement caveat). Acceptance: control present in advanced filters on both surfaces, persists with other prefs, and counts toward the `Filters · N active` total from U37-A.
-
 
 #### Movies gets its own filter surface — Priority 2b
 
@@ -376,7 +375,6 @@ Y2's rating range is accepted; this pass addresses the broader filtering-feedbac
 - Complexity drivers: shared FilterBar serves two surfaces with different default-exposed controls; separating "applied" from "pending" state cleanly is the real work.
 - Acceptance: one obvious entry point on Tonight and Movies at 390px; outer label reflects applied state only and always opens the panel; icons as specified; no duplicate match count on the filter block; staged/commit behaviour inside the panel unchanged.
 
-
 ## Worth doing soon
 
 #### Pass L1 — Catalogue read is too heavy for a cold page load — M (~3-5 credits) — SHIPPED 2026-09-05 — accepted on code/measurement evidence 2026-09-09 (no further bespoke runtime test planned)
@@ -453,6 +451,7 @@ Acceptance: Verified at 390px on `/podcasts/that-aged-well` — 403 episode card
 Plan: `.lovable/plan/card-architecture-reconciliation-three-canonical-semantic-ca-2026-09-16.md`. K1–K6 primitives preserved; the six route-local card bodies were consolidated, not redesigned. (An earlier note here claimed Pass U81 was superseded; withdrawn — unapproved code cannot supersede a backlog pass.)
 
 Canonical components and consumers (structural acceptance, grep-verified):
+
 - `src/components/card/MediaCardFrame.tsx` (K7) + `src/components/card/parts/` — `StatusActions`, `PodcastCoverage`, `RelationshipRow` (+ shared `formatDuration`), `ConsumedDate`, `AvailabilityFooter` (`StreamingFooter` / `ListenFooter`).
 - `card/MovieCard.tsx` (K8) — variants `browse` / `compact` / `relationship`, density `rows` / `tiles`. Consumers: Tonight, Movies, Show Details → Movies (`relationship`, episode-link rows + inline moderation), Watchlists (`compact`), Watched history (`compact` + `consumedDate`).
 - `card/EpisodeCard.tsx` (K9/K10) — variants `detail` / `compact`, `media` on/off. Consumers: Movie Details (`detail`, `moderatedMovie`, `episodeContext="partial"`), Show Details → Episodes (`detail`, `media={false}`, `episodeContext="complete"` so sign-off confirms the shown links), Listen Later (`compact`), Listened history (`compact`).
@@ -462,6 +461,7 @@ Canonical components and consumers (structural acceptance, grep-verified):
 Episode-level sign-off is gated on information completeness (`episodeContext`), not on route identity. `rg CardShell src/routes` returns nothing — no route defines card markup any more; `src/components/MovieCard.tsx` was deleted.
 
 Acceptance:
+
 - Verified in-app at 390px and 1280px: Movies, Tonight, Shows, Show Details (Movies + Episodes), Movie Details, and all four Lists tabs render through the canonical components; zero horizontal overflow; no console errors; Listen Later and Listened history now carry listened + bookmark + rating controls they previously lacked; saving/marking listened from a movie-detail card still lands in Lists.
 - Implemented, not verified: admin-only relationship moderation (confirm/flag) and admin footer actions inside the new cards were not re-exercised with an admin session in this pass.
 - Needs follow-up: on the show-detail and Lists surfaces every movie card shows the same Commentary Score (83) — pre-existing data-path behaviour surfaced (not caused) by showing the score there; worth its own triage.
@@ -547,7 +547,6 @@ Filed from `.lovable/plan/plan-backlog-only-11-filings-2026-09-14.md`. The other
 - Acceptance: every label states its scope; a first-time reader can predict each button's effect; the stale definition in the copy matches the code.
 
 ## Newly filed / queued backlog — 2026-09-06
-
 
 ### TO SEND NOW / next after current stability gate
 
@@ -817,7 +816,6 @@ J. Remove show-card descriptions on the Podcasts index (filed 2026-09-14 — pla
 - Acceptance: no description text on index cards at 390px; more cards above the fold; show detail unchanged.
 
 Also identify any small-ish UX changes from this redesign that naturally reduce initial data/rendering cost without compromising correctness.
-
 
 - No code changes in this planning pass.
 - Identify only small, naturally aligned performance wins; do not turn this into another L2b.
@@ -1361,11 +1359,11 @@ Full analysis: `.lovable/plan/plan-backlog-only-three-filings-2026-09-07.md` (se
 Implemented: `confirmCurrentEpisodeLinks` in `src/lib/ingestion.functions.ts` re-reads `episode_movies` and open `episode_link_flags` at click time, refuses with "Resolve the flagged link first", aborts with "This episode changed — reload before signing off" on a snapshot mismatch, and confirms only non-confirmed links (already-confirmed keep their original reviewer/timestamp). Opt-in via `confirmLinks` + `expectedMovieIds`, honoured for single-episode sign-off only; the bulk path in `MatchReviewCard` stays review-only. Client: `useSetEpisodeReviewed` takes `movieIds`, patches `CONFIRMED_KEY` and invalidates `episode-flags`; `EpisodeReviewButton`/`EpisodeAdminActions` accept `linkedMovieIds`, supplied on `/podcasts/$slug` cards only. No migration, no matching run, no rejection or movie writes.
 
 Acceptance (verified in a signed-in admin session, 2026-09-15):
+
 - Verified — "Magic (1978)" (4 auto-linked links): sign-off confirmed all 4 with reviewer + timestamp and wrote one current review record.
 - Verified — flagged episode "Patriot Games": refused; no review record, link still `proposed`.
 - Verified — typecheck clean; bulk mark-reviewed unchanged (no `confirmLinks` at its call site).
 - Implemented, not verified in UI — stale-snapshot abort and zero-link/retired no-op paths (code-level only).
-
 
 Logically safe, with one hard condition: the button may only sit on surfaces that show the episode's whole link set (U38 already removed it from movie-detail cards via `includeReview={false}` — that is now a safety rule, not cosmetics), and the write must re-read the database rather than trust the rendered page.
 
@@ -1440,7 +1438,6 @@ Built: description title mentions are detected before the year is scored; years 
 
 Acceptance checklist — **Verified:** both judged U57 corpus cases pass (`My Blueberry Nights`, `What Planet Are You From?` and `Critters` skipped — absent from the catalogue), the `π (1998)` false-positive family is gone, 27 of 30 judged cases pass overall with no regression in U55/U56/U75 cases; typecheck clean. **Needs follow-up:** the standing accuracy gate (precision must rise) is not met — over 10,779 labelled pairs at threshold 25 precision moved 87.82% → 87.67% (-0.15) while recall rose 96.67% → 96.95% (+0.28); the wrong-but-suggested pairs now cluster in band 55–69. One tightening pass (restricting the strong description floor to multi-word titles) recovered 0.14 of the 0.29-point initial drop; further tuning was stopped at the credit boundary rather than expanding scope. **Not applicable:** no schema, UI or write-path changes; no replay/recheck run.
 
-
 #### Pass U58 — Sequel and subtitle identity, reconciled with Pass W — S (~1-2 credits) — depends on U55 — SHIPPED 2026-09-14, VERIFIED
 
 A pre-pass ahead of W's family collapse, not a second sequel system: a bare `II`/`2`/part marker is a distinguisher requiring base-title identity and never acts as shared positive evidence; base-title vs subtitle decomposition means subtitle-only overlap is insufficient unless independently distinctive. Regression: `23: Mission: Impossible II` ≠ `Ghostbusters II`; `3: Shrek 2`, `160: Universal Solider 2`, `176: The Rage: Carrie 2` ≠ `Deadpool 2`; `6: Transformers: Revenge of the Fallen` beats `Revenge of the Nerds`; `4: Pirates of the Caribbean: Dead Man's Chest` beats `The Family Man`.
@@ -1448,8 +1445,6 @@ A pre-pass ahead of W's family collapse, not a second sequel system: a bare `II`
 Built: numbering markers are recognised only in trailing position (`Sharknado 3`, and the head of `Ready or Not 2: Here I Come`) and never after an enumerating word (`Top 5 …`, `Episode 5`, `Vol. 2`); roman numerals and digits are equivalent, so `Evil Dead 2` and `Evil Dead II` are the same entry. A marker counts as shared evidence only when the two base titles are identical, so `Shrek 2` lends nothing to `Deadpool 2`; when the episode names a numbered entry and a candidate carries no number at all, that candidate is capped at 20 unless it is an exact hit or is named in the description with its own release year. Subtitle decomposition caps overlap that lives only in a subtitle on either side, unless the shared word clears the U57 identifying-distinctiveness bar or the year/description corroborates. New signals `sequelMismatch` / `subtitleOnly` surfaced in the matcher scorecard. Corpus grew five U58 cases. Pass W's family/collection collapse is unchanged — this pass only decides what counts as evidence before W groups candidates.
 
 Acceptance checklist — **Verified:** all 7 U58-owned corpus cases pass (`bun scripts/matcher-corpus.ts`), 35 of 37 judged cases pass overall with no regression in U55/U56/U57/U73/U75 cases (the 2 remaining failures owned by U59 and U60, 5 skipped for absent catalogue titles); scoring over 10,779 labelled pairs at threshold 25 — precision 88.21% → 89.06% (+0.85), recall 96.77% → 96.63% (-0.14), inside the ≤2-point gate; typecheck clean. **Not applicable:** no schema, UI or write-path changes; no per-show exceptions; no replay/recheck run.
-
-
 
 #### Pass U59 — Multi-title extraction — M (~3-5 credits) — depends on U55 — SHIPPED 2026-09-14, VERIFIED
 
@@ -1464,7 +1459,6 @@ Acceptance checklist — **Verified:** all judged U59 corpus cases pass (`bun sc
 Sentence-scoped content-type cues (`documentary series`, `album`, similar) act as strong negative evidence only when the cue sits in the same sentence as the candidate title, overridable by an exact title or a title+year mention. Not a keyword ban. Regression: `42 Up` + "documentary series" ≠ `Up, up, and Away`; `PLAY` + "one of the most influential albums" ≠ `Foul Play`; plus a positive control where unrelated use of "series"/"album" does not suppress a strong movie match.
 
 Built together with the U60 extension below (one pass, S band). Acceptance checklist — **Verified:** all 11 U60-owned corpus cases pass, including the four new extension cases (`Bill's 50 Most Rewatchable Movies…`, `The Definitive Action Hero Ranking Pt. 2`, `Gilmore Girls - S02E18…`, and the `Best in Show` positive control) and the previously failing `Niall Matter Interview (Much About Love)`; 40 of 41 judged corpus cases pass with no regression in U55/U56/U57/U58/U73/U75 cases (the one remaining failure owned by U59, 5 skipped for absent catalogue titles); scoring over 10,779 labelled pairs at threshold 25 — precision 89.06% → 89.45% (+0.39), recall 96.63% → 96.10% (-0.53), inside the ≤2-point gate; typecheck clean. **Not applicable:** no schema, UI or write-path changes; no per-show exceptions; no replay/recheck run.
-
 
 #### Pass U61 — Show-scoped confusion memory (derived) — M (~3-5 credits) — independent, do last
 
@@ -1508,7 +1502,7 @@ On `/podcasts/$slug`, selecting the episode title in a covered-movie card's rela
 
 Audit first, then the smallest V1 change. Confirm per path which actions reach the history, including bulk equivalents, and where each timestamp comes from. Hold the architectural line: `episode_reviews` = current state, `match_actions` = historical decisions; no second audit system. Deliverable: a statement of what the section actually represents, a rename recommendation only if the content is genuinely broader, and a recommendation on whether review/reopen events belong in `match_actions`. Acceptance: per-action logged/not-logged table plus recommendations covering undo events, reopen events, bulk actions and relationship vs episode-level grouping.
 
-**U70-B — Search "Recent match decisions" — filed 2026-09-14** (plan: `.lovable/plan/plan-backlog-only-11-filings-2026-09-14.md` item 9). Build item under existing history ownership; run after U70's audit so naming and coverage are settled first. No competing history system — U71 remains the owner of *which* event types appear.
+**U70-B — Search "Recent match decisions" — filed 2026-09-14** (plan: `.lovable/plan/plan-backlog-only-11-filings-2026-09-14.md` item 9). Build item under existing history ownership; run after U70's audit so naming and coverage are settled first. No competing history system — U71 remains the owner of _which_ event types appear.
 
 - Effort: S (~1-2 credits). Confidence in estimate: High.
 - Scope: `src/components/admin/MatchHistoryCard.tsx` and `listMatchActions` in `src/lib/ingestion.functions.ts`.
@@ -1516,8 +1510,6 @@ Audit first, then the smallest V1 change. Confirm per path which actions reach t
 - Steps: add a debounced server-side search over movie title, podcast name and episode title, plus a date filter, querying the whole `match_actions` history rather than filtering the loaded page; bounded page size preserved.
 - Dependencies: U70 audit. Unknowns: whether the existing joins support title search without a new index — measure before assuming one is needed.
 - Acceptance: searching "blue" returns matching decisions older than the current 40-row window; undo still works on returned rows; searching / no-results states explicit; the unfiltered default view unchanged.
-
-
 
 #### Pass U71 — Episode review events in the activity history — M (~3-5 credits) — depends on U70
 
@@ -1534,7 +1526,6 @@ Plan: `.lovable/plan/plan-backlog-only-matcherimprovementinitiative-extensions-a
 Same sentence-scoped, overridable rule; cue vocabulary grows: `game show` (also a strong `not_about_a_movie` signal — "Nickelodeon's most competitive game show"), `album` (regression: "one of the most popular albums of all-time, 'Hybrid Theory' by Linkin Park"), `television series`; plus **episode-designator titles** (`Season 2 Episode 18`, `Episode 5`, `S02E18` ⇒ TV, not film — `Gilmore Girls - Season 2 Episode 18…` → no link, `Paris is Always a Good Idea - Episode 5 (Hallmark+ - 2026)` must not reach `Always (1989)`); plus **compilation/list episodes** (`BRUNCH: The Greatest Drinks in Movie History`, `Bill's 50 Most Rewatchable Movies of the 21st Century`, `FH Mini #150 - Best Stephen King Movies`, `The Definitive Action Hero Ranking Pt. 2`, `A 2026 Rewatchables Mailbag`). Cue must describe the candidate/content, not merely appear; exact title or title+year overrides. List-episode detection may push U60 from S to M — report rather than expand.
 
 Built with U60 in one S-band pass — list-episode detection did not push it to M. Content-type cues are matched only inside the sentences that name the candidate, and every such sentence must carry the cue, so an unrelated "series"/"album" elsewhere in long show notes changes nothing. TV designators (`SxxEyy`, `Season N`, `Episode N`) count only away from the start of the title, so podcast numbering (`Ep. #441 - …`) is untouched. List detection requires a superlative applied to a plural category (`Best … Movies`, `Greatest Drinks in Movie History`), an explicit ranking/draft/bracket, or a mailbag — a superlative alone never fires, so `Best in Show` still matches. A fourth rule (`formatWordOnly`) caps candidates whose only shared words are show-format words, which is what let `The Interview` win on `Niall Matter Interview (Much About Love)`. New signals `contentTypeMismatch` / `tvDesignator` / `listEpisode` / `formatWordOnly` are surfaced in the matcher scorecard.
-
 
 #### U61 extension — recurring confusion clusters (no new ID)
 
@@ -1569,7 +1560,6 @@ Expected work: read the 55–69 negatives out of the evaluator by dominant signa
 Dependencies: U57 and U73 must stay as shipped — this pass re-tunes their weights, it does not replace their rules. Unknowns: whether the band is dominated by a small number of shows (which would make it a U72 profile problem instead) or spread across the catalogue; measure first. Complexity drivers: every weight change moves all seven bands at once, so each candidate change needs a full re-score. Confidence: medium — the diagnosis is measured, the size of the achievable gain is not.
 
 Note: U57 remains recorded as IMPLEMENTED, NOT VERIFIED for its own gate, even though U73 has since lifted overall precision above the U56 baseline.
-
 
 #### Pass U74 — Episode lineage: reissue / re-release inheritance — M (~3-5 credits) — pairs with U65
 
