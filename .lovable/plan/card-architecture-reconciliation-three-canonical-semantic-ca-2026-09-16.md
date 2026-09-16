@@ -9,13 +9,13 @@ Shared primitives from K2 are in `src/components/card/Card.tsx` (`CardShell`, `C
 
 The gap is exactly the one you named: **six route-local card bodies** re-implement three semantic cards on top of those primitives.
 
-| Semantic type | Canonical today | Route-local duplicates |
-| --- | --- | --- |
-| Movie | `src/components/MovieCard.tsx` (`MovieRow` + `MovieTile`) — Tonight, Movies | `CoveredMovie`/`CoveredList` in `podcasts.$slug.tsx`; watchlist entry rows and watched-history rows in `lists.index.tsx` |
-| Episode | none | `EpisodeRow` in `movies.$slug.tsx`; `PodcastEpisodeCard` in `podcasts.$slug.tsx`; Listen Later rows and Listened rows in `lists.index.tsx` |
-| Show | none | `PodcastCard` in `podcasts.index.tsx` (single consumer, but not a shared component) |
+| Semantic type | Canonical today                                                             | Route-local duplicates                                                                                                                     |
+| ------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Movie         | `src/components/MovieCard.tsx` (`MovieRow` + `MovieTile`) — Tonight, Movies | `CoveredMovie`/`CoveredList` in `podcasts.$slug.tsx`; watchlist entry rows and watched-history rows in `lists.index.tsx`                   |
+| Episode       | none                                                                        | `EpisodeRow` in `movies.$slug.tsx`; `PodcastEpisodeCard` in `podcasts.$slug.tsx`; Listen Later rows and Listened rows in `lists.index.tsx` |
+| Show          | none                                                                        | `PodcastCard` in `podcasts.index.tsx` (single consumer, but not a shared component)                                                        |
 
-U81 (one shared podcast-episode card) is a subset of this work and is absorbed by K9/K10 below — it will not be built separately. K1–K6 primitives and Cinema Neon styling are preserved; nothing is redesigned.
+U81 (one shared podcast-episode card) is a subset of the proposed K9/K10 work. Because K7–K12 were not authorized for implementation, U81 remains an open roadmap pass pending an explicit user decision about whether the proposed K9/K10 architecture should replace or incorporate it. K1–K6 primitives and Cinema Neon styling are preserved; nothing is redesigned.
 
 ## Target architecture
 
@@ -35,18 +35,18 @@ Rules this enforces: one semantic component per type; every surface imports it; 
 
 ### Consumer map (final state)
 
-| # | Surface | Component | Variant | Density |
-| --- | --- | --- | --- | --- |
-| 1 | Tonight (`routes/index.tsx`) | `MovieCard` | browse | row / tile |
-| 2 | Movies (`routes/movies.index.tsx`) | `MovieCard` | browse | row / tile |
-| 3 | Shows (`routes/podcasts.index.tsx`) | `ShowCard` | browse | row / tile |
-| 4 | Show Details → Movies (`podcasts.$slug.tsx`) | `MovieCard` | relationship | row / tile |
-| 5 | Watchlists (`lists.index.tsx`) | `MovieCard` | compact | row |
-| 6 | Listen Later | `EpisodeCard` | compact | row |
-| 7 | Watched history | `MovieCard` | compact + `consumedDate` | row |
-| 8 | Listened history | `EpisodeCard` | compact + `consumedDate` | row |
-| 9 | Movie Details → Episodes | `EpisodeCard` | detail | row |
-| 10 | Show Details → Episodes | `EpisodeCard` | detail (`media={false}`) | row |
+| #   | Surface                                      | Component     | Variant                  | Density    |
+| --- | -------------------------------------------- | ------------- | ------------------------ | ---------- |
+| 1   | Tonight (`routes/index.tsx`)                 | `MovieCard`   | browse                   | row / tile |
+| 2   | Movies (`routes/movies.index.tsx`)           | `MovieCard`   | browse                   | row / tile |
+| 3   | Shows (`routes/podcasts.index.tsx`)          | `ShowCard`    | browse                   | row / tile |
+| 4   | Show Details → Movies (`podcasts.$slug.tsx`) | `MovieCard`   | relationship             | row / tile |
+| 5   | Watchlists (`lists.index.tsx`)               | `MovieCard`   | compact                  | row        |
+| 6   | Listen Later                                 | `EpisodeCard` | compact                  | row        |
+| 7   | Watched history                              | `MovieCard`   | compact + `consumedDate` | row        |
+| 8   | Listened history                             | `EpisodeCard` | compact + `consumedDate` | row        |
+| 9   | Movie Details → Episodes                     | `EpisodeCard` | detail                   | row        |
+| 10  | Show Details → Episodes                      | `EpisodeCard` | detail (`media={false}`) | row        |
 
 ### Differences expressed as props/slots, not new components
 
@@ -80,7 +80,7 @@ Migrate 6 and 8; both gain listened + rating controls writing through `prefsActi
 Extract `PodcastCard` into `card/ShowCard.tsx` with browse + compact variants and tile density; drop the 2-line description preview per spec.
 
 **K12 — Structural acceptance report + roadmap reconciliation — S**
-Grep-backed evidence that each semantic card has exactly one definition and every listed consumer imports it; one spacing change demonstrated across all ten surfaces at 390px and 1280px; roadmap marks U81 superseded and cross-references U83.
+Grep-backed evidence that each semantic card has exactly one definition and every listed consumer imports it; one spacing change demonstrated across all ten surfaces at 390px and 1280px; roadmap reconciliation of U81 and cross-references to U83.
 
 Order K7 → K8 → K9 → K10 → K11 → K12. Total effort band **L–XL (~10–16 credits)**; confidence Medium (the variant contract per surface is the real work, not the markup). Recommend approving K7+K8 first, then re-checking scope.
 
