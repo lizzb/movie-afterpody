@@ -408,6 +408,33 @@ Audit finding: no consumer page is _incorrect_ — filters, sorts, counts and Co
 
 Stability gate before card passes resume: first content within ~2s warm / ~4s cold on Movies, Shows and show detail against the live dataset; no unresponsive-page condition; a 900+ episode show scrolls and expands without stalling; every mutation triggers a bounded refetch; counts verified against SQL for two filter combinations; flat JS heap across three navigations.
 
+### Already documented elsewhere — DO NOT create duplicate pass
+
+#### Future performance optimization notes — covered by existing L3/L4/L5
+
+The following concepts are already represented in the performance roadmap and do not need a duplicate pass:
+
+1. Virtualize long lists
+   - Use when a logically large result set still needs a long scrollable UI.
+   - Supporting optimization, not a substitute for correct server-side filtering/pagination.
+
+2. Progressive/lazy loading
+   - Use for expensive secondary content such as descriptions, images, or other detail revealed after initial render.
+   - Supporting optimization layered onto bounded data fetching.
+
+3. Context-specific mobile/desktop presentation
+   - Only introduce when mobile density genuinely benefits from a different presentation.
+   - Do not create separate implementations merely because the current layout is large.
+
+4. Performance guardrail
+   - Large-data pages must not revert to unbounded client-side loading/scanning/rendering as the catalogue grows.
+
+Core principle:
+
+- Optimize data transfer, browser computation, and rendering without reducing the full dataset considered when correctness depends on the full scope.
+
+This corresponds to existing Passes L3/L4/L5 and should not be separately filed.
+
 ### Card system (Passes K1-K6) — filed 2026-09-04 — plan: `.lovable/plan/card-system-reconciliation-four-card-layouts-flag-consistenc-2026-09-04.md`
 
 One shared card grammar (thumbnail / header h1 + h2 + upper-right controls / badge subheader / body rows / footer left-float + trailing text / optional expand-collapse footer) across the Movies list card, movie-detail episode card, podcast-page movie card and podcast-page episode card. Reference mockup is layout-only; Cinema Neon styling is authoritative. Suggested order K1 → K2 → K3 → K5 → K6 → K4, ~14-20 credits total.
@@ -1624,33 +1651,6 @@ Original filing:
 `readCatalog` (`src/lib/catalog.server.ts`) moved the episode read to `fetchByKeyset` (`.gt("id", afterId).order("id")`) during the 2026-09-10 timeout fix and lost the `.in("podcast_id", activePodcastIds)` predicate; parked shows' episodes are now fetched over the wire and filtered out in memory, reversing the source-side filtering still applied to `podcast_external_metrics` and `episode_movies` (the L2a follow-up contract). Fix: keep keyset paging, reapply the active-podcast predicate in SQL (chunk the id list if it exceeds a safe URL length), and drop the in-memory filter and its re-sort. Acceptance: zero parked-show episode rows in the catalogue payload, catalogue counts unchanged for active shows, and Mom Can't Cook (111 episodes) / Your Inner Child Is an Idiot (255 episodes) still expose their full episode sets. Not open: the page-size-above-row-cap truncation risk the finding also mentions was fixed on 2026-09-10 (`LIMIT = 1000`, loop continues until an empty page).
 
 Priority recommendation recorded 2026-09-11: U78 now (published admin panels broken), U79 now (visitors can see a blank browse page), then U77, then U80, then L2c-1.
-
-### Already documented elsewhere — DO NOT create duplicate pass
-
-#### Future performance optimization notes — covered by existing L3/L4/L5
-
-The following concepts are already represented in the performance roadmap and do not need a duplicate pass:
-
-1. Virtualize long lists
-   - Use when a logically large result set still needs a long scrollable UI.
-   - Supporting optimization, not a substitute for correct server-side filtering/pagination.
-
-2. Progressive/lazy loading
-   - Use for expensive secondary content such as descriptions, images, or other detail revealed after initial render.
-   - Supporting optimization layered onto bounded data fetching.
-
-3. Context-specific mobile/desktop presentation
-   - Only introduce when mobile density genuinely benefits from a different presentation.
-   - Do not create separate implementations merely because the current layout is large.
-
-4. Performance guardrail
-   - Large-data pages must not revert to unbounded client-side loading/scanning/rendering as the catalogue grows.
-
-Core principle:
-
-- Optimize data transfer, browser computation, and rendering without reducing the full dataset considered when correctness depends on the full scope.
-
-This corresponds to existing Passes L3/L4/L5 and should not be separately filed.
 
 ### Pass L — Scheduled refresh — L (~6-10 credits) — Priority 11
 
