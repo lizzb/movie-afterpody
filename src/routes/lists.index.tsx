@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { PartialDataNotice } from "@/components/PartialDataNotice";
 import { EpisodeCard } from "@/components/card/EpisodeCard";
 import { MovieCard } from "@/components/card/MovieCard";
-import { accentFor, toAccent } from "@/lib/accents";
+import { accentFor } from "@/lib/accents";
 import { useListenLater, useListened, useLists } from "@/lib/lists";
 import { useEpisodeDetails, EMPTY_EPISODE_DETAIL } from "@/lib/details";
 import { prefsActions, usePrefs } from "@/lib/prefs";
@@ -112,7 +112,6 @@ function ListsPage() {
                 </li>
               ) : null}
               {lists.map(({ list, entries, watchableCount }) => {
-                const accent = toAccent(list.accent);
                 return (
                   <li key={list.id} className="rounded-2xl border border-border bg-card p-4 shadow-card">
                     <div className="flex items-start justify-between gap-3">
