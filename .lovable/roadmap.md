@@ -729,14 +729,14 @@ Reconcile against existing Pass G3 and Pass F rather than creating parallel beha
 
 This should be treated as shared UX/design work rather than a collection of unrelated one-off fixes.
 
-A. Search clear behavior
+U42A. Search clear behavior
 
 - Shared search clear behavior = Search clear X control.
 - Implement shared search-input component behavior across the app.
 - Podcast show details: episode search bar needs an X/clear affordance that appears in the search bar if not empty.
 - A standard UX inline clear-search control X should be present throughout the app wherever there is a search bar.
 
-B. Shared semantic metadata variants
+U42B. Shared semantic metadata variants
 
 - The pill styling for the rating (e.g. PG13) seems to be different on the movie details page than on the Tonight > movie card page (less padding, maybe slightly smaller?).
 - Duration styling also differs in these locations: in a badge with icon vs plaintext with icon.
@@ -758,13 +758,13 @@ Do not force identical presentation merely for consistency. Recommend consistenc
 
 The objective is a coherent visual language, not artificial uniformity.
 
-C. Listen button treatment — **done, see U42C below (2026-09-14)**
+U42C. Listen button treatment — **done, see U42C below (2026-09-14)**
 
-D. External link buttons — **done, see U42D below (2026-09-14)**
+U42D. External link buttons — **done, see U42D below (2026-09-14)**
 
-E. Relationship action visual consistency — **done, see U42a below (shipped 2026-09-07, VERIFIED 2026-09-09)**
+U42E. Relationship action visual consistency — **done, see U42a below (shipped 2026-09-07, VERIFIED 2026-09-09)**
 
-F. Confirm vs Flag positioning
+U42F. Confirm vs Flag positioning
 
 - For Movie Details episode cards, create a compact action group for confirm-link / flag-incorrect icon buttons to the right of the episode/movie linkage.
 - Prefer relationship actions directly adjacent to the relationship they act on.
@@ -773,7 +773,7 @@ F. Confirm vs Flag positioning
   - relationship row/action area = relationship moderation
   - episode-level admin actions = separate admin area
 
-G. Podcast show details confirm/flag composition
+U42G. Podcast show details confirm/flag composition
 
 - On Podcast show details > movie card, the confirm/flag circular buttons are approximately the larger touch size requested.
 - Functionally the size is correct, but the composition feels wrong.
@@ -789,7 +789,7 @@ G. Podcast show details confirm/flag composition
 - Do not assume the fix is simply "make them smaller."
 - Low priority.
 
-H. Watchlist movie card consistency (filed 2026-09-14 — plan: `.lovable/plan/plan-backlog-only-11-filings-2026-09-14.md` item 4)
+U42H. Watchlist movie card consistency (filed 2026-09-14 — plan: `.lovable/plan/plan-backlog-only-11-filings-2026-09-14.md` item 4)
 
 - Effort: S (~1-2 credits). Confidence in estimate: High.
 - Scope: `src/routes/lists.index.tsx` watchlist rows (~lines 160-190) only.
@@ -799,7 +799,7 @@ H. Watchlist movie card consistency (filed 2026-09-14 — plan: `.lovable/plan/p
 - Unknowns: none material. Complexity drivers: none.
 - Acceptance: watchlist rows match the history/movies-card year convention; watched is visually subordinate; no new styling convention introduced.
 
-I. Listening History badge grammar (filed 2026-09-14 — inspection complete, see plan item 5)
+U42I. Listening History badge grammar (filed 2026-09-14 — inspection complete, see plan item 5)
 
 - Effort: S (~1-2 credits). Confidence in estimate: High.
 - Inspection finding: the listened badge is fixed neutral (`bg-secondary`, muted text, headphones icon); the rating badge is tinted with the **podcast's accent** via `accentSoft(podcast.accent)`. The colour difference therefore carries **no rating semantics** — loved and disliked on the same show look identical, and the same rating differs across shows. Arbitrary, and misleading because tinted badges elsewhere read as meaningful.
@@ -807,7 +807,7 @@ I. Listening History badge grammar (filed 2026-09-14 — inspection complete, se
 - Recommendation: status stays neutral + icon; rating maps to sentiment tokens (negative / neutral / positive) so colour means one thing everywhere; podcast accent is reserved for podcast identity, never for user judgements.
 - Acceptance: a written badge-grammar rule plus both badges conforming.
 
-J. Remove show-card descriptions on the Podcasts index (filed 2026-09-14 — plan item 10)
+U42J. Remove show-card descriptions on the Podcasts index (filed 2026-09-14 — plan item 10)
 
 - Effort: S (~1-2 credits). Confidence in estimate: High.
 - Scope: `src/routes/podcasts.index.tsx` (~line 228) description preview only.
