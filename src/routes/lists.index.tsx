@@ -4,8 +4,8 @@ import { Bookmark, CalendarCheck, ExternalLink, Headphones, Plus, Trash2 } from 
 import { AppShell } from "@/components/AppShell";
 import { PageHeader } from "@/components/PageHeader";
 import { PartialDataNotice } from "@/components/PartialDataNotice";
-import { Artwork } from "@/components/Artwork";
-import { BrandBadge } from "@/components/BrandBadge";
+import { EpisodeCard } from "@/components/card/EpisodeCard";
+import { MovieCard } from "@/components/card/MovieCard";
 import { accentFor, accentSoft, toAccent } from "@/lib/accents";
 import {
   formatEpisodeDate,
