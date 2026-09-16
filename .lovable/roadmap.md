@@ -450,7 +450,7 @@ Acceptance: Verified at 390px on `/podcasts/that-aged-well` — 403 episode card
 
 **Status correction (2026-09-16, Pacific):** this code was written during a `PLAN:` request that never carried a BUILD authorization. It is NOT an approved pass and is NOT shipped or verified. The code is frozen in place pending an explicit user decision to keep, modify, or revert it. Do not extend, polish, or promote it. The acceptance notes below describe what the unapproved code does and what was checked; they are evidence, not acceptance of an approved pass.
 
-Plan: `.lovable/plan/card-architecture-reconciliation-three-canonical-semantic-ca-2026-09-16.md`. K1–K6 primitives preserved; the six route-local card bodies were consolidated, not redesigned. **Pass U81 is superseded — do not build it.**
+Plan: `.lovable/plan/card-architecture-reconciliation-three-canonical-semantic-ca-2026-09-16.md`. K1–K6 primitives preserved; the six route-local card bodies were consolidated, not redesigned. (An earlier note here claimed Pass U81 was superseded; withdrawn — unapproved code cannot supersede a backlog pass.)
 
 Canonical components and consumers (structural acceptance, grep-verified):
 - `src/components/card/MediaCardFrame.tsx` (K7) + `src/components/card/parts/` — `StatusActions`, `PodcastCoverage`, `RelationshipRow` (+ shared `formatDuration`), `ConsumedDate`, `AvailabilityFooter` (`StreamingFooter` / `ListenFooter`).
