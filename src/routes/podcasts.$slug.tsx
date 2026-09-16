@@ -6,28 +6,14 @@ import { AppShell } from "@/components/AppShell";
 import { Artwork } from "@/components/Artwork";
 import { BrandBadge } from "@/components/BrandBadge";
 import { ViewToggle } from "@/components/ViewToggle";
-import { FlagMatchButton } from "@/components/FlagMatchButton";
-import { ConfirmMatchButton } from "@/components/ConfirmMatchButton";
-import { EpisodeAdminActions } from "@/components/EpisodeAdminActions";
-import { MarkListenedButton } from "@/components/MarkListenedButton";
-import { ListenLaterButton } from "@/components/ListenLaterButton";
-import { PlatformBadges } from "@/components/PlatformBadges";
-import { EpisodeNotesFooter } from "@/components/EpisodeNotesFooter";
-import { ExpandableText } from "@/components/ExpandableText";
-import {
-  CardBody,
-  CardBodyRow,
-  CardControls,
-  CardFooter,
-  CardHeader,
-  CardShell,
-} from "@/components/card/Card";
+import { EpisodeCard } from "@/components/card/EpisodeCard";
+import { MovieCard } from "@/components/card/MovieCard";
 import { useEpisodeReviewStates } from "@/lib/episode-reviews";
-import { useEpisodeDetails, EMPTY_EPISODE_DETAIL, type EpisodeDetail } from "@/lib/details";
+import { useEpisodeDetails, EMPTY_EPISODE_DETAIL } from "@/lib/details";
 
 import type { PodcastEpisodeRow, PodcastMovie } from "@/lib/podcast-entries";
 import { useShowDetail } from "@/lib/server-lists";
-import { listenLaterSlugs, prefsActions, usePrefs, type ViewMode } from "@/lib/prefs";
+import { prefsActions, usePrefs, type ViewMode } from "@/lib/prefs";
 
 
 export const Route = createFileRoute("/podcasts/$slug")({
@@ -505,14 +491,22 @@ function EpisodeFeed({
       ) : (
         <ol className="mt-3 space-y-2.5">
           {onScreen.map((row) => (
-            <PodcastEpisodeCard
+            <EpisodeCard
               key={row.episode.id}
-              row={row}
+              episode={row.episode}
+              variant="detail"
+              media={false}
               detail={details[row.episode.id] ?? EMPTY_EPISODE_DETAIL}
               fallbackListenUrl={fallbackListenUrl}
-              showReview={reviewStates.isAdmin}
-              reviewed={reviewStates.reviews[row.episode.id]?.reviewed ?? false}
-              retired={reviewStates.reviews[row.episode.id]?.retired ?? false}
+              movieLinks={row.movies}
+              relationshipModeration
+              relationshipPosters
+              episodeContext="complete"
+              admin={{
+                show: reviewStates.isAdmin,
+                reviewed: reviewStates.reviews[row.episode.id]?.reviewed ?? false,
+                retired: reviewStates.reviews[row.episode.id]?.retired ?? false,
+              }}
             />
           ))}
         </ol>
@@ -526,161 +520,22 @@ function EpisodeFeed({
   );
 }
 
-/**
- * Pass K6 — podcast-page episode card: small-caps date over the episode title,
- * mark-listened upper right, duration subheader, one body row per linked movie
- * with the shared circular flag control, Listen + platform badges in the footer
- * with admin actions trailing, and the same rating footer as the movie page.
- */
-function PodcastEpisodeCard({
-  row,
-  detail,
-  fallbackListenUrl,
-  showReview,
-  reviewed,
-  retired,
-}: {
-  row: PodcastEpisodeRow;
-  detail: EpisodeDetail;
-  fallbackListenUrl: string | null;
-  showReview: boolean;
-  reviewed: boolean;
-  retired: boolean;
-}) {
-  const prefs = usePrefs();
-  const { episode, movies: linked } = row;
-  const listenUrl = detail.listenUrl ?? fallbackListenUrl;
-  const sources = detail.sources;
-  const listening = prefs.listening[episode.slug] ?? "not_started";
-  const savedForLater = listenLaterSlugs(prefs).includes(episode.slug);
-
-  const meta: string[] = [];
-  if (episode.episode_number != null) meta.push(`Episode ${episode.episode_number}`);
-  meta.push(episode.released_at ?? "Date unknown");
-  if (episode.duration_seconds) meta.push(`${Math.round(episode.duration_seconds / 60)} min`);
-
-  return (
-    <CardShell className="p-3">
-      <CardControls>
-        <MarkListenedButton episodeSlug={episode.slug} listening={listening} />
-        <ListenLaterButton
-          episodeSlug={episode.slug}
-          episodeTitle={episode.title}
-          saved={savedForLater}
-        />
-      </CardControls>
-
-      <CardHeader
-        reserveRight
-        eyebrow={
-          <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-            {meta.map((part, i) => (
-              <span key={part} className="flex items-center gap-x-2">
-                {i > 0 ? (
-                  <span aria-hidden className="text-muted-foreground/60">
-                    &bull;
-                  </span>
-                ) : null}
-                <span>{part}</span>
-              </span>
-            ))}
-          </span>
-        }
-        title={episode.title}
-      />
-
-      <ExpandableText text={detail.description} className="mt-2 text-xs text-muted-foreground" />
-
-      <CardBody>
-        {linked.length > 0 ? (
-          linked.map((m) => (
-            <CardBodyRow
-              key={m.id}
-              control={
-                <span className="flex items-center gap-1.5">
-                  <ConfirmMatchButton episodeId={episode.id} movieId={m.id} />
-                  <FlagMatchButton
-                    episodeId={episode.id}
-                    movieId={m.id}
-                    movieTitle={m.title}
-                    episodeTitle={episode.title}
-                  />
-                </span>
-              }
-            >
-              <Link
-                to="/movies/$slug"
-                params={{ slug: m.slug }}
-                className="flex min-w-0 items-center gap-2 font-semibold text-foreground hover:text-coral"
-              >
-                <Artwork
-                  src={m.poster_url}
-                  title={m.title}
-                  seed={m.slug}
-                  accent={m.accent}
-                  className="w-8 shrink-0 text-[10px]"
-                />
-                <span className="line-clamp-1 min-w-0">
-                  {m.title}
-                  {m.release_year ? (
-                    <span className="font-normal text-muted-foreground"> ({m.release_year})</span>
-                  ) : null}
-                </span>
-              </Link>
-            </CardBodyRow>
-          ))
-        ) : (
-          <p>No movie linked yet</p>
-        )}
-      </CardBody>
-
-
-      <CardFooter
-        trailing={
-          showReview ? (
-            <EpisodeAdminActions
-              episodeId={episode.id}
-              reviewed={reviewed}
-              retired={retired}
-              linkedMovieIds={linked.map((m) => m.id)}
-            />
-          ) : null
-        }
-      >
-        {listenUrl ? (
-          <a
-            href={listenUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1 rounded-full border border-border bg-secondary px-2.5 py-1 text-[11px] font-semibold text-secondary-foreground"
-          >
-            Listen
-            <ExternalLink className="size-3" aria-hidden />
-          </a>
-        ) : null}
-        <PlatformBadges sources={sources} exclude={listenUrl} />
-      </CardFooter>
-
-      <EpisodeNotesFooter
-        episodeSlug={episode.slug}
-        rating={prefs.ratings[episode.slug] ?? null}
-        listening={listening}
-        quality={prefs.quality[episode.slug] ?? null}
-        listenUrl={listenUrl}
-      />
-    </CardShell>
-  );
-}
-
-
-
 function CoveredList({ items, view }: { items: PodcastMovie[]; view: ViewMode }) {
   const [limit, setLimit] = useState(70);
   const visible = items.slice(0, limit);
   return (
     <>
       <ul className={view === "tiles" ? "mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4" : "mt-3 space-y-2.5"}>
-        {visible.map((m) => <CoveredMovie key={m.entry.movie.id} item={m} view={view} />)}
+        {visible.map((m) => (
+          <MovieCard
+            key={m.entry.movie.id}
+            entry={m.entry}
+            variant="relationship"
+            density={view}
+            episodeLinks={m.episodes}
+            relationshipModeration
+          />
+        ))}
       </ul>
       {visible.length < items.length ? (
         <button type="button" onClick={() => setLimit((n) => n + 70)} className="mt-3 w-full rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold text-foreground">
@@ -689,111 +544,4 @@ function CoveredList({ items, view }: { items: PodcastMovie[]; view: ViewMode })
       ) : null}
     </>
   );
-}
-
-/** Pass K4 — podcast-page movie card built on the shared K2 primitives. */
-function CoveredMovie({ item, view }: { item: PodcastMovie; view: ViewMode }) {
-  const { movie, services, watched, onMyServices, genres } = item.entry;
-
-  if (view === "tiles") {
-    return (
-      <li>
-        <Link to="/movies/$slug" params={{ slug: movie.slug }} className="block">
-          <Artwork
-            src={movie.poster_url}
-            title={movie.title}
-            seed={movie.slug}
-            accent={movie.accent}
-            className="w-full text-3xl shadow-poster"
-          />
-          <h3 className="mt-2 line-clamp-2 text-sm font-semibold leading-snug">{movie.title}</h3>
-          <div className="mt-1 flex flex-wrap gap-1">
-            {services.map((s) => (
-              <BrandBadge
-                key={s.id}
-                slug={s.slug}
-                label={s.short_name}
-                active={onMyServices}
-                showLabel={false}
-              />
-            ))}
-          </div>
-        </Link>
-      </li>
-    );
-  }
-
-  return (
-    <CardShell className="p-3">
-      <div className="flex items-start gap-3">
-        <Link to="/movies/$slug" params={{ slug: movie.slug }} className="shrink-0">
-          <Artwork
-            src={movie.poster_url}
-            title={movie.title}
-            seed={movie.slug}
-            accent={movie.accent}
-            className="w-14 text-base"
-          />
-        </Link>
-        <div className="min-w-0 flex-1">
-          <Link to="/movies/$slug" params={{ slug: movie.slug }} className="block">
-            <CardHeader title={movie.title} h2={movie.release_year ?? undefined} />
-          </Link>
-
-          <CardBody>
-            {item.episodes.map((ep) => (
-              <CardBodyRow
-                key={ep.id}
-                control={
-                  <span className="flex items-center gap-1.5">
-                    <ConfirmMatchButton episodeId={ep.id} movieId={movie.id} />
-                    <FlagMatchButton
-                      episodeId={ep.id}
-                      movieId={movie.id}
-                      movieTitle={movie.title}
-                      episodeTitle={ep.title}
-                    />
-                  </span>
-                }
-              >
-                <span className="line-clamp-2">
-                  {ep.released_at ? `${ep.released_at}: ` : ""}
-                  {ep.title}
-                  {ep.duration_seconds ? ` (${formatDuration(ep.duration_seconds)})` : ""}
-                </span>
-              </CardBodyRow>
-            ))}
-          </CardBody>
-
-          <CardFooter>
-            {services.length > 0 ? (
-              services.map((s) => (
-                <BrandBadge
-                  key={s.id}
-                  slug={s.slug}
-                  label={s.short_name}
-                  active={onMyServices}
-                  showLabel={false}
-                />
-              ))
-            ) : (
-              <span className="text-[11px] text-muted-foreground">No streaming availability</span>
-            )}
-            <span className="text-[11px] text-muted-foreground">
-              {genres.map((g) => g.name).join(" · ") || "Uncategorised"}
-            </span>
-            {watched ? <span className="text-[11px] font-semibold text-teal">Watched</span> : null}
-          </CardFooter>
-        </div>
-      </div>
-    </CardShell>
-  );
-}
-
-/** "1h 42m" / "42m" for episode durations. */
-export function formatDuration(seconds: number) {
-  const mins = Math.round(seconds / 60);
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }

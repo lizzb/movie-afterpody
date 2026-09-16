@@ -5,7 +5,7 @@ import { AppShell } from "@/components/AppShell";
 import { CatalogAddCard } from "@/components/CatalogAddCard";
 import { FilterBar } from "@/components/FilterBar";
 import { ListErrorNotice } from "@/components/ListErrorNotice";
-import { MovieCard } from "@/components/MovieCard";
+import { MovieCard } from "@/components/card/MovieCard";
 import { PageHeader } from "@/components/PageHeader";
 import { ViewToggle } from "@/components/ViewToggle";
 import { useFacets, useMoviePage } from "@/lib/server-lists";
@@ -149,7 +149,7 @@ function MoviesPage() {
               }
             >
               {rows.map((entry) => (
-                <MovieCard key={entry.movie.id} entry={entry} view={view} />
+                <MovieCard key={entry.movie.id} entry={entry} density={view} />
               ))}
             </ul>
             {rows.length < total ? (

@@ -15,15 +15,8 @@ import { AppShell } from "@/components/AppShell";
 import { Artwork } from "@/components/Artwork";
 import { BrandBadge } from "@/components/BrandBadge";
 import { ScorePill } from "@/components/ScorePill";
-import { FlagMatchButton } from "@/components/FlagMatchButton";
-import { ConfirmMatchButton } from "@/components/ConfirmMatchButton";
 import { useIsAdmin } from "@/hooks/useIsAdmin";
-import { EpisodeAdminActions } from "@/components/EpisodeAdminActions";
-import { ListenLaterButton } from "@/components/ListenLaterButton";
-import { PlatformBadges } from "@/components/PlatformBadges";
-import { ExpandableText } from "@/components/ExpandableText";
-import { EpisodeNotesFooter } from "@/components/EpisodeNotesFooter";
-import { CardControls, CardFooter, CardHeader, CardShell } from "@/components/card/Card";
+import { EpisodeCard } from "@/components/card/EpisodeCard";
 import { useEpisodeDetails, useMovieSynopsis, EMPTY_EPISODE_DETAIL, type EpisodeDetail } from "@/lib/details";
 import { useEpisodeReviewStates } from "@/lib/episode-reviews";
 
@@ -308,19 +301,21 @@ function MovieDetailPage() {
           ) : (
             <ul className="mt-3 space-y-2.5">
               {episodes.map((ep) => (
-                <EpisodeRow
+                <EpisodeCard
                   key={ep.episode.id}
-                  entry={ep}
+                  episode={ep.episode}
+                  podcast={ep.podcast}
+                  preferred={ep.preferred}
+                  variant="detail"
                   detail={details[ep.episode.id] ?? EMPTY_EPISODE_DETAIL}
-                  movieId={movie.id}
-                  movieTitle={movie.title}
-                  showReview={reviewStates.isAdmin}
-                  reviewed={reviewStates.reviews[ep.episode.id]?.reviewed ?? false}
-                  retired={reviewStates.reviews[ep.episode.id]?.retired ?? false}
-                  rating={prefs.ratings[ep.episode.slug] ?? null}
-                  listening={prefs.listening[ep.episode.slug] ?? "not_started"}
-                  quality={prefs.quality[ep.episode.slug] ?? null}
-                  savedForLater={savedForLater.has(ep.episode.slug)}
+                  movieTitles={ep.alsoCovers}
+                  moderatedMovie={{ id: movie.id, title: movie.title }}
+                  episodeContext="partial"
+                  admin={{
+                    show: reviewStates.isAdmin,
+                    reviewed: reviewStates.reviews[ep.episode.id]?.reviewed ?? false,
+                    retired: reviewStates.reviews[ep.episode.id]?.retired ?? false,
+                  }}
                 />
               ))}
             </ul>
@@ -331,153 +326,3 @@ function MovieDetailPage() {
     </AppShell>
   );
 }
-
-/**
- * Pass K5 — movie-detail episode card, built on the shared card grammar:
- * circular cover with a "prefer show" heart beneath, small-caps show name over
- * the episode title, flag + mark-listened upper right, date/duration subheader,
- * 2-line description with expand, footer = Listen then platform badges with
- * admin actions trailing, and an expand-collapse rating footer.
- */
-function EpisodeRow({
-  entry,
-  detail,
-  movieId,
-  movieTitle,
-  showReview,
-  reviewed,
-  retired,
-  rating,
-  listening,
-  quality,
-  savedForLater,
-}: {
-  entry: EpisodeEntry;
-  detail: EpisodeDetail;
-  movieId: string;
-  movieTitle: string;
-  showReview: boolean;
-  reviewed: boolean;
-  retired: boolean;
-  rating: EpisodeRating | null;
-  listening: ListeningStatus;
-  quality: ProductionQuality | null;
-  savedForLater: boolean;
-}) {
-  const { episode, podcast, preferred, alsoCovers } = entry;
-  const isAdmin = useIsAdmin();
-  const listenUrl = detail.listenUrl ?? podcast.website_url ?? null;
-  const sources = detail.sources;
-
-  return (
-    <CardShell className="p-3">
-      <CardControls>
-        <ConfirmMatchButton episodeId={episode.id} movieId={movieId} />
-        <FlagMatchButton
-          episodeId={episode.id}
-          movieId={movieId}
-          movieTitle={movieTitle}
-          episodeTitle={episode.title}
-        />
-        <ListenLaterButton
-          episodeSlug={episode.slug}
-          episodeTitle={episode.title}
-          saved={savedForLater}
-        />
-      </CardControls>
-
-
-      <div className="flex items-start gap-3">
-        <div className="flex w-12 shrink-0 flex-col items-center gap-1.5">
-          <Link to="/podcasts/$slug" params={{ slug: podcast.slug }} className="w-full">
-            <Artwork
-              src={podcast.artwork_url}
-              title={podcast.name}
-              seed={podcast.slug}
-              accent={podcast.accent}
-              shape="circle"
-              className="w-12 text-base"
-            />
-          </Link>
-          <button
-            type="button"
-            onClick={() => prefsActions.togglePreferredPodcast(podcast.slug, !preferred)}
-            aria-pressed={preferred}
-            aria-label={preferred ? `Unfollow ${podcast.name}` : `Prefer ${podcast.name}`}
-            title={preferred ? `Unfollow ${podcast.name}` : `Prefer ${podcast.name}`}
-            className={`grid size-7 place-items-center rounded-full border transition-colors ${
-              preferred
-                ? "border-transparent bg-berry text-primary-foreground"
-                : "border-border text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Heart className="size-3.5" aria-hidden />
-          </button>
-        </div>
-
-        <div className="min-w-0 flex-1">
-          <CardHeader
-            reserveRight={isAdmin ? 3 : 2}
-            eyebrow={
-              <>
-                <Link
-                  to="/podcasts/$slug"
-                  params={{ slug: podcast.slug }}
-                  className="hover:text-foreground"
-                >
-                  {podcast.name}
-                </Link>
-                {preferred ? (
-                  <span className="rounded-full bg-coral-soft px-2 py-0.5 text-[10px] normal-case tracking-normal text-coral">
-                    Preferred
-                  </span>
-                ) : null}
-              </>
-            }
-            title={episode.title}
-          />
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            {[episode.released_at, minutes(episode.duration_seconds)].filter(Boolean).join(" · ")}
-            {alsoCovers.length > 0 ? ` · also covers ${alsoCovers.join(", ")}` : ""}
-          </p>
-          <ExpandableText text={detail.description} className="mt-1.5 text-xs text-muted-foreground" />
-        </div>
-      </div>
-
-      <CardFooter
-        trailing={
-          showReview ? (
-            <EpisodeAdminActions
-              episodeId={episode.id}
-              reviewed={reviewed}
-              retired={retired}
-              includeReview={false}
-            />
-          ) : null
-        }
-      >
-        {listenUrl ? (
-          <a
-            href={listenUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground"
-          >
-            Listen
-            <ExternalLink className="size-3" aria-hidden />
-          </a>
-        ) : null}
-        <PlatformBadges sources={sources} exclude={listenUrl} />
-      </CardFooter>
-
-      <EpisodeNotesFooter
-        episodeSlug={episode.slug}
-        rating={rating}
-        listening={listening}
-        quality={quality}
-        listenUrl={listenUrl}
-      />
-    </CardShell>
-  );
-}
-

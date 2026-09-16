@@ -1,16 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { Heart, Mic, Search, Star } from "lucide-react";
+import { Mic, Search } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { PageHeader } from "@/components/PageHeader";
 import { CatalogAddCard } from "@/components/CatalogAddCard";
 import { ListErrorNotice } from "@/components/ListErrorNotice";
-import { Artwork } from "@/components/Artwork";
-import { BrandBadge } from "@/components/BrandBadge";
+import { ShowCard } from "@/components/card/ShowCard";
 import { ViewToggle } from "@/components/ViewToggle";
-import type { PodcastSummary } from "@/lib/podcast-entries";
 import { useShowPage } from "@/lib/server-lists";
-import { prefsActions, usePrefs, type ViewMode } from "@/lib/prefs";
+import { usePrefs } from "@/lib/prefs";
 
 export const Route = createFileRoute("/podcasts/")({
   head: () => ({
@@ -130,10 +128,10 @@ function PodcastsPage() {
               }
             >
               {results.map((entry) => (
-                <PodcastCard
+                <ShowCard
                   key={entry.podcast.id}
                   entry={entry}
-                  view={view}
+                  density={view}
                   preferred={prefs.preferredPodcastSlugs.includes(entry.podcast.slug)}
                 />
               ))}
@@ -152,112 +150,5 @@ function PodcastsPage() {
         )}
       </main>
     </AppShell>
-  );
-}
-
-function PodcastCard({
-  entry,
-  view,
-  preferred,
-}: {
-  entry: PodcastSummary;
-  view: ViewMode;
-  /** Live follow state, so the heart responds on the first tap. */
-  preferred: boolean;
-}) {
-  const { podcast, matchScore, streamableCount, movieCount, metric, episodeCount, links } = entry;
-
-  if (view === "tiles") {
-    return (
-      <li>
-        <Link to="/podcasts/$slug" params={{ slug: podcast.slug }} className="block">
-          <Artwork
-            src={podcast.artwork_url}
-            title={podcast.name}
-            seed={podcast.slug}
-            accent={podcast.accent}
-            shape="cover"
-            className="w-full text-3xl shadow-poster"
-          />
-          <h2 className="mt-2 line-clamp-2 text-sm font-semibold leading-snug">{podcast.name}</h2>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">
-            Match {matchScore} · {streamableCount} tonight
-          </p>
-        </Link>
-      </li>
-    );
-  }
-
-  return (
-    <li className="rounded-2xl border border-border bg-card shadow-card transition-shadow hover:shadow-lg">
-      <div className="flex items-start gap-3 p-3">
-        <Link
-          to="/podcasts/$slug"
-          params={{ slug: podcast.slug }}
-          className="flex min-w-0 flex-1 items-start gap-3"
-        >
-          <Artwork
-            src={podcast.artwork_url}
-            title={podcast.name}
-            seed={podcast.slug}
-            accent={podcast.accent}
-            shape="cover"
-            className="w-14 text-lg"
-          />
-          <div className="min-w-0 flex-1">
-            <h2 className="font-display text-base font-bold leading-snug">{podcast.name}</h2>
-
-            <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px] font-semibold">
-              <span className="rounded-full bg-coral-soft px-2 py-1 text-coral">
-                Match {matchScore}
-              </span>
-              <span className="rounded-full bg-secondary px-2 py-1 text-secondary-foreground">
-                {streamableCount} tonight
-              </span>
-              <span className="rounded-full bg-secondary px-2 py-1 text-secondary-foreground">
-                {movieCount} movie{movieCount === 1 ? "" : "s"} · {episodeCount} ep
-              </span>
-              {metric?.rating != null ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-gold-soft px-2 py-1 text-gold">
-                  <Star className="size-3" aria-hidden />
-                  {metric.rating.toFixed(1)}
-                </span>
-              ) : null}
-            </div>
-
-            {podcast.description ? (
-              <p className="mt-1.5 line-clamp-2 text-xs text-muted-foreground">
-                {podcast.description}
-              </p>
-            ) : null}
-
-            {links.length > 0 ? (
-              <div className="mt-2 flex flex-wrap gap-1.5">
-                {links.map((l) => (
-                  <BrandBadge
-                    key={`${l.podcast_id}-${l.platform}`}
-                    slug={l.platform}
-                    label={l.platform}
-                    showLabel={false}
-                  />
-                ))}
-              </div>
-            ) : null}
-          </div>
-        </Link>
-
-        <button
-          type="button"
-          onClick={() => prefsActions.togglePreferredPodcast(podcast.slug, !preferred)}
-          aria-pressed={preferred}
-          aria-label={preferred ? `Unfollow ${podcast.name}` : `Prefer ${podcast.name}`}
-          className={`-m-1 shrink-0 p-2 transition-colors ${
-            preferred ? "text-berry" : "text-muted-foreground hover:text-foreground"
-          }`}
-        >
-          <Heart className="size-5" fill={preferred ? "currentColor" : "none"} aria-hidden />
-        </button>
-      </div>
-    </li>
   );
 }

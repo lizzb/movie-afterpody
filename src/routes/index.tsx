@@ -4,7 +4,7 @@ import { Sparkles } from "lucide-react";
 import { AppShell } from "@/components/AppShell";
 import { FilterBar } from "@/components/FilterBar";
 import { ListErrorNotice } from "@/components/ListErrorNotice";
-import { MovieCard } from "@/components/MovieCard";
+import { MovieCard } from "@/components/card/MovieCard";
 import { PageHeader } from "@/components/PageHeader";
 import { ViewToggle } from "@/components/ViewToggle";
 import { usePrefs } from "@/lib/prefs";
@@ -115,7 +115,7 @@ function TonightPage() {
             }
           >
             {visibleResults.map((entry) => (
-              <MovieCard key={entry.movie.id} entry={entry} view={view} />
+              <MovieCard key={entry.movie.id} entry={entry} density={view} />
             ))}
           </ul>
         )}
