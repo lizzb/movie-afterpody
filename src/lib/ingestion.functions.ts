@@ -2270,11 +2270,26 @@ export const markEpisodeNotAboutMovie = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     await requireAdmin(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    // Pass U64 — a confirmed link is a deliberate decision that this episode IS
+    // about that movie. Retiring it would silently delete that decision, so the
+    // guard refuses and asks for the confirmation to be undone first.
+    const { data: confirmedLinks, error: confirmedError } = await supabaseAdmin
+      .from("episode_movies")
+      .select("movie_id")
+      .eq("episode_id", data.episodeId)
+      .eq("review_state", "confirmed");
+    if (confirmedError) throw confirmedError;
+    const confirmedCount = (confirmedLinks ?? []).length;
+    if (confirmedCount > 0) {
+      return { ok: false as const, blocked: true as const, confirmedCount, linksRemoved: 0 };
+    }
+
     const removed = await retireEpisode(supabaseAdmin, context.userId, data.episodeId);
     // The catalogue snapshot still contains the links this just removed, so a
     // client refetch would return stale rows for up to the stale window.
     (await import("@/lib/catalog.server")).expireCatalog();
-    return { ok: true, linksRemoved: removed };
+    return { ok: true as const, blocked: false as const, confirmedCount: 0, linksRemoved: removed };
   });
 
 /**

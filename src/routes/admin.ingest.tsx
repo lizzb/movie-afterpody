@@ -12,6 +12,7 @@ import {
   type MatcherStrategy,
 } from "@/lib/matcher-strategies";
 import { MatchReviewCard, RelinkPicker, formatEpisodeMeta } from "@/components/admin/MatchReviewCard";
+import { retirementBlockedMessage } from "@/lib/episode-reviews";
 import { ExpandableText } from "@/components/ExpandableText";
 import { CollapsibleCard } from "@/components/admin/CollapsibleCard";
 import {
@@ -1110,9 +1111,10 @@ function UnmatchedEpisodesCard() {
                       <button
                         type="button"
                         onClick={() =>
-                          void runRow(ep.episodeId, "Not about a movie", () =>
-                            retireFn({ data: { episodeId: ep.episodeId } }),
-                          )
+                          void runRow(ep.episodeId, "Not about a movie", async () => {
+                            const res = await retireFn({ data: { episodeId: ep.episodeId } });
+                            if (!res.ok) throw new Error(retirementBlockedMessage(res.confirmedCount));
+                          })
                         }
                         disabled={rowBusy}
                         className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold hover:bg-secondary disabled:opacity-60"

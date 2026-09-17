@@ -40,7 +40,10 @@ export function EpisodeAdminActions({
 
   const retire = useMarkEpisodeNotAboutMovie();
   const undo = useUndoEpisodeRetirement();
-  const isRetired = (retired || retire.isSuccess) && !undo.isSuccess;
+  // Pass U64 — a refused retirement (confirmed links present) resolves
+  // successfully but changes nothing, so it must not flip this control on.
+  const retiredNow = retire.isSuccess && retire.data?.ok !== false;
+  const isRetired = (retired || retiredNow) && !undo.isSuccess;
   const pending = retire.isPending || undo.isPending;
 
   return (

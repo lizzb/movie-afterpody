@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import {
+  approveEpisodeMatch,
   listEpisodeReviewStates,
   markEpisodeNotAboutMovie,
   setEpisodeReviewed,
@@ -151,6 +152,16 @@ export function useSetEpisodeReviewed() {
 }
 
 
+/**
+ * Pass U64 — one wording for the retirement guard, used by every surface that
+ * can press "Not about a movie".
+ */
+export function retirementBlockedMessage(confirmedCount: number): string {
+  return confirmedCount === 1
+    ? "This episode has a confirmed movie link. Undo that confirmation first."
+    : `This episode has ${confirmedCount} confirmed movie links. Undo those confirmations first.`;
+}
+
 /** Admin-only "not about a movie" retirement from consumer episode rows. */
 export function useMarkEpisodeNotAboutMovie() {
   const queryClient = useQueryClient();
@@ -158,6 +169,12 @@ export function useMarkEpisodeNotAboutMovie() {
   return useMutation({
     mutationFn: async (vars: { episodeId: string }) => run({ data: { episodeId: vars.episodeId } }),
     onSuccess: (result) => {
+      // Pass U64 — a refused retirement is a completed request with nothing
+      // changed: say why, and leave the control unpressed.
+      if (!result.ok) {
+        toast.error(retirementBlockedMessage(result.confirmedCount));
+        return;
+      }
       toast.success(
         result.linksRemoved > 0
           ? `Episode retired — ${result.linksRemoved} link${result.linksRemoved === 1 ? "" : "s"} removed`
@@ -167,6 +184,27 @@ export function useMarkEpisodeNotAboutMovie() {
     },
     onError: (error: unknown) =>
       toast.error(error instanceof Error ? error.message : "Could not retire this episode"),
+  });
+}
+
+/**
+ * Pass U64 — "Add movie" on a link-less episode card. Reuses the same manual
+ * link path Match review's approve uses, then refreshes the keys retirement
+ * touches so the new link shows without a full catalogue reload.
+ */
+export function useAddEpisodeMovieLink() {
+  const queryClient = useQueryClient();
+  const run = useServerFn(approveEpisodeMatch);
+  return useMutation({
+    mutationFn: async (vars: { episodeId: string; movieId: string }) =>
+      run({ data: { episodeId: vars.episodeId, movieId: vars.movieId } }),
+    onSuccess: () => {
+      toast.success("Movie linked to this episode");
+      for (const queryKey of RETIREMENT_KEYS) void queryClient.invalidateQueries({ queryKey });
+      void queryClient.invalidateQueries({ queryKey: CONFIRMED_KEY });
+    },
+    onError: (error: unknown) =>
+      toast.error(error instanceof Error ? error.message : "Could not link that movie"),
   });
 }
 
