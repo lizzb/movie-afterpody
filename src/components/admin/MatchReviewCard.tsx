@@ -1,6 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAdminQueue } from "@/components/admin/AdminActionQueue";
 import { RelinkPicker } from "@/components/admin/RelinkPicker";
+import { retirementBlockedMessage } from "@/lib/episode-reviews";
 
 export { RelinkPicker };
 
@@ -630,7 +631,11 @@ export function MatchReviewCard({ onSuccess }: { onSuccess: () => void }) {
         await rejectFn({ data: { episodeId: vars.episodeId, movieId: vars.movieId } });
       else if (vars.action === "confirm")
         await confirmFn({ data: { episodeId: vars.episodeId, movieId: vars.movieId } });
-      else if (vars.action === "retire") await retireFn({ data: { episodeId: vars.episodeId } });
+      else if (vars.action === "retire") {
+        // Pass U64 — retirement is refused while a confirmed link exists.
+        const res = await retireFn({ data: { episodeId: vars.episodeId } });
+        if (!res.ok) throw new Error(retirementBlockedMessage(res.confirmedCount));
+      }
       else {
         // Pass U32 — the server verifies the delete really landed; an
         // unverified unlink must leave the row listed with an explicit error.
