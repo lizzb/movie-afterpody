@@ -1712,9 +1712,17 @@ Server-side scheduled refresh (feeds daily, availability weekly, staggered) with
 
 Per-user choice of which ratings to show, cached in the `podcast_external_metrics` shape extended to movies. Realistic sources: TMDB (already integrated), OMDb (IMDb / Metascore), Trakt; Podcast Index (integrated), Apple Podcasts (unofficial), Podchaser (paid). Letterboxd has no public API; Spotify has no ratings. **Dependency:** Pass T5's "sort shows by highest external rating" is blocked on this pass landing a per-show ratings cache; until then show curation sorting stays A–Z / episode count / unmatched / missing count.
 
-### Pass N — Tags/vibes and people-based discovery — XL (~10+ credits) — Priority 13
+### Pass N — Tags/vibes and people-based discovery — XL
 
-Shared tag system for movies and shows (curated starter tags, user-proposed, emoji allowed, character cap, tag filtering) plus TMDB person search leading to an actor page filtered to titles with commentary coverage.
+Shared tag system for movies and shows: curated starter tags, user-proposed tags, emoji allowed, character cap, tag-based filtering; later crowdsourced counts. Actor discovery: TMDB person search leading to a person page with their catalogue filtered to titles that have commentary coverage.
+
+### Pass N split — N1 and N2
+
+Original N1 vs N2 notes: `.lovable/plan/archive/plan-update-pass-b2-pass-s-and-roadmap-revisions-2026-08-21.md`
+They are independent and should be separate passes; nothing about either requires the other. Tags are a new shared taxonomy plus filter UI, people-based discovery is a TMDB person lookup plus a filtered listing. The only shared piece is the discovery filter shell, which already exists.
+
+- **Pass N1 — Tags / vibes**. Shared tag system for movies and shows: curated starter tags, user-proposed tags, emoji allowed, character cap, tag filtering in discovery.
+- **Pass N2 — People-based discovery.** TMDB person search leading to an actor/director page filtered to titles with commentary coverage. Pairs naturally with Pass P (cast on movie detail), since both need the credits fetch and cache.
 
 ### Pass P — Richer movie detail (cast) — L (~6-10 credits) — Priority 14 **Acceptance criteria (2026-09-02):** `.lovable/plan/acceptance-criteria-u8-u24-u4-p-u23-2026-09-02.md`.
 
