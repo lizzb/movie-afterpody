@@ -113,6 +113,8 @@ The only remaining piece of Pass R (R1 and R3 both shipped — see "Already done
 
 Bulk "Retire remaining unmatched" on one show (marks every still-unmatched episode `not_about_a_movie`, logged in `match_actions`, undoable), plus the separately-labelled destructive "Delete episodes, keep the show".
 
+(manual edit 2026-09-17, may be outdated) Note on R2 relevance now that "parking" functionality exist: parking handles whole shows, but R2 is still relevant for mixed shows like Crime Writers On... — ~280 episodes of one active show that are genuinely not about movies still clog the queue, and parking the show would hide its 19 good links too.
+
 ### Post-review passes (filed 2026-08-26, backlog only — full detail in `.lovable/plan/roadmap-update-post-review-backlog-backlog-only-2026-08-26.md`)
 
 The D/O/T5/G/H/Y repair pass is verified and closed (see "Already done"). The remaining review items are now discrete passes below. Design-first items marked NEEDS DESIGN start by presenting 2-4 visual/copy options; no code lands before a direction is chosen.
