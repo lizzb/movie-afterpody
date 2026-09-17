@@ -189,7 +189,7 @@ Current functionality (2026.08.25) -- Not Interested: it only stores that movie�
 #### Admin and podcast pages — Priority 4d
 
 - **Pass T6 — Show curation sort direction toggle — S (~1-2 credits).** Ascending/descending on every sort property in "Episode coverage and show curation".
-- **Pass T7 — Sort shows by highest external rating — S (~1-2 credits) — blocked on Pass M** landing a per-show ratings cache.
+- **Pass T7 — Sort shows by highest external rating — S (~1-2 credits) — blocked on Pass M** landing a per-show ratings cache. (manual edit 2026-09-17: also on shows page, not just admin curation page?)
 - **Pass J3 — Podcast page episode sort and filter — M (~3-5 credits) — IMPLEMENTED, NOT VERIFIED (re-confirmed 2026-09-09; the remaining reviewed/unreviewed runtime assertion is not worth credits now — leave as-is until a `VERIFY SWEEP` schedules it).** Episode feed on `/podcasts/$slug` now has title search, match filter (All episodes / Matched / Unmatched), admin-only review filter (Any review state / Reviewed / Unreviewed), sort control (newest, oldest, most/fewest linked movies, longest/shortest, title A–Z/Z–A) and a live "X of Y episodes" result count. Default order remains newest first. Acceptance: Verified in preview at 659px — sort options render, Unmatched filter narrowed 403 → 43, "Most linked movies" reorders, count updates, no horizontal overflow. Implemented, not verified: Reviewed/Unreviewed chip filtering exercised only via code path, not a completed runtime click assertion.
 
 ### Pass G2 — Truly lock the layout — SHIPPED 2026-08-27
