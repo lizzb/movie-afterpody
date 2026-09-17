@@ -243,6 +243,8 @@ Items that need to be incorporated in U2: (comprehensive editor for role assignm
 - **Pass U5 — Training/evaluation dashboard — M (~3-5 credits).** Turn "Score the matcher" scorecard output into recommended rule changes with before/after evals (extends `matcher-eval.server.ts`).
 - **Pass U6 — Low-confidence link maintenance — S (~1-2 credits).** A safe "clear low-confidence auto links and rerun the current engine" maintenance action with a dry-run preview, guarding manual/confirmed links and parked shows (related to Pass Z).
 
+(manual edit 2026-09-17) Also related to Pass U0 — Rebuild all links from scratch? GPT says: do NOT consider building U6/Z until: U4 strategies → actual strategy usage → measured false positives → P/U23 if justified → stable review workflow → then guarded replay.
+
 ### Review visibility, match review reliability, admin actions (approved backlog 2026-08-30, not scheduled)
 
 Full detail and the "what exists vs. what does not" analysis: `.lovable/plan/review-state-visibility-match-review-reliability-admin-actio-2026-08-30.md`.
