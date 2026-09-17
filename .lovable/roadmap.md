@@ -363,7 +363,7 @@ Bulk buttons now use a `bulkClass()` helper built on the same `ACTION_TONES` tok
 
 #### Pass U34 — Mobile action-button sizing — S (~1-2 credits) — Priority 1b — NEEDS DESIGN APPROVAL
 
-Grow Match Review row and bulk action buttons ~20-30% on coarse-pointer/mobile only. Present 2-3 rendered options at 390px against a real row for approval before implementing; no unilateral size/treatment choice.
+Grow Match Review row and bulk action buttons ~20-30% on coarse-pointer/mobile only. Present 2-3 rendered options at 390px against a real row for approval before implementing, e.g. (a) same layout, larger padding and icon, ~44px tall; (b) icon-forward buttons with the label under the icon; (c) full-width stacked action rows with generous separation; no unilateral size/treatment choice.
 
 #### Pass U35 — Mobile Match Review scanning flow — M (~3-5 credits) — Priority 2b — NEEDS DESIGN EXPLORATION
 
