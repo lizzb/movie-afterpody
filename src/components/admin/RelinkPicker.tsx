@@ -75,7 +75,7 @@ export function RelinkPicker({
         disabled={disabled}
         className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold hover:bg-secondary disabled:opacity-60"
       >
-        Pick another movie
+        {label}
       </button>
     );
   }

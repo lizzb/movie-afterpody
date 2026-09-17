@@ -1,5 +1,8 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAdminQueue } from "@/components/admin/AdminActionQueue";
+import { RelinkPicker } from "@/components/admin/RelinkPicker";
+
+export { RelinkPicker };
 
 const MATCH_ACTION_LABEL: Record<"approve" | "reject" | "confirm" | "unlink" | "retire", string> = {
   approve: "Approve match",
@@ -28,7 +31,6 @@ import {
   approveEpisodeMatch,
   bulkMatchDecision,
   confirmEpisodeMatch,
-  enrichMovie,
   getEpisodeDescription,
   listEpisodeLinks,
   listEpisodeReviewStates,
@@ -37,7 +39,6 @@ import {
   rejectEpisodeMatch,
   relinkEpisodeMovie,
   resolveEpisodeFlags,
-  searchMoviesByTitle,
   setEpisodeReviewed,
   suggestEpisodeMatches,
 } from "@/lib/ingestion.functions";
@@ -135,7 +136,6 @@ export function methodLabel(method: string): string {
   }
 }
 
-const IMDB_RE = /^tt\d{6,10}$/i;
 
 type ReviewStateFilter = "unconfirmed" | "proposed" | "auto_linked" | "confirmed" | "all";
 
