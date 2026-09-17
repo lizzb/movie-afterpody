@@ -210,6 +210,10 @@ Context: the mobile header theme toggle was removed on 2026-08-27 (shipped); the
 - **G5b — Top-level settings placement (S).** Guarantee the manual theme control is visible without scrolling on Setup (currently in the page header) — verify on 390px, and move it into the App settings block if that reads better.
 - **G5c — Desktop mode kept separate (S, NEEDS DESIGN).** Any desktop/mobile view switch is a layout fallback utility, not a display theme, and must never share a control group with light/dark. Needs a decision on whether it exists at all, given browsers already offer "Request desktop site".
 
+### Pass U0 — Rebuild all links from scratch (~30k) — assessment only, not scheduled yet
+
+A feature from the admin tools page that purges all currently proposed and existing links that appear under "Match review" and then reruns the current engine for matching items for all unmatched episodes - in theory, this would clear out any episode-movie link suggestions that were made when the engine had less information and are therefore less accurate. See: `.lovable/plan/archive/match-review-hardening-matcher-accuracy-passes-t1-t6-u-v-2026-08-22.md`
+
 ### Pass U1 — Explicit review-state model — SHIPPED 2026-08-28
 
 Verified 2026-09-02 (code review): approve, confirm, relink and bulk approve/confirm all write `review_state = 'confirmed'` with `reviewed_at`/`reviewed_by`; resolve/rescan writers stamp `auto_linked`/`proposed` by threshold; stats, `listEpisodeLinks` and per-show coverage all filter on `review_state`, not confidence.
