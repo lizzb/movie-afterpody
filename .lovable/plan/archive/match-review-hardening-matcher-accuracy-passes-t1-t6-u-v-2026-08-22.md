@@ -33,7 +33,7 @@ Full roadmap: `.lovable/plan/movie-afterparty-consolidated-roadmap-passes-a-r-20
 
 Deterministic only, no AI, no extra API calls.
 
-- **Coverage scoring** replaces raw Jaccard: score on the share of *movie* tokens present in the episode title, so extra episode noise no longer penalises a full title match. Fixes the Hottie & Nottie band and its many siblings.
+- **Coverage scoring** replaces raw Jaccard: score on the share of _movie_ tokens present in the episode title, so extra episode noise no longer penalises a full title match. Fixes the Hottie & Nottie band and its many siblings.
 - **Normalisation**: `&` → "and", strip `Ep 43 -` / `#123` / `Episode 12:` prefixes, strip stopwords (the, a, an, and, of) before comparison.
 - **Short titles**: cap at 15 confidence for titles ≤ 4 characters (up from < 4) unless the whole episode title matches exactly — covers Us, Men, Host, Lost.
 - **Common-word titles** (After, Girls, Speed, Genius): a curated high-frequency word list plus a data-driven rule — any single-word title whose word appears in more than ~1% of episode titles requires corroboration (year agreement, or the title named in the description with a matching year) before scoring above the suggestion threshold.
@@ -43,9 +43,9 @@ Deterministic only, no AI, no extra API calls.
 
 ## Pass T5 — Show list search / filter / sort (Priority 5, ~15k)
 
-Episode coverage & show curation gets a name search, active/parked/behind-feed filters (existing), and sort by **name (A–Z)**, **stored episodes**, **unmatched count**, **missing vs feed**. *Someday:* sort by highest external rating once Pass M lands the per-show ratings cache — noted there as a dependency.
+Episode coverage & show curation gets a name search, active/parked/behind-feed filters (existing), and sort by **name (A–Z)**, **stored episodes**, **unmatched count**, **missing vs feed**. _Someday:_ sort by highest external rating once Pass M lands the per-show ratings cache — noted there as a dependency.
 
-## Pass T6 — Higher-volume review sessions (Priority 6, ~18k)
+## Pass T6A — Higher-volume review sessions (Priority 6, ~18k)
 
 Existing links today caps at 50–200 rows per fetch and needs manual refresh between batches. Options, in order of preference:
 
@@ -74,7 +74,7 @@ The schema already carries `media_type: movie | tv`, so this is additive rather 
 Design decisions to think about now:
 
 - **Runtime**: a series has no single runtime. Needs episode count / season count / average episode length, which changes the "Tonight" runtime filter and the Commentary Score inputs.
-- **Granularity**: does a podcast episode link to a *series*, a *season*, or a *TV episode*? Recommendation: series-level first, optional season number on the link.
+- **Granularity**: does a podcast episode link to a _series_, a _season_, or a _TV episode_? Recommendation: series-level first, optional season number on the link.
 - **Matching**: TMDB `/search/tv` plus `/search/multi`, and titles collide badly across media types ("Fargo", "Watchmen"). Media type becomes a matching signal, and recap-podcast titles ("S3E4", "Season 2 finale") need their own extraction rules.
 - **Availability**: TV providers are per-season on TMDB — the availability table gains a season dimension or accepts series-level approximation.
 - **UI**: "Movies" tab naming, cards showing "6 episodes · 2019" instead of runtime, and filters needing a movie/TV/both switch.
