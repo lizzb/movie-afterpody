@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
+import { Ban } from "lucide-react";
 import { Artwork } from "@/components/Artwork";
+import { EpisodeAddMovieControl } from "@/components/EpisodeAddMovieControl";
 import { EpisodeAdminActions } from "@/components/EpisodeAdminActions";
 import { EpisodeNotesFooter } from "@/components/EpisodeNotesFooter";
 import { ExpandableText } from "@/components/ExpandableText";
@@ -231,7 +233,27 @@ export function EpisodeCard({
                   />
                 ))
               : movieLinks
-                ? <p>No movie linked yet</p>
+                ? (
+                    /* Pass U64 — status truth on the link-less line: why it is
+                       empty, plus the way to fix it when it should not be. */
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p>No movie linked yet</p>
+                      {admin?.retired ? (
+                        <span
+                          title="Marked as not about a movie — retired from every review queue"
+                          className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-full bg-gold/15 px-2 py-0.5 text-[10px] font-semibold text-gold"
+                        >
+                          <Ban className="size-3" aria-hidden />
+                          Not about a movie
+                        </span>
+                      ) : null}
+                      {admin?.show && !admin.retired ? (
+                        <span className="ml-auto">
+                          <EpisodeAddMovieControl episodeId={episode.id} />
+                        </span>
+                      ) : null}
+                    </div>
+                  )
                 : null}
             {movieTitles && movieTitles.length > 0 ? (
               <p className="line-clamp-2">Covers {movieTitles.join(", ")}</p>
