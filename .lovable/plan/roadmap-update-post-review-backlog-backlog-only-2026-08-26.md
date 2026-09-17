@@ -14,6 +14,15 @@ The Tonight page should behave like a recommendation surface, not another catalo
 **Pass H3 — Surface sorting on Tonight — ~15k — NEEDS DESIGN**
 Sort moves out of the expanded panel. Options to present: (1) sort chip row above results, (2) single sort button beside the result count, (3) mode segmented control (Best match / Short / New / Most covered), (4) right-aligned results-toolbar dropdown.
 
+Sorting is too buried for Tonight.
+DESIGN decision to present prior to building: On-page sorting options for Tonight
+Provide 2-4 UI/UX alternates for surfacing sort outside the expanded parameters panel:
+
+1. **Sort chip row above results:** Commentary, Episodes, Shortest, Newest as compact chips.
+2. **Single visible sort button:** current sort label next to result count; opens only sort choices.
+3. **Mode segmented control:** “Best match / Short / New / Most covered” as a small segmented control.
+4. **Results-toolbar dropdown:** right-aligned, desktop-friendly; keeps filters separate from sorting.
+
 **Pass H4 — Best-only / minimum Commentary Score — ~12k**
 No hard default minimum until score distribution is measured; ship as a "Best only" toggle with a visible match count, then decide whether a numeric threshold slider is warranted.
 
