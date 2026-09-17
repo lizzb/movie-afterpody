@@ -377,7 +377,7 @@ Root cause: decided rows are filtered out of the derived list the instant their 
 
 #### Pass U37 — Filter interaction and feedback — M (~3-5 credits) — Priority 2c — NEEDS DESIGN
 
-Y2's rating range is accepted; this pass addresses the broader filtering-feedback problem it exposed: (1) staged "Apply filters" breaks cause/effect — overlaps and is cross-referenced with Pass D4; (2) filter impact is invisible because the count and list sit outside the panel — candidate is a live "N movies match" readout on the draft plus cheap per-control hints; (3) the expanded filter controls are not discoverable — candidate is a clearer labelled entry point carrying the active-filter summary, plus removable applied-filter chips. Design options first, then build. Depends on D4's measurement for the live-count half.
+Y2's rating range is accepted; this pass addresses the broader filtering-feedback problem it exposed: (1) staged "Apply filters" breaks cause/effect — overlaps and is cross-referenced with Pass D4; (2) filter impact is invisible because the count and list sit outside the panel — candidate is a live "N movies match" readout on the draft plus cheap per-control hints; (3) the expanded filter controls are not discoverable — candidate is a clearer labelled entry point carrying the active-filter summary, plus removable applied-filter chips. Design options first, then build. Depends on D4's measurement for the live-count half. (Pass U37 additional description: `.lovable/plan/match-review-ux-filter-feedback-backlog-2026-09-02.md`)
 
 **U37-A — Filter entry point — filed 2026-09-14** (plan: `.lovable/plan/plan-backlog-only-11-filings-2026-09-14.md` item 1). Build-ready sub-item; unlike U37's live-count half it is **not** blocked on D4 measurement.
 
