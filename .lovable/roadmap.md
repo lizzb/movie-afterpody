@@ -1501,9 +1501,17 @@ Separate UI/data-loading question, not matcher work: on The Rom Complex, episode
 
 Plan: `.lovable/plan/plan-backlog-only-eight-filings-reconciled-2026-09-09.md` (full scope, reuse notes, failure semantics and verification steps). Facts established while filing: `logMatchAction` logs approve/reject/unlink/relink/confirm and `not_about_a_movie`; `setEpisodeReviewed` (mark reviewed / reopen) and undo-retirement log nothing. Availability is bulk-only today (`refreshAvailability` with `limit` + optional `staleBefore`); no single-movie entry point, no Tonight freshness gate. Nothing currently prevents retiring an episode whose links are confirmed.
 
-#### Pass U64 — Episode card status truth: "Not about a movie" badge and retirement guards — M (~3-5 credits) — extends U38, sequence after U53
+#### Pass U64 — Episode card status truth: "Not about a movie" badge and retirement guards — M (~3-5 credits) — SHIPPED 2026-09-17 — extends U38, sequence after U53
 
 Lightweight non-interactive "Not about a movie" badge floated right on the "No movie linked yet" line whenever disposition is `not_about_a_movie`, including when the episode is also reviewed and only "Reopen" shows. Adds an "Add movie" action on link-less episode cards, reusing the existing "Pick another movie" picker. Retirement is blocked with a visible explanation when any current link is confirmed; unconfirmed/flagged links keep being removed on retire and restored on undo. Not a duplicate of U53. Acceptance: badge correct in all four episode states; retire refused with confirmed links; undo restores exactly the removed links; Active/Parked semantics unchanged. Verify signed-in admin on `/podcasts/$slug`, mobile + desktop.
+
+Acceptance (2026-09-17, signed-in admin on `/podcasts/the-villain-was-right`, 390px + 1280px):
+
+- Verified: badge renders on retired episodes, including reviewed ones showing only "Reopen"; no console errors at either width.
+- Verified: retire refused when a link is confirmed — toast read "This episode has a confirmed movie link. Undo that confirmation first.", control stayed unpressed, nothing written.
+- Verified: "Add movie" picker renders only on link-less, non-retired episode cards (shared `RelinkPicker`, extracted to `src/components/admin/RelinkPicker.tsx`); admin ingest and Match review still use the same picker.
+- Implemented, not verified: completing an "Add movie" link in the running app (would write real catalogue data); it reuses the already-verified `approveEpisodeMatch` path.
+- Unchanged: undo-restores-exact-links and Active/Parked semantics (no code touched — U38 behaviour).
 
 #### Pass U65 — Link related episodes (multi-part / re-release) — M (~3-5 credits)
 
