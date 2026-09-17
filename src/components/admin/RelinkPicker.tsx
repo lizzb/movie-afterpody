@@ -5,13 +5,19 @@ import { enrichMovie, searchMoviesByTitle } from "@/lib/ingestion.functions";
 
 const IMDB_RE = /^tt\d{6,10}$/i;
 
-/** Catalogue search that also accepts an IMDb id, pulling the movie in via TMDB. */
+/**
+ * Catalogue search that also accepts an IMDb id, pulling the movie in via TMDB.
+ * One picker for every surface: Match review relinks, Unmatched episodes and
+ * (Pass U64) the "Add movie" action on a link-less episode card.
+ */
 export function RelinkPicker({
   onPick,
   disabled,
+  label = "Pick another movie",
 }: {
   onPick: (movieId: string) => void | Promise<void>;
   disabled?: boolean;
+  label?: string;
 }) {
   const searchFn = useServerFn(searchMoviesByTitle);
   const enrichFn = useServerFn(enrichMovie);
