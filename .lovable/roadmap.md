@@ -218,6 +218,18 @@ Pass G2's `.layout-locked` hardening is now scoped to touch-primary viewports: o
 ### Matcher refinement backlog (approved 2026-08-28, not scheduled)
 
 - **Pass U2 — Multi-movie episode editor — L (~6-10 credits).** Handle double features, trilogies, franchises and "covered in passing" vs "primary subject" by letting one episode link to multiple movies with a coverage role; UI to add/remove/reorder links per episode.
+
+(maual edit 2026-09-17): U2 is the documented ownership boundary for multi-movie editing/roles/order but it is currently not a detailed implementation specification.
+
+Items that need to be incorporated in U2: (comprehensive editor for role assignment + ordering + all multi-movie manipulation)
+
+- Human “Add another movie” while preserving existing links
+- Explicit multi-movie role editor
+- Edit `is_primary_subject` deliberately (no dedicated UI)
+- Reorder movie relationships
+- Rich “primary / covered in passing” workflow
+  Full U2 editor/role/order system = later, once the simpler workflow exposes the actual role-management requirements.
+
 - **Pass U3 — Curated blocklist/allowlist — M (~3-5 credits).** Admin-managed high-noise phrase lists (ad/promo/joke titles) and per-title allowlist overrides feeding the matcher's keyword suppression.
 - **Pass U4 — Per-podcast matcher tuning — IMPLEMENTED, NOT VERIFIED — 2026-09-06; re-confirmed 2026-09-09.** (2026-09-09: strategy persistence was re-exercised in the app — change one show's strategy, refresh, it persisted. The only outstanding item is a non-default re-resolve proposal diff, which needs a realistic failure/ingest test; leave IMPLEMENTED, NOT VERIFIED until one exists.) Six named matcher strategies (`src/lib/matcher-strategies.ts`): clean-title (default, reproduces pre-U4 behaviour), year-aware, noisy-title + description, actor/name corroboration, special-word suppression, stricter threshold. Each is a named configuration of the existing deterministic signals in `matching.server.ts` — no new scoring model, no new data source. Per-show assignment stored on `podcasts.matcher_strategy` (default `clean_title`; all 53 shows started there), editable from the show curation row selector, used by Recheck/Resolve for that show. "Score the matcher" accepts an optional strategy and show scope. **Acceptance classification:** Verified — DB persistence + default assignment; selector visible/persists across reload (desktop + mobile 390px); per-strategy scoring (default threshold 25, precision 0.501 / recall 0.979 — unchanged from the pre-U4 baseline; stricter-threshold run at 45 gives precision 0.696); confirmed links and rejection records untouched (no resolve run, no writes outside `podcasts.matcher_strategy`). Implemented, not verified — a non-default show re-resolve proposal diff (skipped to avoid spending TMDB/ingest budget). Deferred — actor/name corroboration is limited to the existing description/year corroboration signals because no cast cache exists; true cast-mention matching remains Pass P → U23. **Wording note (2026-09-07):** "actor/name corroboration" is year/description corroboration only today; genuine cast-based behaviour arrives in Pass U4A below.
 - **Pass U5 — Training/evaluation dashboard — M (~3-5 credits).** Turn "Score the matcher" scorecard output into recommended rule changes with before/after evals (extends `matcher-eval.server.ts`).
@@ -731,6 +743,30 @@ Potential alternatives worth evaluating:
 - other compact treatment.
 
 Desired principle: retain identification/context information without making the relationship row look like a wall of punctuation.
+
+U40 should explicitly support both states:
+
+Episode has no movie links
+→ Add movie
+
+Episode already has one or more movie links
+→ Add another movie (append, not replace)
+
+U40 should explicitly cover:
+
+- Episode → add a specific additional movie
+- available on an episode whether it currently has zero, one, or multiple links;
+- when links exist, the action is explicitly Add another movie, not “Pick another movie”;
+- searching an existing catalogue movie is supported;
+- bringing in a missing movie through the existing TMDB/IMDb picker is supported where that picker already allows it;
+- adding the new relationship does not delete or replace existing links;
+- preserve existing Confirm/Flag/review semantics;
+- reconcile is_primary_subject and future coverage roles against U2;
+- do not create a second movie-picker or second relationship subsystem.
+
+U40 must distinguish automatic discovery (Recheck episodes) from human-directed addition (Add movie / Add another movie). They solve different problems.
+
+U40 owns the human-directed workflow. U2 remains the roadmap owner for the richer multi-movie editing semantics such as coverage roles and ordering; U40 must not create a second role model or silently redefine those semantics.
 
 #### Pass U41 — Preferred podcast UX cleanup — S (~1-2 credits) — NEEDS DESIGN / RECONCILE with G3 and F
 
@@ -1621,6 +1657,8 @@ Root cause of the recurring "IMPLEMENTED, NOT VERIFIED" labels: admin access is 
 **SHIPPED 2026-09-13 — VERIFIED (preview).** Diagnosis re-confirmed exactly as filed (`p_offset: 0` every run). Fix, smallest and localised: `RescanInput` gained `offset` (default 0); `rescanEpisodeMatches` passes it as `p_offset`, counts raw rows consumed through the usable-title filter and returns `nextOffset`, `remaining`, `remainingIsFloor` and `pool`; word stats still come from the head of the pool so they stay cursor-independent. `admin.ingest.tsx` holds `rescanCursor`, passes it on every press, resets to 0 when a walk completes, and a new "Keep going until every episode is checked" checkbox walks the cursor automatically (plus a "Start again from the newest" reset). Per-show recheck loops the cursor internally (limit 150, 40-iteration guard) and logs "whole show checked" on completion. No change to matcher scoring, eligibility semantics, confirmed/rejected protection, or other ingestion behaviour. Verified in the running preview as signed-in admin: three consecutive all-shows runs each scanned 100 **different** episodes (10/12/16 newly linked, 1/5/4 improved) instead of repeating the newest slice; a full per-show walk terminated at "85 scanned · 22 linked · 15 improved · 4 extra · whole show checked", i.e. reached zero. Honesty note: because the eligible pool is read one capped window at a time, `remaining` is a floor while the window comes back full, so the UI now says "At least N+ episodes left to check — run it again to continue from where this run stopped" rather than a number that appears not to fall; it becomes exact and falls to zero inside the final window.
 
 Confirmed by inspection: `rescanEpisodeMatches` (`src/lib/ingestion.functions.ts` ~1470-1642) calls `admin_match_eligible_episodes` with a hardcoded `p_offset: 0`, `p_exclude_confirmed: false`, ordered `released_at DESC, id`, then takes `pool.slice(0, data.limit)` and reports `remaining: pool.length - episodes.length`. `RescanInput` has no offset/cursor and a rescan run only writes `episode_movies` links, which does not remove an episode from the eligible pool, so every press of "run it again" (`admin.ingest.tsx:976`, and the per-show `limit: 150` call) re-processes the same newest slice while the UI claims "N episodes left to check". Older unmatched episodes are never rechecked against newly added movies. Smallest fix: add a cursor to `RescanInput` (offset or last-seen `released_at`/`id` keyset), thread it into the RPC's existing `p_offset`, return the next cursor with `remaining`, and have the UI pass it back on "run it again"; a "run until done" chain should walk the cursor. Acceptance: consecutive runs report strictly decreasing `remaining` and touch different episodes; a full walk reaches `remaining: 0`; confirmed/rejected/reviewed data untouched.
+
+(manual edit 2026-09-17): U77 current behavior is not limited to episodes with zero links: Recheck also evaluates eligible episodes that already have one or more movie links, can improve a weak existing link, and can add strong extra movie links (up to the current implementation limit).
 
 #### Pass U78 — Admin RPC execute identity in production — S (~1-2 credits) — BUILT 2026-09-11; root cause confirmed and repaired; PUBLISHED-SITE VERIFICATION PENDING REPUBLISH
 
