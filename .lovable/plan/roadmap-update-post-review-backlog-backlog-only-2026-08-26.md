@@ -9,7 +9,7 @@ Design-first items are marked NEEDS DESIGN: those passes start with 2-4 visual/c
 ## Group 1 — Tonight as a recommendation surface
 
 **Pass H2 — Tonight result volume and shape — ~25k — NEEDS DESIGN**
-Tonight stops behaving like a catalogue. Top 10 by default, "Load more suggestions" below the list, count reads `Showing 10 of 121 matches`. Movies stays the catalogue surface. Design pass on the simplified result list before build.
+The Tonight page should behave like a recommendation surface, not another catalogue page. Tonight stops behaving like a catalogue. Top 10 by default, "Load more suggestions" below the list, count reads `Showing 10 of 121 matches`. Movies stays the catalogue surface. Design pass on the simplified result list before build.
 
 **Pass H3 — Surface sorting on Tonight — ~15k — NEEDS DESIGN**
 Sort moves out of the expanded panel. Options to present: (1) sort chip row above results, (2) single sort button beside the result count, (3) mode segmented control (Best match / Short / New / Most covered), (4) right-aligned results-toolbar dropdown.
