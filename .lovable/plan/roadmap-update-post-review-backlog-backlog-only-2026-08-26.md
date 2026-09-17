@@ -26,6 +26,13 @@ Provide 2-4 UI/UX alternates for surfacing sort outside the expanded parameters 
 **Pass H4 — Best-only / minimum Commentary Score — ~12k**
 No hard default minimum until score distribution is measured; ship as a "Best only" toggle with a visible match count, then decide whether a numeric threshold slider is warranted.
 
+The relevant sequence is: H2 → H4 → H3
+
+- H2 determines how many recommendations should exist;
+- H4 determines whether “best only” matters;
+- H3 determines how users manipulate that result.
+  You don't want a beautifully sortable doom-scroll.
+
 ## Group 2 — Movies gets its own filter surface
 
 **Pass H5 — Separate Movies filters from Tonight — ~35k — NEEDS DESIGN**
