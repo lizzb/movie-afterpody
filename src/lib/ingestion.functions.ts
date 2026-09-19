@@ -662,6 +662,11 @@ export const approveEpisodeMatch = createServerFn({ method: "POST" })
       previousMethod: existing?.match_method ?? null,
       previousConfidence: existing ? Number(existing.match_confidence) : null,
     });
+    // A new link changes what every list surface reads. Without this the
+    // server-side catalogue snapshot (5 minute window) kept serving the episode
+    // with no movie attached, so an honest client refetch — even a hard refresh —
+    // still rendered the old relationship set.
+    (await import("@/lib/catalog.server")).expireCatalog();
     return { ok: true };
   });
 
