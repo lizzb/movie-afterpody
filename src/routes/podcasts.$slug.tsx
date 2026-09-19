@@ -74,7 +74,7 @@ function PodcastDetailPage() {
   const prefs = usePrefs();
   // Pass L2b — this show's page is assembled on the server; only this show's
   // episodes and covered movies are transferred.
-  const { detail, isLoading } = useShowDetail(slug);
+  const { detail, isLoading, error, refetch } = useShowDetail(slug);
   const view = prefs.viewModes["podcast-detail"] ?? "rows";
   // U40D — presentation-only toggle over the same useShowDetail payload.
   const [mode, setMode] = useState<"movies" | "episodes">("episodes");
