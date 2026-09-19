@@ -35,6 +35,10 @@ type EpisodeListSearch = {
   limit?: number;
 };
 
+/** Same fields, but an explicit `undefined` clears a parameter from the URL. */
+type SearchPatch = { [K in keyof EpisodeListSearch]?: EpisodeListSearch[K] | undefined };
+
+
 const SORT_KEYS = [
   "newest",
   "oldest",
