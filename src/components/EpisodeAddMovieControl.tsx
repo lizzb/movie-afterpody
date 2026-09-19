@@ -13,7 +13,7 @@ export function EpisodeAddMovieControl({ episodeId }: { episodeId: string }) {
       label="Add movie"
       disabled={add.isPending}
       onPick={async (movieId, movieTitle) => {
-        await add.mutateAsync({ episodeId, movieId, movieTitle });
+        await add.mutateAsync({ episodeId, movieId, ...(movieTitle ? { movieTitle } : {}) });
       }}
     />
   );
