@@ -196,10 +196,14 @@ export function useAddEpisodeMovieLink() {
   const queryClient = useQueryClient();
   const run = useServerFn(approveEpisodeMatch);
   return useMutation({
-    mutationFn: async (vars: { episodeId: string; movieId: string }) =>
+    mutationFn: async (vars: { episodeId: string; movieId: string; movieTitle?: string }) =>
       run({ data: { episodeId: vars.episodeId, movieId: vars.movieId } }),
-    onSuccess: () => {
-      toast.success("Movie linked to this episode");
+    onSuccess: (_result, vars) => {
+      toast.success(
+        vars.movieTitle
+          ? `Linked “${vars.movieTitle}” to this episode`
+          : "Movie linked to this episode",
+      );
       for (const queryKey of RETIREMENT_KEYS) void queryClient.invalidateQueries({ queryKey });
       void queryClient.invalidateQueries({ queryKey: CONFIRMED_KEY });
     },
