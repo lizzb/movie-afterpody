@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ExternalLink, Heart, Search, Star } from "lucide-react";
 import { BackLink } from "@/components/BackLink";
 import { AppShell } from "@/components/AppShell";
@@ -15,8 +15,63 @@ import type { PodcastEpisodeRow, PodcastMovie } from "@/lib/podcast-entries";
 import { useShowDetail } from "@/lib/server-lists";
 import { prefsActions, usePrefs, type ViewMode } from "@/lib/prefs";
 
+/**
+ * List-detail-list: the Episode feed's working state (tab, search, filters,
+ * sort, how far the list is loaded) lives in the URL, so leaving for a movie
+ * page and coming back through history restores the same list, and a hard
+ * refresh of that URL rebuilds it. A visit with no parameters uses the
+ * defaults below — nothing is remembered across unrelated sessions.
+ */
+type ShowTab = "movies" | "episodes";
+
+const DEFAULT_LIMIT = 150;
+
+type EpisodeListSearch = {
+  tab?: ShowTab;
+  q?: string;
+  match?: MatchFilter;
+  review?: ReviewFilter;
+  sort?: SortKey;
+  limit?: number;
+};
+
+const SORT_KEYS = [
+  "newest",
+  "oldest",
+  "links-desc",
+  "links-asc",
+  "duration-desc",
+  "duration-asc",
+  "title-asc",
+  "title-desc",
+] as const;
+
+function oneOf<T extends string>(value: unknown, allowed: readonly T[]): T | undefined {
+  return typeof value === "string" && (allowed as readonly string[]).includes(value)
+    ? (value as T)
+    : undefined;
+}
 
 export const Route = createFileRoute("/podcasts/$slug")({
+  validateSearch: (raw: Record<string, unknown>): EpisodeListSearch => {
+    const next: EpisodeListSearch = {};
+    const tab = oneOf(raw['tab'], ["movies", "episodes"] as const);
+    if (tab && tab !== "episodes") next.tab = tab;
+    const q = typeof raw['q'] === "string" ? raw['q'].slice(0, 120) : "";
+    if (q) next.q = q;
+    const match = oneOf(raw['match'], ["all", "matched", "unmatched"] as const);
+    if (match && match !== "all") next.match = match;
+    const review = oneOf(raw['review'], ["all", "reviewed", "unreviewed"] as const);
+    if (review && review !== "all") next.review = review;
+    const sort = oneOf(raw['sort'], SORT_KEYS);
+    if (sort && sort !== "newest") next.sort = sort;
+    const limit = Number(raw['limit']);
+    if (Number.isFinite(limit) && limit > DEFAULT_LIMIT) {
+      next.limit = Math.min(5000, Math.round(limit));
+    }
+    return next;
+  },
+
   head: ({ params }) => {
     const pretty = params.slug
       .split("-")
