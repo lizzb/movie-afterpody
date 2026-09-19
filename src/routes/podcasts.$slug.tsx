@@ -126,16 +126,32 @@ function lastEpisodeText(rows: PodcastEpisodeRow[]): string | null {
 
 function PodcastDetailPage() {
   const { slug } = Route.useParams();
+  const search = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
   const prefs = usePrefs();
   // Pass L2b — this show's page is assembled on the server; only this show's
   // episodes and covered movies are transferred.
   const { detail, isLoading, error, refetch } = useShowDetail(slug);
   const view = prefs.viewModes["podcast-detail"] ?? "rows";
-  // U40D — presentation-only toggle over the same useShowDetail payload.
-  const [mode, setMode] = useState<"movies" | "episodes">("episodes");
+  // U40D — presentation-only toggle over the same useShowDetail payload; now
+  // part of the URL so returning from a detail page lands on the same tab.
+  const mode: ShowTab = search.tab ?? "episodes";
+  /**
+   * Single source of truth: every list-state change rewrites the URL in place.
+   * `replace` keeps one history entry per visit, so Back still returns to the
+   * page the user arrived from rather than stepping through filter edits.
+   */
+  const setSearch = (patch: EpisodeListSearch) =>
+    void navigate({
+      search: (prev) => ({ ...prev, ...patch }),
+      replace: true,
+      resetScroll: false,
+    });
+  const setMode = (next: ShowTab) => setSearch({ tab: next === "episodes" ? undefined : next });
   const reviewStates = useEpisodeReviewStates(
     mode === "episodes" ? (detail?.allEpisodes.map((row) => row.episode.id) ?? []) : [],
   );
+
 
 
   if (isLoading) {
