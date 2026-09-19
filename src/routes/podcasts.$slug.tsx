@@ -93,6 +93,31 @@ function PodcastDetailPage() {
     );
   }
 
+  // A failed or timed-out read is not a missing show: say so, and offer a retry
+  // instead of reporting the show as absent from the catalogue.
+  if (error) {
+    return (
+      <AppShell>
+        <main className="mx-auto w-full max-w-3xl px-4 py-16 text-center">
+          <h1 className="font-display text-2xl font-bold">This show didn&rsquo;t load</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            The catalogue was busy or the request timed out. The show is still here.
+          </p>
+          <button
+            type="button"
+            onClick={() => refetch()}
+            className="mt-4 rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
+          >
+            Try again
+          </button>
+          <Link to="/podcasts" className="mt-4 block text-sm font-semibold text-coral">
+            Back to discover
+          </Link>
+        </main>
+      </AppShell>
+    );
+  }
+
   if (!detail) {
     return (
       <AppShell>
