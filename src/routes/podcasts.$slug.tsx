@@ -441,21 +441,36 @@ const SORT_LABELS: { value: SortKey; label: string }[] = [
 type MatchFilter = "all" | "matched" | "unmatched";
 type ReviewFilter = "all" | "reviewed" | "unreviewed";
 
-/** J3: the full episode feed with search, filter and sort controls. */
+/**
+ * J3: the full episode feed with search, filter and sort controls. The controls
+ * read and write the route's search params, so the list state is navigable.
+ */
 function EpisodeFeed({
   rows,
   reviewStates,
   fallbackListenUrl,
+  listState,
+  setListState,
 }: {
   rows: PodcastEpisodeRow[];
   reviewStates: ReturnType<typeof useEpisodeReviewStates>;
   fallbackListenUrl: string | null;
+  listState: EpisodeListSearch;
+  setListState: (patch: SearchPatch) => void;
 }) {
-  const [search, setSearch] = useState("");
-  const [match, setMatch] = useState<MatchFilter>("all");
-  const [review, setReview] = useState<ReviewFilter>("all");
-  const [sort, setSort] = useState<SortKey>("newest");
-  const [limit, setLimit] = useState(150);
+  const search = listState.q ?? "";
+  const match = listState.match ?? "all";
+  const review = listState.review ?? "all";
+  const sort = listState.sort ?? "newest";
+  const limit = listState.limit ?? DEFAULT_LIMIT;
+
+  const setSearch = (value: string) => setListState({ q: value || undefined });
+  const setMatch = (value: MatchFilter) => setListState({ match: value === "all" ? undefined : value });
+  const setReview = (value: ReviewFilter) =>
+    setListState({ review: value === "all" ? undefined : value });
+  const setSort = (value: SortKey) => setListState({ sort: value === "newest" ? undefined : value });
+  const showMore = () => setListState({ limit: limit + DEFAULT_LIMIT });
+
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
