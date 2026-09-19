@@ -406,7 +406,10 @@ function PodcastDetailPage() {
             rows={allEpisodes}
             reviewStates={reviewStates}
             fallbackListenUrl={podcast.website_url ?? null}
+            listState={search}
+            setListState={setSearch}
           />
+
         )}
 
       </main>
