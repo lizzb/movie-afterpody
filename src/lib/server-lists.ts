@@ -96,5 +96,10 @@ export function useShowDetail(slug: string) {
     staleTime: STALE,
     placeholderData: (prev) => prev,
   });
-  return { detail: query.data ?? null, isLoading: query.isLoading, error: query.error };
+  return {
+    detail: query.data ?? null,
+    isLoading: query.isLoading,
+    error: query.error,
+    refetch: () => void query.refetch(),
+  };
 }

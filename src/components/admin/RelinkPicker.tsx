@@ -15,7 +15,8 @@ export function RelinkPicker({
   disabled,
   label = "Pick another movie",
 }: {
-  onPick: (movieId: string) => void | Promise<void>;
+  /** `movieTitle` is the label the picker already showed, so callers can name the movie back to the user. */
+  onPick: (movieId: string, movieTitle?: string) => void | Promise<void>;
   disabled?: boolean;
   label?: string;
 }) {
@@ -53,12 +54,15 @@ export function RelinkPicker({
     setImdbBusy(true);
     try {
       const created = (await enrichFn({ data: { imdbId: value } })) as {
-        movie?: { id: string };
+        movie?: { id: string; title?: string; release_year?: number | null };
         movieId?: string;
       };
       const id = created.movie?.id ?? created.movieId;
       if (!id) throw new Error("TMDB had no movie for that IMDb id.");
-      await onPick(id);
+      const created_title = created.movie?.title
+        ? `${created.movie.title}${created.movie.release_year ? ` (${created.movie.release_year})` : ""}`
+        : undefined;
+      await onPick(id, created_title);
       setOpen(false);
     } catch (err) {
       setImdbError(err instanceof Error ? err.message : "IMDb lookup failed.");
@@ -130,7 +134,10 @@ export function RelinkPicker({
                 <button
                   type="button"
                   onClick={() => {
-                    void onPick(m.id);
+                    void onPick(
+                      m.id,
+                      `${m.title}${m.release_year ? ` (${m.release_year})` : ""}`,
+                    );
                     setOpen(false);
                   }}
                   className="w-full rounded-lg px-2 py-1.5 text-left text-xs font-semibold hover:bg-secondary"
