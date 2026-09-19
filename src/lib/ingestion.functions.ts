@@ -1971,6 +1971,7 @@ export const relinkEpisodeMovie = createServerFn({ method: "POST" })
       previousConfidence: existing ? Number(existing.match_confidence) : null,
     });
 
+    (await import("@/lib/catalog.server")).expireCatalog();
     return { ok: true as const, relinked: Boolean(data.toMovieId), error: undefined };
   });
 
