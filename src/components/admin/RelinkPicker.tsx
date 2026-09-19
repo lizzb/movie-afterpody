@@ -15,7 +15,8 @@ export function RelinkPicker({
   disabled,
   label = "Pick another movie",
 }: {
-  onPick: (movieId: string) => void | Promise<void>;
+  /** `movieTitle` is the label the picker already showed, so callers can name the movie back to the user. */
+  onPick: (movieId: string, movieTitle?: string) => void | Promise<void>;
   disabled?: boolean;
   label?: string;
 }) {
