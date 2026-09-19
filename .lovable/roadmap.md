@@ -59,6 +59,17 @@ Use `BUILD` only when product code is expected to change. Expect `VERIFY SWEEP` 
 
 ## Do next
 
+### Pass U90 — Episode-view list state preserved across list → detail → list — S — SHIPPED 2026-09-19, VERIFIED (preview, 390px + 1280px)
+
+Effort: S; Confidence in estimate: High. Scope was the Podcast Show Details Episodes feed only; no new roadmap ownership taken from H5 (Movies/Tonight filter split) or G4 (saveable Tonight defaults), which still own their surfaces.
+
+Problem: the Episodes feed on `/podcasts/$slug` held search, match filter, review filter, sort, tab and loaded limit in local React state, so the standard list → detail → list admin workflow lost the working list state on return.
+
+Fix (`src/routes/podcasts.$slug.tsx` only): those fields moved to TanStack Router search params via a hand-rolled `validateSearch` (no zod adapter available at the installed router version), with defaults stripped from the URL. `PodcastDetailPage` reads `Route.useSearch()` and writes through one `setSearch` patch helper using `navigate({ replace: true, resetScroll: false })`, so filter edits do not add history entries and the existing BackLink history behaviour is unchanged. `EpisodeFeed` is now driven by `listState` / `setListState` props; transient UI state stayed local. No storage-based persistence, no global cross-surface filter persistence.
+
+Verified 2026-09-19 on Messed Up Movies at 390px and 1280px: search "scream" + Matched + Unreviewed + Title A–Z produced `?q=scream&match=matched&review=unreviewed&sort=title-asc` showing 6 of 871; opening a movie page and returning via back restored the identical filtered list; hard refresh of that URL preserved it; opening the show with no params gave defaults and a clean URL; tab and loaded limit preserved the same way. Typecheck clean, no console errors, no unrelated navigation or filtering change.
+
+
 ### Pass U88 — Confirm + Mark reviewed appeared not to stick — S — SHIPPED 2026-09-14, VERIFIED (preview, 390px)
 
 Effort: S; Confidence in estimate: High. Not U53 (that pass still owns making "Mark reviewed" confirm the links); this was a state-presentation defect only.
@@ -1701,6 +1712,24 @@ Verified 2026-09-12 (preview): warm loads `/movies` 100 rows / 2616 titles, `/po
 #### Pass U89 — Catalogue read fan-out and payload weight — M (~3-5 credits), confidence Low (measure first) — BACKLOG (filed 2026-09-17) — plan: `.lovable/plan/plan-backlog-only-pass-u89-catalogue-read-fan-out-and-payloa-2026-09-18.md`
 
 Residual risk left over from the 2026-09-17 index fix (which removed the whole-table episode sort and the visitor-facing timeouts). Two app-level causes remain: (1) fan-out — one page load can trigger several overlapping catalogue reads (6 large requests at once observed) and repeat loads re-request the same rows; (2) payload weight — the episode read selects full descriptions even on surfaces that render only title, date and links. Scope: measure call counts and bytes per load for `/`, `/movies`, `/podcasts`, a show page and a movie page (warm and cold) and record them before changing anything; collapse duplicate concurrent reads into one in-flight request per key; split the episode read into a lightweight projection for browse/list/detail and keep the full projection for matcher and admin review; confirm existing TTL behaviour still holds, no second cache layer. Out of scope: cold-read latency and retiring `src/lib/data.ts` (L2c-1), availability freshness (U67/U68), schema changes, new indexes, matcher scoring changes, any visible change. Depends on / must not regress U79 and U80; overlaps L2c-1 on the same reader (re-measure if L2c-1 lands first). Unknowns: whether the 66k call count is visitor traffic, ingestion/rescan loops, or repeated preview loads (changes the fix entirely); how many surfaces consume `description`; whether collapsing alone suffices. Acceptance (pre-build): before/after call counts and bytes recorded; duplicate concurrent reads for one key reduced to a single request; browse/list/detail no longer transfer descriptions; matcher precision/recall unchanged on the U75 corpus; no visible change and no console errors at 390px and 1280px.
+
+#### Pass U91 — List-state preservation across the remaining list → detail → list surfaces — M (~3-5 credits), confidence Medium — BACKLOG (filed 2026-09-19)
+
+Umbrella pass extending the pattern shipped in U90 to the other list/detail surfaces. Filed as one pass because all remaining surfaces share a single architecture (global `usePrefs` filter object + local `useState` for term/mode/limit/tab), so the work is one shared search-param convention applied four times, not four designs.
+
+Existing-roadmap ownership / related passes: U90 (shipped pattern and precedent); H5 (splitting Movies filters from Tonight — still owns per-surface filter *state separation*, which this pass must not pre-empt); G4 (saveable Tonight defaults — owns durable defaults, a different concern from per-navigation list state); U82 (filter within a watchlist — if it lands first, its filter fields join this convention); G3 (no mid-interaction re-sorting).
+
+Affected surfaces (inventory 2026-09-19): `/movies` (`term`, `limit`, plus prefs-backed filters/sort), `/` Tonight (`visibleCount`, prefs-backed filters/sort), `/podcasts` (`term`, `mode`, `limit`), `/lists` (`tab`, plus per-list filters once U82 lands). Not applicable: movie detail and settings (no list state).
+
+Desired behavior: leaving one of these lists for a detail page and returning restores the same search/filter/sort/loaded-count state; a hard refresh of a URL carrying those params reconstructs the list; a fresh visit with no params uses normal defaults; filter edits replace rather than push history so back still exits to the previous page.
+
+Boundaries / non-goals: no storage-based persistence; no global cross-surface filter persistence; no change to what the filters mean or how results rank; no redesign of `FilterBar`; do not resolve the Tonight/Movies shared-prefs coupling here (H5); no new navigation system.
+
+Dependencies: H5 decides whether Movies and Tonight keep one prefs object — sequencing matters, since URL-encoding a shared object could bake the coupling in; U82 for watchlist filter fields.
+
+Acceptance criteria: for each surface, non-default search/filter/sort/loaded-count round-trips through detail-and-back and through a hard refresh; no-params visit shows documented defaults with a clean URL; back from a filtered list still exits the surface in one press; no console errors at 390px and 1280px; typecheck clean; matcher, ranking and ingestion behaviour unchanged.
+
+Effort: M (~3-5 credits). Confidence: Medium — the pattern is proven, but the prefs-backed filters on Movies/Tonight are a shared object whose URL encoding is undecided until H5.
 
 #### Pass U80 — Restore source-side active-show filter on the catalogue episode read — S — SHIPPED 2026-09-12, VERIFIED (preview)
 
