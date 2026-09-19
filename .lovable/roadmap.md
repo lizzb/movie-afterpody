@@ -59,6 +59,17 @@ Use `BUILD` only when product code is expected to change. Expect `VERIFY SWEEP` 
 
 ## Do next
 
+### Pass U90 — Episode-view list state preserved across list → detail → list — S — SHIPPED 2026-09-19, VERIFIED (preview, 390px + 1280px)
+
+Effort: S; Confidence in estimate: High. Scope was the Podcast Show Details Episodes feed only; no new roadmap ownership taken from H5 (Movies/Tonight filter split) or G4 (saveable Tonight defaults), which still own their surfaces.
+
+Problem: the Episodes feed on `/podcasts/$slug` held search, match filter, review filter, sort, tab and loaded limit in local React state, so the standard list → detail → list admin workflow lost the working list state on return.
+
+Fix (`src/routes/podcasts.$slug.tsx` only): those fields moved to TanStack Router search params via a hand-rolled `validateSearch` (no zod adapter available at the installed router version), with defaults stripped from the URL. `PodcastDetailPage` reads `Route.useSearch()` and writes through one `setSearch` patch helper using `navigate({ replace: true, resetScroll: false })`, so filter edits do not add history entries and the existing BackLink history behaviour is unchanged. `EpisodeFeed` is now driven by `listState` / `setListState` props; transient UI state stayed local. No storage-based persistence, no global cross-surface filter persistence.
+
+Verified 2026-09-19 on Messed Up Movies at 390px and 1280px: search "scream" + Matched + Unreviewed + Title A–Z produced `?q=scream&match=matched&review=unreviewed&sort=title-asc` showing 6 of 871; opening a movie page and returning via back restored the identical filtered list; hard refresh of that URL preserved it; opening the show with no params gave defaults and a clean URL; tab and loaded limit preserved the same way. Typecheck clean, no console errors, no unrelated navigation or filtering change.
+
+
 ### Pass U88 — Confirm + Mark reviewed appeared not to stick — S — SHIPPED 2026-09-14, VERIFIED (preview, 390px)
 
 Effort: S; Confidence in estimate: High. Not U53 (that pass still owns making "Mark reviewed" confirm the links); this was a state-presentation defect only.
