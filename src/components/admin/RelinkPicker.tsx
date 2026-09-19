@@ -54,12 +54,15 @@ export function RelinkPicker({
     setImdbBusy(true);
     try {
       const created = (await enrichFn({ data: { imdbId: value } })) as {
-        movie?: { id: string };
+        movie?: { id: string; title?: string; release_year?: number | null };
         movieId?: string;
       };
       const id = created.movie?.id ?? created.movieId;
       if (!id) throw new Error("TMDB had no movie for that IMDb id.");
-      await onPick(id);
+      const created_title = created.movie?.title
+        ? `${created.movie.title}${created.movie.release_year ? ` (${created.movie.release_year})` : ""}`
+        : undefined;
+      await onPick(id, created_title);
       setOpen(false);
     } catch (err) {
       setImdbError(err instanceof Error ? err.message : "IMDb lookup failed.");
