@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { ExternalLink, Heart, Search, Star } from "lucide-react";
 import { BackLink } from "@/components/BackLink";
 import { AppShell } from "@/components/AppShell";
@@ -15,8 +15,67 @@ import type { PodcastEpisodeRow, PodcastMovie } from "@/lib/podcast-entries";
 import { useShowDetail } from "@/lib/server-lists";
 import { prefsActions, usePrefs, type ViewMode } from "@/lib/prefs";
 
+/**
+ * List-detail-list: the Episode feed's working state (tab, search, filters,
+ * sort, how far the list is loaded) lives in the URL, so leaving for a movie
+ * page and coming back through history restores the same list, and a hard
+ * refresh of that URL rebuilds it. A visit with no parameters uses the
+ * defaults below — nothing is remembered across unrelated sessions.
+ */
+type ShowTab = "movies" | "episodes";
+
+const DEFAULT_LIMIT = 150;
+
+type EpisodeListSearch = {
+  tab?: ShowTab;
+  q?: string;
+  match?: MatchFilter;
+  review?: ReviewFilter;
+  sort?: SortKey;
+  limit?: number;
+};
+
+/** Same fields, but an explicit `undefined` clears a parameter from the URL. */
+type SearchPatch = { [K in keyof EpisodeListSearch]?: EpisodeListSearch[K] | undefined };
+
+
+const SORT_KEYS = [
+  "newest",
+  "oldest",
+  "links-desc",
+  "links-asc",
+  "duration-desc",
+  "duration-asc",
+  "title-asc",
+  "title-desc",
+] as const;
+
+function oneOf<T extends string>(value: unknown, allowed: readonly T[]): T | undefined {
+  return typeof value === "string" && (allowed as readonly string[]).includes(value)
+    ? (value as T)
+    : undefined;
+}
 
 export const Route = createFileRoute("/podcasts/$slug")({
+  validateSearch: (raw: Record<string, unknown>): EpisodeListSearch => {
+    const next: EpisodeListSearch = {};
+    const tab = oneOf(raw['tab'], ["movies", "episodes"] as const);
+    if (tab && tab !== "episodes") next.tab = tab;
+    const q = typeof raw['q'] === "string" ? raw['q'].slice(0, 120) : "";
+    if (q) next.q = q;
+    const match = oneOf(raw['match'], ["all", "matched", "unmatched"] as const);
+    if (match && match !== "all") next.match = match;
+    const review = oneOf(raw['review'], ["all", "reviewed", "unreviewed"] as const);
+    if (review && review !== "all") next.review = review;
+    const sort = oneOf(raw['sort'], SORT_KEYS);
+    if (sort && sort !== "newest") next.sort = sort;
+    const limit = Number(raw['limit']);
+    if (Number.isFinite(limit) && limit > DEFAULT_LIMIT) {
+      next.limit = Math.min(5000, Math.round(limit));
+    }
+    return next;
+  },
+
   head: ({ params }) => {
     const pretty = params.slug
       .split("-")
@@ -71,16 +130,41 @@ function lastEpisodeText(rows: PodcastEpisodeRow[]): string | null {
 
 function PodcastDetailPage() {
   const { slug } = Route.useParams();
+  const search = Route.useSearch();
+  const navigate = useNavigate({ from: Route.fullPath });
   const prefs = usePrefs();
   // Pass L2b — this show's page is assembled on the server; only this show's
   // episodes and covered movies are transferred.
   const { detail, isLoading, error, refetch } = useShowDetail(slug);
   const view = prefs.viewModes["podcast-detail"] ?? "rows";
-  // U40D — presentation-only toggle over the same useShowDetail payload.
-  const [mode, setMode] = useState<"movies" | "episodes">("episodes");
+  // U40D — presentation-only toggle over the same useShowDetail payload; now
+  // part of the URL so returning from a detail page lands on the same tab.
+  const mode: ShowTab = search.tab ?? "episodes";
+  /**
+   * Single source of truth: every list-state change rewrites the URL in place.
+   * `replace` keeps one history entry per visit, so Back still returns to the
+   * page the user arrived from rather than stepping through filter edits.
+   */
+  const setSearch = (patch: SearchPatch) =>
+    void navigate({
+      search: (prev) => {
+        const next: Record<string, unknown> = { ...prev };
+        for (const [key, value] of Object.entries(patch)) {
+          // A default value drops the parameter instead of pinning it in the URL.
+          if (value === undefined) delete next[key];
+          else next[key] = value;
+        }
+        return next as EpisodeListSearch;
+      },
+      replace: true,
+      resetScroll: false,
+    });
+
+  const setMode = (next: ShowTab) => setSearch({ tab: next === "episodes" ? undefined : next });
   const reviewStates = useEpisodeReviewStates(
     mode === "episodes" ? (detail?.allEpisodes.map((row) => row.episode.id) ?? []) : [],
   );
+
 
 
   if (isLoading) {
@@ -322,7 +406,10 @@ function PodcastDetailPage() {
             rows={allEpisodes}
             reviewStates={reviewStates}
             fallbackListenUrl={podcast.website_url ?? null}
+            listState={search}
+            setListState={setSearch}
           />
+
         )}
 
       </main>
@@ -354,21 +441,36 @@ const SORT_LABELS: { value: SortKey; label: string }[] = [
 type MatchFilter = "all" | "matched" | "unmatched";
 type ReviewFilter = "all" | "reviewed" | "unreviewed";
 
-/** J3: the full episode feed with search, filter and sort controls. */
+/**
+ * J3: the full episode feed with search, filter and sort controls. The controls
+ * read and write the route's search params, so the list state is navigable.
+ */
 function EpisodeFeed({
   rows,
   reviewStates,
   fallbackListenUrl,
+  listState,
+  setListState,
 }: {
   rows: PodcastEpisodeRow[];
   reviewStates: ReturnType<typeof useEpisodeReviewStates>;
   fallbackListenUrl: string | null;
+  listState: EpisodeListSearch;
+  setListState: (patch: SearchPatch) => void;
 }) {
-  const [search, setSearch] = useState("");
-  const [match, setMatch] = useState<MatchFilter>("all");
-  const [review, setReview] = useState<ReviewFilter>("all");
-  const [sort, setSort] = useState<SortKey>("newest");
-  const [limit, setLimit] = useState(150);
+  const search = listState.q ?? "";
+  const match = listState.match ?? "all";
+  const review = listState.review ?? "all";
+  const sort = listState.sort ?? "newest";
+  const limit = listState.limit ?? DEFAULT_LIMIT;
+
+  const setSearch = (value: string) => setListState({ q: value || undefined });
+  const setMatch = (value: MatchFilter) => setListState({ match: value === "all" ? undefined : value });
+  const setReview = (value: ReviewFilter) =>
+    setListState({ review: value === "all" ? undefined : value });
+  const setSort = (value: SortKey) => setListState({ sort: value === "newest" ? undefined : value });
+  const showMore = () => setListState({ limit: limit + DEFAULT_LIMIT });
+
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -537,7 +639,7 @@ function EpisodeFeed({
         </ol>
       )}
       {limit < visible.length ? (
-        <button type="button" onClick={() => setLimit((n) => n + 150)} className="mt-3 w-full rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold text-foreground">
+        <button type="button" onClick={showMore} className="mt-3 w-full rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold text-foreground">
           Show 150 more <span className="text-muted-foreground">({visible.length - limit} remaining)</span>
         </button>
       ) : null}
