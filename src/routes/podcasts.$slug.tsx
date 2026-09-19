@@ -639,7 +639,7 @@ function EpisodeFeed({
         </ol>
       )}
       {limit < visible.length ? (
-        <button type="button" onClick={() => setLimit((n) => n + 150)} className="mt-3 w-full rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold text-foreground">
+        <button type="button" onClick={showMore} className="mt-3 w-full rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold text-foreground">
           Show 150 more <span className="text-muted-foreground">({visible.length - limit} remaining)</span>
         </button>
       ) : null}
