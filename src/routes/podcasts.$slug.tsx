@@ -141,7 +141,7 @@ function PodcastDetailPage() {
    * `replace` keeps one history entry per visit, so Back still returns to the
    * page the user arrived from rather than stepping through filter edits.
    */
-  const setSearch = (patch: EpisodeListSearch) =>
+  const setSearch = (patch: SearchPatch) =>
     void navigate({
       search: (prev) => ({ ...prev, ...patch }),
       replace: true,
