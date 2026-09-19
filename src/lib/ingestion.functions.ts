@@ -707,6 +707,7 @@ export const rejectEpisodeMatch = createServerFn({ method: "POST" })
       previousMethod: existing?.match_method ?? null,
       previousConfidence: existing ? Number(existing.match_confidence) : null,
     });
+    (await import("@/lib/catalog.server")).expireCatalog();
     return { ok: true };
   });
 
