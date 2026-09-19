@@ -12,8 +12,8 @@ export function EpisodeAddMovieControl({ episodeId }: { episodeId: string }) {
     <RelinkPicker
       label="Add movie"
       disabled={add.isPending}
-      onPick={async (movieId) => {
-        await add.mutateAsync({ episodeId, movieId });
+      onPick={async (movieId, movieTitle) => {
+        await add.mutateAsync({ episodeId, movieId, movieTitle });
       }}
     />
   );
