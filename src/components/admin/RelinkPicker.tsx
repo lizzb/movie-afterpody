@@ -134,7 +134,10 @@ export function RelinkPicker({
                 <button
                   type="button"
                   onClick={() => {
-                    void onPick(m.id);
+                    void onPick(
+                      m.id,
+                      `${m.title}${m.release_year ? ` (${m.release_year})` : ""}`,
+                    );
                     setOpen(false);
                   }}
                   className="w-full rounded-lg px-2 py-1.5 text-left text-xs font-semibold hover:bg-secondary"
