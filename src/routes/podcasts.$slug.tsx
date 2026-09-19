@@ -147,10 +147,19 @@ function PodcastDetailPage() {
    */
   const setSearch = (patch: SearchPatch) =>
     void navigate({
-      search: (prev) => ({ ...prev, ...patch }),
+      search: (prev) => {
+        const next: Record<string, unknown> = { ...prev };
+        for (const [key, value] of Object.entries(patch)) {
+          // A default value drops the parameter instead of pinning it in the URL.
+          if (value === undefined) delete next[key];
+          else next[key] = value;
+        }
+        return next as EpisodeListSearch;
+      },
       replace: true,
       resetScroll: false,
     });
+
   const setMode = (next: ShowTab) => setSearch({ tab: next === "episodes" ? undefined : next });
   const reviewStates = useEpisodeReviewStates(
     mode === "episodes" ? (detail?.allEpisodes.map((row) => row.episode.id) ?? []) : [],
