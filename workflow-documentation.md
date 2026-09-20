@@ -1,6 +1,6 @@
 # Movie Afterparty admin workflow
 
-## Pass acceptance workflow (added 2026-09-02)
+## Pass acceptance workflow
 
 Before building a multi-item pass, write a testable acceptance checklist plus the minimum
 verification steps per criterion, and flag anything the spec does not actually cover instead
@@ -8,239 +8,228 @@ of quietly deciding it.
 
 Every pass summary labels each promised item:
 
-- **Verified** — checked in code and in the running app, naming route and device.
+- **Verified** — checked in code and in the running app, naming route and device/environment.
 - **Implemented, not verified** — code exists, runtime verification not done.
 - **Deferred** — intentionally not built.
 - **Needs follow-up** — present but not at the requested UX quality.
 
-A pass is never called "built" or moved to _Already done_ in `.lovable/roadmap.md` unless every
-item is Verified or explicitly Deferred. Verification is run proactively — no prompting needed —
-and is mandatory for mobile/PWA layout, popovers, filters and stateful controls.
+A pass is not treated as verified unless all required acceptance items are verified or explicitly
+deferred. Verification is mandatory for mobile/PWA layout, popovers, filters and stateful controls.
 
-### Trigger keywords
+## Trigger keywords
 
-- `ACCEPT: <PASS_ID>` (also `ACCEPTANCE: <PASS_ID>`) — write/refresh the acceptance-criteria
-  checklist plus minimum verification steps for that pass into a dated plan file. No code,
-  no scope change. Accepts multiple IDs.
-- `BUILD: <PASS_ID>` — if no acceptance checklist exists yet for that pass, derive one first
-  from the roadmap entry and plan context, then build against it, then verify in the running
-  app, then report with labels. Building always ends in a labeled checklist.
-- `PLAN: <PASS_ID>` / `PLAN (backlog only)` — scoping and estimates only. A full testable
-  acceptance checklist is written only when the pass is nontrivial/multi-item or when
-  `ACCEPT:` is used; backlog entries carry a one-line acceptance sentence, not a full set.
+- `ACCEPT: <PASS_ID>` (also `ACCEPTANCE: <PASS_ID>`) — write or refresh the acceptance-criteria
+  checklist plus minimum verification steps for that pass into a dated plan file. No product-code
+  changes and no scope change. Accepts multiple IDs.
 
-Current acceptance-criteria sets: `.lovable/plan/acceptance-criteria-u8-u24-u4-p-u23-2026-09-02.md`
+- `BUILD: <PASS_ID>` — implement only the named pass. Use the pass ID as the primary anchor and
+  read only the roadmap entry and linked plan/acceptance material needed for that pass. If no
+  acceptance checklist exists yet, derive the minimum checklist from those targeted sources.
+  Do not broadly audit unrelated roadmap history or plan files. Build against the requested scope,
+  then verify in the running app as required.
+
+- `PLAN: <PASS_ID>` / `PLAN (backlog only)` — planning, scoping, estimation, and requested
+  roadmap/plan documentation only. A PLAN turn may create or update the requested roadmap entry
+  and/or detailed plan documentation. It must make zero product-code changes and must not initiate
+  or perform a secondary BUILD.
+
+  If the requested deliverable is a roadmap/backlog entry, file that entry directly. Do not stop
+  after creating a detached plan artifact unless the user explicitly requested a separate plan
+  artifact.
+
+Current acceptance-criteria set:
+`.lovable/plan/acceptance-criteria-u8-u24-u4-p-u23-2026-09-02.md`
 (U8, U24, U4, P, U23).
 
-## Triage workflow (added manually 2026-09-03)
-
-TRIAGE: Create a keyword for this workflow
-
-The meaning should be:
-
-Investigate first. TRIAGE diagnoses the reported problem and determines the likely root cause, scope, and appropriate next step. TRIAGE does not authorize implementation: even when the cause and smallest safe fix are clear and low-risk, explain the diagnosis and recommended fix rather than implementing it. If implementation would require meaningful investigation, architectural changes, broad refactoring, multiple screens, migrations, or substantial work, explain the likely scope and add or update a backlog pass.
+## Triage workflow
 
 ### Workflow keyword: TRIAGE
 
 When a user message begins with `TRIAGE:`:
 
-1. Investigate the reported bug/problem using the current roadmap, relevant pass/plan files, and current implementation.
-2. Identify the root cause or most likely cause.
-3. Check whether the issue is already covered by an existing pass/backlog item before creating anything new.
-4. Do NOT implement a fix during TRIAGE, even when the cause and smallest safe fix are clear, localized, low-risk, and reasonably small:
-   - explain the root cause or strongest diagnosis;
-   - describe the smallest plausible fix;
-   - identify any important verification considerations;
-   - determine whether an existing roadmap pass already owns the work.
+1. Investigate the reported problem using the current implementation and targeted searches of the
+   roadmap and relevant plan files.
+2. Use supplied pass IDs, routes, components, functions, or other concrete anchors first.
+3. Identify the root cause or strongest supported diagnosis.
+4. Check whether an existing pass already owns the problem before creating anything new.
+5. Do not implement a fix during TRIAGE, even when the cause and smallest safe fix are clear.
+6. Report:
+   - root cause or strongest supported diagnosis;
+   - smallest plausible fix;
+   - important verification considerations;
+   - existing roadmap ownership, if any;
+   - remaining uncertainty.
+7. If deeper work is genuinely required, estimate the scope and add or update the appropriate
+   backlog pass rather than implementing it.
+8. Do not turn TRIAGE into unrelated cleanup, refactoring, redesign, or opportunistic improvement.
 
-5. If the issue requires substantial investigation, architectural work, a migration, broad refactoring, multiple independent changes, or otherwise substantial implementation:
-   - do NOT implement it;
-   - explain the root cause/uncertainty;
-   - describe the likely scope, smallest plausible fix, and broader alternatives where useful
-   - estimate the effort using the project's S/M/L/XL complexity plus work drivers;
-   - add or update an appropriately scoped backlog pass.
-6. Do not create a new pass when an existing pass already covers the problem; update/reframe the existing pass instead.
-7. Do not turn a TRIAGE request into unrelated cleanup or opportunistic improvements.
-8. Clearly state which branch was taken:
-   TRIAGE COMPLETE — RECOMMENDED FIX
-   or
-   NEEDS DEEPER WORK — BACKLOGGED
+Clearly state which branch was taken:
 
-# Ingest data admin workflow (outdated? NEEDS REVIEW as of 2026-09-03)
+`TRIAGE COMPLETE — RECOMMENDED FIX`
 
-## Data population flow
+or
 
-1. **Ingest podcast** stores the show and up to 1000 feed episodes.
-2. **Build movies from episodes** reads unmatched active-show episodes, extracts likely movie titles from episode titles, looks them up in TMDB, creates/refreshes movie rows, and links the episode.
-3. **Recheck every episode against existing movies** does not call TMDB. It only rescans active-show episodes against movies already in the catalogue, skips rejected pairs, preserves manual/confirmed links, replaces weak links only when a better match wins clearly, and can add strong secondary links.
-4. **Enrich movies from TMDB** fills metadata, posters, backdrops, runtime, IMDb id, and collection id for existing movies.
-5. **Streaming availability + genres** refreshes current provider data and genres. Availability is a snapshot, not a guarantee that a title will remain available.
+`NEEDS DEEPER WORK — BACKLOGGED`
 
-## What the matcher learns today
-
-- Every rejected pair is stored and never suggested again for that same episode/movie pair.
-- Rejection counts by movie act as negative evidence, so repeatedly noisy movies lose confidence in future scoring.
-- Confirmed/manual links are preserved during rescans.
-- The scorecard replays the current matcher over approved/rejected labels and reports which signals correlate with good or bad matches.
-
-## What it does not learn yet
-
-- It does not train an AI model.
-- It does not automatically rewrite scoring weights from the scorecard.
-- It does not infer that an entire phrase like an ad campaign is invalid unless the title rules identify it as non-movie noise or an admin marks episodes as not about a movie.
-
-## Practical review loop
-
-1. Keep a small set of shows active; park the rest.
-2. Build movies from episodes for one active show.
-3. Review Flagged, then Proposed, then Existing links.
-4. Use **Not about a movie** for ads, interviews, mailbags, trailers, and non-film episodes.
-5. Run **Score the matcher** before and after matcher-rule changes.
-6. When the queue looks stale after a major rule change, use a future guarded replay tool rather than manually refreshing the same weak historical links.
-
-## Verification sweep workflow (added 2026-09-09)
-
-Two keywords, separate from `BUILD` because neither starts by writing product code.
+## Verification workflow
 
 ### Workflow keyword: VERIFY SWEEP
 
-Documentation only. When a message begins with `VERIFY SWEEP`:
+Documentation/planning only.
 
-1. List every roadmap item currently labelled **IMPLEMENTED, NOT VERIFIED** or **NEEDS FOLLOW-UP**.
-2. For each, write the concrete test that would settle it: route, viewport, data precondition, expected observation.
-3. Sort them into: verifiable now; verifiable only with a forced-failure harness; blocked on an environmental dependency (e.g. admin identity — Pass U76); no realistic path to verification. For the last group, state why and recommend accept-as-is / retire / re-scope.
-4. File the testable ones as scoped `V*` verification passes with credit estimates in `.lovable/roadmap.md`.
-5. No code, no status promotions, no new product scope.
+1. List roadmap items currently labelled IMPLEMENTED, NOT VERIFIED or NEEDS FOLLOW-UP.
+2. For each, write the concrete test that would settle it: route, viewport, data precondition,
+   and expected observation.
+3. Separate them into:
+   - verifiable now;
+   - verifiable only with a forced-failure harness;
+   - blocked on an environmental dependency;
+   - no realistic path to verification.
+4. For the last group, state why and recommend accept-as-is / retire / re-scope.
+5. File testable verification work as scoped `V*` passes with estimates.
+6. No product-code changes and no status promotions during VERIFY SWEEP.
 
-This is low priority by design — expect it to run only when credits are in surplus.
+This is low priority hygiene, not a release gate.
 
 ### Workflow keyword: VERIFY: <PASS_ID>
 
-Execute one filed verification pass against the running app, then update the roadmap: promote to **VERIFIED** with date and evidence, or leave the label and name the blocker. Move the entry to its correct section in the same edit. A small defect found mid-run follows the `TRIAGE` rules; it does not expand the verification pass.
+Execute one filed verification pass against the running app.
 
-Use `BUILD` only when product code is expected to change.
+Use the named pass ID as the primary retrieval anchor. Read only the relevant roadmap entry and
+verification/plan material needed for that pass.
 
-## Admin verification identity (Pass U76, added 2026-09-11)
+Promote the pass to VERIFIED with date and evidence when all required verification succeeds.
+Otherwise leave it labelled with the blocker named.
 
-Admin-only surfaces must be verified through the real path — JWT → `requireSupabaseAuth` → RLS → `has_role` — never by weakening a policy or a client guard.
+A small defect discovered during verification follows TRIAGE; it does not expand the verification
+pass.
 
-Standing procedure (credential-free; nothing stored in source):
+Do not move or reorder pass entries merely because their verification status changed.
 
-1. `lovable auth-session --json` mints a short-lived real session for the project's sole auth user (`x.lizzb@gmail.com`, id `176b1ada-673a-426e-a40e-946fb9e2420a`, which holds the `admin` row in `user_roles`). With several auth users use `--self`, or `--user <uuid>` for a named account.
-2. `python3 scripts/verify-admin-session.py [/admin/ingest]` restores that session (SSR cookies + supabase-js localStorage key) into Playwright and reports whether the admin surface loads. Exit 0 = usable admin session.
-3. Run the pass's own assertion in the same restored context. Confirm/Flag pattern: open a show detail, click **Confirm this link is correct**, expect the "Link confirmed" toast, then click the undo state so no data is left changed.
-4. Signed-out control: the same route in a fresh context must show zero Confirm controls and the server function must refuse (HTTP 403).
+## Admin verification identity
 
-A no-second-identity decision was taken deliberately: creating an extra `verify-admin@…` auth user would make every mint require `--user <uuid>` with per-run user approval, adding friction without adding safety. The existing sole admin account is already non-shared and its tokens are short-lived.
+Admin-only surfaces must be verified through the real path — JWT → `requireSupabaseAuth` → RLS →
+`has_role` — never by weakening a policy or a client guard.
 
-**Labelling rule:** an admin-only item may only be labelled "IMPLEMENTED, NOT VERIFIED" _for session reasons_ after this procedure has actually been run and failed, with the failure output quoted on the roadmap entry.
+Standing procedure:
 
-Verified 2026-09-11: `/admin/ingest` loads with the full ingest dashboard and no console errors; 6 Confirm controls present on a show detail; Confirm wrote and undid successfully; signed out, 0 controls and `confirmEpisodeMatch` returned 403.
+1. `lovable auth-session --json` mints a short-lived real session for the project's sole auth user.
+2. `python3 scripts/verify-admin-session.py [/admin/ingest]` restores that session into Playwright
+   and reports whether the admin surface loads.
+3. Run the pass's own assertion in the restored context.
+4. Use a fresh signed-out context as the negative control where appropriate.
 
-## Credit reporting, estimate content, and scope guards (added 2026-09-14, Pacific)
+Do not create a second verification identity merely to simplify testing when the existing procedure
+already provides the required authenticated path.
 
-### Credit numbers in chat
+An admin-only item must not be labelled VERIFIED when required authenticated UI remains untested.
 
-The agent has no access to the billed cost of a message. Any "About X credits" line is a
-model-generated guess. Therefore:
+## Plan-section completeness
 
-- Never report a bare "About X credits" figure as if it were actual spend.
-- Only state credits when (a) giving a forward-looking estimate, explicitly labelled
-  `Estimated remaining: <band>`, or (b) the user asks for a retrospective sense of cost, in which
-  case it is labelled `Rough estimate of work done (not billed cost)`.
-- Bands only (S ~1-2, M ~3-5, L ~6-10, XL ~10+); no invented precise numbers.
+Every new or re-scoped pass plan section must contain these labelled fields:
 
-### Every roadmap/plan estimate must carry scope, complexity and uncertainty
-
-A credit band alone is not an estimate. Each roadmap item and each planned pass records:
-
+- **Effort**
+- **Confidence (in estimate)** — High / Medium / Low. Low confidence means the estimate is a placeholder and
+  the first step is measurement, not implementation.
 - **Scope** — files/areas affected.
 - **Major steps** — the ordered work, not a single sentence.
 - **Dependencies** — other passes, data, deployment, or admin-session prerequisites.
 - **Unknowns** — what is not yet understood, and what would have to be measured first.
 - **Complexity drivers** — what makes this harder than its size suggests (shared code paths,
   migrations, admin-only verification, matcher scoring, performance measurement, external APIs).
-- **Confidence** — High / Medium / Low. Low confidence means the estimate is a placeholder and
-  the first step is measurement, not implementation.
+- **Acceptance criteria**
+- **Filed date**
 
-New roadmap entries without these fields are incomplete. Existing entries are not rewritten
-retroactively unless the user asks for an audit.
+All fields must be present even when the value is:
 
-### Workflow keyword: CREDITLIMIT=N
+`none`, `not applicable`, `missing`, or equivalent explicit wording.
 
-`CREDITLIMIT=N` anywhere in a request sets a hard ceiling of roughly N credits of work on that
-request. On approaching the ceiling, the agent must:
+Grouped plan files are allowed and preferred for closely related passes. Each pass still gets its own
+clearly labelled section keyed by its pass ID.
 
-1. Preserve completed code changes; leave the project coherent and buildable.
-2. Stop exploring further hypotheses merely because they are possible.
-3. Report: root-cause evidence so far, changes made, verification completed, remaining uncertainty,
-   and the estimated band for the remainder.
-4. Wait for a decision before continuing.
+## Plan-file retrieval
 
-Never spend ceiling budget on architectural cleanup, refactoring, redesign, or unrelated fixes.
-Absent an explicit `CREDITLIMIT=`, the default ceiling for TRIAGE and debugging requests is
-`CREDITLIMIT=3`. `CREDITLIMIT=none` removes the ceiling for that request only.
+When a roadmap entry contains a `Plan:` reference:
 
-## Roadmap timestamp rule — Pacific Time (added 2026-09-14, Pacific)
+- use that file/pass section as the detailed specification when needed;
+- search by pass ID or the specified file path;
+- do not read unrelated plan files merely because they exist;
+- do not create a new plan file when a suitable active grouped plan already exists.
 
-All dates and times written into `.lovable/roadmap.md`, pass history, verification stamps and plan
-file `Created:` lines use **America/Los_Angeles** (PDT UTC-7 / PST UTC-8, DST handled automatically).
-Convert before writing; never copy a UTC tool timestamp through. If conversion crosses midnight, the
-Pacific calendar date wins. Date-only entries are Pacific calendar dates. Existing dates are not
-rewritten unless the user asks for an audit. This is a documentation convention only — no runtime
-timezone behaviour changes.
+## Roadmap documentation conventions
 
-## Execution-mode invariant — PLAN never implements (added 2026-09-16, Pacific)
+The roadmap is the current source of truth for pass ownership, current status, and current backlog
+scope.
 
-This is a hard execution rule, not an interpretation. It was added after a `PLAN:` request on
-2026-09-16 produced a full card-architecture implementation that the user never authorized.
+Pass ordering is not priority, authorization, or an implied "next task".
 
-### The invariant
+Do not:
 
-- **PLAN** = inspect, reconcile, scope, estimate, document, recommend. Writes only plan/roadmap
-  documentation files. **Zero product-code changes** — no components, routes, libs, styles,
-  migrations, schema, data writes, dependency changes, or config changes.
-- **BUILD** = the only mode that authorizes product-code changes, and only when the user states it.
-- **AUDIT / TRIAGE / RECONCILE / DOCS** = no product-code changes either.
+- reorder passes merely because status changes;
+- move completed passes between sections merely because they are completed;
+- infer what should be built next from document position;
+- infer BUILD authorization from roadmap status or plan detail.
 
-A PLAN request MUST NOT implement product code even when:
+When a roadmap/status update names exact pass IDs, edit those entries directly and use the evidence
+already supplied by the user/request. Do not inspect product code or rerun verification merely to
+support a documentation update unless the request explicitly requires that investigation.
 
-- the smallest safe implementation is obvious, small, or low-risk;
-- the user supplied detailed implementation specifications;
-- the work is already broken into implementation-ready passes;
-- a prior plan already describes exactly how the code should be built;
-- the plan the agent itself just wrote says what to do next.
+If a named documentation target is missing, duplicated, or materially contradictory, report the
+discrepancy rather than broadening the task into a general audit.
 
-**Detailed implementation specifications inside a PLAN request do not override PLAN mode.**
-Specifications describe *what a future BUILD would do*; they are plan content, not authorization.
-The correct end of a PLAN turn is a written plan plus "say BUILD to implement" — nothing else.
+## Credit reporting and estimates
 
-### Never infer BUILD from implementation-shaped language
+Credit values reported in chat are estimates, not billed-cost readings.
 
-None of the following change execution mode when the message carries a PLAN trigger:
+Use the project's S/M/L/XL bands. A new or re-scoped pass must record effort, confidence, scope,
+major steps, dependencies, unknowns, complexity drivers, and acceptance criteria.
 
-- "implement these instances", "after implementing…", "what should be built"
-- component/JSX specifications, file layouts, prop contracts, variant tables
-- acceptance criteria, verification steps, consumer maps
-- urgency, thoroughness, or completeness of the specification
+## Credit ceiling
 
-Only an explicit BUILD instruction (`BUILD`, `BUILD: <PASS_ID>`, or equivalent plain authorization
-such as "go ahead and implement it") changes mode.
+`CREDITLIMIT=N` in a request sets a hard ceiling of roughly N credits for that request.
 
-### Ambiguity rule
+When approaching the ceiling:
 
-If a message contains a PLAN trigger, PLAN is authoritative — proceed in PLAN mode without asking.
-If a message contains **no** valid trigger and its intent is genuinely ambiguous between planning
-and implementing, ask whether the user wants PLAN or BUILD **before** changing any code. Never
-resolve that ambiguity by implementing.
+1. preserve completed work and leave the project coherent;
+2. stop optional exploration;
+3. report evidence, completed changes, verification, remaining uncertainty, and estimated
+   remaining scope;
+4. wait for the user's decision before continuing.
 
-### If the rule is violated
+TRIAGE and debugging default to CREDITLIMIT=3 unless the request says otherwise.
+`CREDITLIMIT=none` removes the ceiling for that request only.
 
-1. Stop immediately; make no further product-code changes.
-2. Do not revert on your own initiative — freeze the code state.
-3. Do not label the work SHIPPED, VERIFIED, approved, or a roadmap pass. Record it as
-   **UNAPPROVED IMPLEMENTATION, FROZEN** with the date, and withdraw any status claims
-   (including supersession of other passes) that depended on it.
-4. Report the violation, the exact files/commits changed, and what verification actually ran.
-5. Await an explicit user decision to keep, modify, or revert. A later unrelated user message is
-   **not** retroactive approval.
+## Roadmap timestamp rule
+
+All dates written into `.lovable/roadmap.md`, pass history, verification stamps and plan `Filed date`
+fields use **America/Los_Angeles** calendar dates.
+
+Convert UTC timestamps before writing. If conversion crosses midnight, the Pacific calendar date wins.
+
+Do not rewrite existing dates unless the user asks for an audit.
+
+## Execution-mode invariant
+
+PLAN never implements product code.
+
+BUILD is the only mode that authorizes product-code changes, and only from explicit user
+authorization.
+
+Detailed implementation specifications, acceptance criteria, implementation-ready passes, or a
+previous plan do not override PLAN mode.
+
+A PLAN turn ends with planning/documentation only. It never launches a secondary BUILD.
+
+When a message contains a PLAN trigger, treat PLAN as authoritative.
+
+If a message contains no valid trigger and is genuinely ambiguous between planning and implementation,
+ask whether the user wants PLAN or BUILD before changing product code.
+
+If PLAN is violated:
+
+1. stop immediately;
+2. do not revert automatically;
+3. freeze the unapproved implementation;
+4. record it as **UNAPPROVED IMPLEMENTATION, FROZEN**;
+5. report the exact files/changes/verification;
+6. await explicit user direction.
