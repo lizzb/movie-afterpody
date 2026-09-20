@@ -222,16 +222,30 @@ export function EpisodeCard({
           ) : null}
           <CardBody>
             {movieLinks && movieLinks.length > 0
-              ? movieLinks.map((m) => (
-                  <MovieLinkRow
-                    key={m.id}
-                    movie={m}
-                    episodeId={episode.id}
-                    episodeTitle={episode.title}
-                    moderation={relationshipModeration}
-                    poster={relationshipPosters}
-                  />
-                ))
+              ? (
+                  <>
+                    {movieLinks.map((m) => (
+                      <MovieLinkRow
+                        key={m.id}
+                        movie={m}
+                        episodeId={episode.id}
+                        episodeTitle={episode.title}
+                        moderation={relationshipModeration}
+                        poster={relationshipPosters}
+                      />
+                    ))}
+                    {/* Pass U40E — append another movie; existing links untouched. */}
+                    {admin?.show && !admin.retired ? (
+                      <div className="flex flex-wrap items-center gap-2 pt-1">
+                        <EpisodeAddMovieControl
+                          episodeId={episode.id}
+                          label="Add another movie"
+                          linkedMovieIds={movieLinks.map((m) => m.id)}
+                        />
+                      </div>
+                    ) : null}
+                  </>
+                )
               : movieLinks
                 ? (
                     /* Pass U64 — status truth on the link-less line: why it is
