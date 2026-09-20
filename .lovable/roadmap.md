@@ -670,126 +670,39 @@ Verify the resulting Unmatched Episodes workflow end-to-end and do not make unre
 
 ### LATER
 
-#### Pass U40 — Podcast Show details admin workflow and contextual episode/movie views — L (~6-10 credits) — NEEDS DESIGN / PLAN first
+#### Pass U40 — Podcast Show details admin workflow and contextual episode/movie views — PARENT, RECONCILED + SPLIT 2026-09-20 — plan: `.lovable/plan/u40-podcast-show-details-admin-workflow-reconcile-split-acce-2026-09-20.md`
 
-The Podcast Show details page is increasingly functioning as an admin workspace, but the current layout makes repeated episode-level work unnecessarily cumbersome.
+The UX/design exploration U40 asked for is CLOSED — the 2026-09-20 plan file above is that deliverable. The original L (~6-10 credits) blob is replaced by the children below (total M ~3-5 credits if built together). Recommended order: U40E, then U40F, then U40G.
 
-Core workflow:
+Already delivered under U40 (do not rebuild):
 
-1. Find a specific episode.
-2. Inspect enough episode information to understand what it is about.
-3. Review its movie relationships.
-4. If a known movie is missing, link that specific existing movie directly to the episode.
-5. Flag/confirm incorrect or correct episode-movie relationships as appropriate.
-6. Mark the episode reviewed or not about a movie.
-7. Repeat this across many episodes without constantly losing my place.
+- Movies / Episodes segmented toggle, defaulting to Episodes — U40D, shipped 2026-09-14, VERIFIED.
+- Header "Active" replaced by "Last episode: …" (<6 months → Month DD; ≥6 months → Month Year) — shipped 2026-09-07, VERIFIED 2026-09-09.
+- Episode → link a specific existing movie through the one picker (catalogue search + IMDb bring-in) — U64, shipped 2026-09-17.
+- Confirm / Flag inline per relationship; reviewed and not-about-a-movie with undo — U38 + U53 + U64.
+- Keeping your place across list → detail → list (search, match filter, review filter, sort, loaded count, tab in the URL) — U90, shipped/VERIFIED 2026-09-19.
 
-Current gaps/pain points:
+Standing U40 boundaries that apply to every child: one movie picker and one relationship subsystem only; automatic discovery (Recheck episodes) stays distinct from human-directed addition; `is_primary_subject`, coverage roles and ordering remain owned by U2 — no second role model.
 
-- Episode-level actions do not currently provide a direct "link this episode to another movie" workflow. I can flag an existing relationship, mark the episode not about a movie, or mark it reviewed, but there is no obvious way from the episode itself to search for and link a specific existing movie.
-- The page contains a large number of episodes.
-- Episode-level actions are located down in the episode list.
-- Current workflow is repeatedly: scroll → find episode → perform action → scroll again → find next episode → perform action.
-- As the number of episodes grows, this becomes a poor admin workflow and creates unnecessary navigation/scrolling overhead.
-- The episode list is far below the movie-focused portion of the page, so using the page as an admin workflow requires excessive scrolling.
-- Once I scroll deeply into the episode list, I lose the Podcast Show context and have to scroll all the way back up for the back navigation.
-- I do NOT want scattered "jump to top" links or a floating button competing with the page/UI.
+##### U40E — Add another movie (append) — S, confidence High — BACKLOG
 
-Specifically evaluate:
+The picker currently appears only on episodes with zero links, so an episode that already has links offers no way to append a second (double features, franchises). Surface the existing `RelinkPicker` on episodes that already have links, labelled **Add another movie**, on the same row group as the links rather than replacing the link-less empty state. Append only: never deletes, replaces or reorders existing links; existing Confirm/Flag/reviewed semantics untouched; writes the same default relationship shape the current path writes. Boundaries: no second picker or relationship subsystem, no bulk add, no coverage roles (U2). Depends on U64 (shipped). Acceptance: on an episode with one link, adding a second leaves the first intact and both render without refresh; the snackbar names the movie; label reads "Add another movie" when links exist and "Add movie" when none; nothing changes for non-admins.
 
-A. Episode → specific movie linking
+##### U40F — Relationship row information hierarchy — S, confidence High — BACKLOG (absorbs the U51B date-format note)
 
-- A compact episode-row action that opens a lightweight search/select workflow for an existing movie.
-- Reuse existing movie-linking semantics and components where possible.
-- Do not create a duplicate linking mechanism if the current architecture already has an appropriate one.
+A movie card's episode row still renders `2024-09-01: Title (42m)` — raw ISO date, colon, parenthesised duration ("wall of punctuation"). Recommended treatment: episode title on the primary line; date and duration as small muted metadata on a secondary line; date formatted `2024 Sep 1`. Keep the date — titles are often exactly the movie title, so title-only reads as duplicated data. Applies to the episode rows inside movie cards and the equivalent rows on movie detail through one shared part, not per-route copies. Boundaries: presentation only, no data or query changes. Acceptance: no ISO dates and no parenthesised duration in relationship rows; row height unchanged or lower at 390px; one component definition.
 
-B. Navigation/context while deep in the page
+##### U40G — Sticky show context while scrolling the episode list — S/M, confidence Medium — BACKLOG
 
-- A compact sticky contextual header containing Back + Podcast Show name is probably the strongest solution once the main show header scrolls away.
-- Avoid a large permanently sticky header, scattered jump links, or floating controls.
-- Preserve the normal visual hierarchy when the user is at the top of the page.
+Deep in the episode list there is no Back or show name, so returning means scrolling to the top. Add a compact contextual bar (Back + show name only) that appears after the main show header scrolls out of view and disappears at the top, preserving the normal hierarchy on arrival. Reuses existing `BackLink` history behaviour. Explicitly not: a large permanently sticky header, scattered jump-to-top links, or a floating button. Show detail only in this pass. Acceptance: absent at scroll top, present deep in the list, Back behaves exactly as today, no layout shift or overlap at 390px and 1280px. Confidence Medium — the appear/disappear threshold needs one in-app design pass.
 
-C. Efficient repeated episode processing
+##### U40H — Conditional data loading for the Movies / Episodes toggle — MERGED into U89
 
-- Consider bulk selection/actions, compact list organization, filtering/sorting, or other patterns that reduce scroll → action → scroll → action repetition.
-- Do not assume bulk selection is automatically the answer; recommend the smallest approach that materially improves the workflow.
+The toggle switches views over one payload, so episode-heavy data loads even in Movies mode. That is episode payload weight and read fan-out, already owned and measured by U89; splitting it here would create a second owner for the same reader. U40 records the dependency and defers.
 
-D. Information density
+##### Explicitly NOT built yet under U40
 
-- Preserve enough episode metadata to support match/review decisions without making every row excessively tall.
-- Favor progressive disclosure where appropriate.
-
-Also reconcile the Podcast Show movie/episode toggle against J1/J3/K5/K6 and the current show-page architecture:
-
-- Control to toggle whether to display the content in terms of:
-  - movie-focused ("Watchable tonight" and "Also covered")
-  - episode-focused ("All episodes", sorted recent → oldest, with search bar and other segmented filter controls)
-
-- Default selected = episode-focused view.
-- In order to potentially help performance, the split should be implemented as actual conditional data loading — don't let the app fetch both huge datasets and merely hide one.
-- Each mode should have context-appropriate sort/filter controls without creating a UX mess (NEEDS DESIGN).
-- Design question: Does giving each view its own appropriate search/filter controls create useful contextual controls, or does it create too many independent filtering surfaces?
-
-Also reconcile:
-
-- "Active" → Last Episode in the Podcast Show details header:
-  - replace "Active" with "Last episode: 12 days ago" or "Last episode: Aug 24"
-  - Month DD if < 6 months ago
-  - Month Year if >= 6 months ago
-  - Context: the word "active" is confusing/ambiguous and appears to relate to the admin-only active/parked concept, which should not be consumer-facing.
-
-Reconcile this work against the current roadmap and existing passes before proposing anything so we do not duplicate work already covered by J1/J3/U8/E or another existing item.
-
-Deliver a UX/design exploration, not code:
-
-1. Identify the primary workflow problems with the current page.
-2. Propose 2–4 viable interaction patterns/UX approaches where there are meaningful alternatives, including bulk-select where appropriate.
-3. Explain the tradeoffs of each.
-4. Recommend the best approach for this application and why.
-5. Identify the smallest sensible V1 versus enhancements that should remain future work.
-6. Identify what should explicitly NOT be built yet.
-7. Call out existing components/patterns that should be reused.
-8. Estimate implementation size (S/M/L/XL) and identify any roadmap item that should be updated, merged, or split.
-
-Optimize for fast repeated admin processing while preserving the existing user-facing Podcast Show experience. Do not implement anything in this pass.
-
-Also part of U40: Below is not actually just a date-formatting change. You're saying the current YYYY-MM-DD: title (duration) composition looks junky and you're questioning the information hierarchy.
-
-(related to U51B): Podcast show details > movie card: Podcast episode date - change from 2024-09-01 to 2024 Sep 1. Keep date - remember displaying JUST the title looked weird, because episode titles can often be exactly the movie title, so it can look like the same piece of data is being presented twice
-
-Potential alternatives worth evaluating:
-
-- date as small muted metadata above/beside title;
-- episode title + date in a secondary line;
-- episode number + date + duration;
-- compact date only when useful;
-- other compact treatment.
-
-Desired principle: retain identification/context information without making the relationship row look like a wall of punctuation.
-
-U40 should explicitly support both states:
-
-Episode has no movie links
-→ Add movie
-
-Episode already has one or more movie links
-→ Add another movie (append, not replace)
-
-U40 should explicitly cover:
-
-- Episode → add a specific additional movie
-- available on an episode whether it currently has zero, one, or multiple links;
-- when links exist, the action is explicitly Add another movie, not “Pick another movie”;
-- searching an existing catalogue movie is supported;
-- bringing in a missing movie through the existing TMDB/IMDb picker is supported where that picker already allows it;
-- adding the new relationship does not delete or replace existing links;
-- preserve existing Confirm/Flag/review semantics;
-- reconcile is_primary_subject and future coverage roles against U2;
-- do not create a second movie-picker or second relationship subsystem.
-
-U40 must distinguish automatic discovery (Recheck episodes) from human-directed addition (Add movie / Add another movie). They solve different problems.
-
-U40 owns the human-directed workflow. U2 remains the roadmap owner for the richer multi-movie editing semantics such as coverage roles and ordering; U40 must not create a second role model or silently redefine those semantics.
+Bulk episode selection and bulk actions — measure the workflow after U40E–U40G and U90 first; bulk select is the largest change and may be unnecessary once scroll-loss is gone. Coverage roles and ordering (U2). "Relationship set incomplete" signal (U66 — unblocked by U40E). Any change to the consumer-facing show experience.
 
 #### Pass U41 — Preferred podcast UX cleanup — S (~1-2 credits) — NEEDS DESIGN / RECONCILE with G3 and F
 
