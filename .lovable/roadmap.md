@@ -1491,7 +1491,7 @@ Acceptance (2026-09-17, signed-in admin on `/podcasts/the-villain-was-right`, 39
 
 Symmetric admin-created episode↔episode relation, no relationship type in V1, shown as a short "Related:" line on the Podcast Show Details episode card (e.g. `Blank Check (1994) - Re:Issue` ↔ `Blank Check (1994)`). One new join table, ordered-pair uniqueness, admin-only writes; catalogue data, not user data. Excluded from Commentary Score for now. Acceptance: link/unlink works, both cards show it, removal is symmetric, no effect on matcher, coverage counts or review queues.
 
-#### Pass U66 — "Relationship set incomplete" signal — M (~3-5 credits) — BLOCKED on U40E; NEEDS DESIGN
+#### Pass U66 — "Relationship set incomplete" signal — M (~3-5 credits) — NEEDS DESIGN (U40E shipped 2026-09-20, unblocked)
 
 Episode-level marker meaning "a movie is missing here", so review effort is not repeated. Explicitly not `FlagMatchButton` reuse (that needs a movie id and means "this pairing is wrong"). Before building: evaluate whether leaving the episode unreviewed, U27 goal-directed review, or a state on `episode_reviews` already covers it. Acceptance (pre-build): a written decision on whether this earns a new state at all; if yes, one admin filter, no second review queue, and a defined clearing rule.
 
