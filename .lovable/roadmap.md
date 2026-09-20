@@ -684,7 +684,7 @@ Already delivered under U40 (do not rebuild):
 
 Standing U40 boundaries that apply to every child: one movie picker and one relationship subsystem only; automatic discovery (Recheck episodes) stays distinct from human-directed addition; `is_primary_subject`, coverage roles and ordering remain owned by U2 — no second role model.
 
-##### U40E — Add another movie (append) — S, confidence High — BACKLOG
+##### U40E — Add another movie (append) — S — SHIPPED 2026-09-20, VERIFIED
 
 The picker currently appears only on episodes with zero links, so an episode that already has links offers no way to append a second (double features, franchises). Surface the existing `RelinkPicker` on episodes that already have links, labelled **Add another movie**, on the same row group as the links rather than replacing the link-less empty state. Append only: never deletes, replaces or reorders existing links; existing Confirm/Flag/reviewed semantics untouched; writes the same default relationship shape the current path writes. Boundaries: no second picker or relationship subsystem, no bulk add, no coverage roles (U2). Depends on U64 (shipped). Acceptance: on an episode with one link, adding a second leaves the first intact and both render without refresh; the snackbar names the movie; label reads "Add another movie" when links exist and "Add movie" when none; nothing changes for non-admins.
 
