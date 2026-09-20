@@ -1,21 +1,141 @@
 # Movie Afterparty — current consolidated roadmap
 
-## Working rules
+## Roadmap purpose and rules
 
-- Before implementing a pass, reconcile it against existing roadmap items and relevant plan files.
-- Do not create duplicate passes when an existing item already owns the work.
-- PLAN / AUDIT / RECONCILE tasks do not authorize code changes.
-- Material scope expansion requires a user decision; preserve already-completed work while pausing for that decision.
-- When documentation and code disagree, document the discrepancy and use current implementation as the basis for diagnosis.
-- Keep product principles in `.lovable/product-principles.md`; keep durable agent workflow rules in Project Knowledge; keep current implementation status and backlog ownership here.
+This file is the current source of truth for:
 
-**This is the only active plan file.** Everything in `.lovable/plan/archive/` is historical and superseded — read it for background only. When a pass ships, its entry moves to "Already done" below with a `— shipped YYYY-MM-DD` stamp in the same edit.
+- pass IDs;
+- current pass status;
+- current pass ownership;
+- current backlog scope;
+- links to detailed pass plans.
 
-Priority reflects the app's current state: a personal tool for one user, refining the match engine on a small data set. Anything aimed at a wider audience or large-scale automatic ingestion is deliberately low priority. Estimates use credit bands, not token counts: **S ~1-2 credits**, **M ~3-5**, **L ~6-10**, **XL ~10+**. Bands are ballparks for build cost — verification loops, debugging and design rounds push a pass toward the top of its band or past it.
+Pass ordering does not imply priority, authorization, sequencing, or "next work".
 
-## Estimate content rule (added 2026-09-14)
+A product-code change requires explicit BUILD authorization from the user. Do not infer authorization
+from backlog position, plan detail, status, dependencies, or previous implementation.
 
-A credit band on its own is not an estimate. Every new or re-scoped pass records **Scope** (files/areas), **Major steps**, **Dependencies**, **Unknowns**, **Complexity drivers** (what makes it harder than its size suggests) and **Confidence** (High / Medium / Low; Low means measure first). Existing entries are not rewritten retroactively unless an audit is requested. Credit numbers reported in chat are model estimates, never billed cost, and are always labelled as estimates.
+Before a BUILD of an existing pass, use the pass ID as the primary anchor and read only the relevant
+roadmap entry and linked plan/acceptance material as needed.
+
+Before creating a new pass, perform only the targeted ownership/duplication check required to ensure
+that no existing pass already owns the work.
+
+Roadmap/status updates should be surgical. Do not reorder, regroup, or move passes merely because
+their status changes.
+
+Existing pass entries are not rewritten retroactively unless the user requests an audit.
+
+Historical plan material is not current status. The roadmap status is authoritative for current pass
+state.
+
+## Pass-record format
+
+New and re-scoped passes use a compact record:
+
+```
+#### Pass <PASS_ID> — <short description> — <Effort>/<Confidence>
+
+Status: <current status>
+Approval: <PENDING or APPROVED YYYY-MM-DD>
+Dependencies: <pass IDs or none>
+Plan: <grouped plan file + pass ID/section, or inline>
+Scope: <short scope summary or see plan>
+Filed: YYYY-MM-DD
+```
+
+Use `inline` in `Plan:` when the roadmap entry itself contains the complete specification and a
+separate plan section is unnecessary.
+
+Use a grouped plan file for related passes that share a conceptual initiative. Do not create a
+separate plan file merely because a pass has a unique ID.
+
+Every detailed plan section must contain the required labelled fields defined by the workflow
+documentation.
+
+## Status conventions
+
+Use these lifecycle statuses:
+
+- **BACKLOG**
+- **NEEDS DESIGN / PLAN / COPY** — planning or design must happen before implementation.
+- **DEFERRED YYYY-MM-DD** — intentionally paused/postponed; do not resume without authorization.
+- **NEEDS FOLLOW-UP YYYY-MM-DD** — a known issue, verification gap, or correctness concern remains.
+- **IMPLEMENTED YYYY-MM-DD / NOT VERIFIED** — code has been implemented, but one or more acceptance criteria could not be verified.
+- **IMPLEMENTED YYYY-MM-DD / VERIFIED YYYY-MM-DD (<environment / viewport>)** — implementation is complete and the stated acceptance criteria have been verified.
+- **UNAPPROVED IMPLEMENTATION, FROZEN YYYY-MM-DD** — product code exists from an implementation that was not authorized by the user for that pass; the code must not be extended, polished, verified/promoted, or treated as shipped until the user explicitly decides whether to keep, modify, or revert it.
+
+Approval is separate from implementation status:
+
+- **Approval: PENDING**
+- **Approval: APPROVED YYYY-MM-DD**
+
+`UNAPPROVED IMPLEMENTATION, FROZEN` is reserved for product code that exists without authorization.
+It is not the same as ordinary completed work waiting for human approval.
+
+Verification dates record when the verification was actually performed.
+Implementation dates record when the implementation was actually made.
+Approval dates record when the human explicitly approved the pass.
+
+## Estimate conventions
+
+Effort uses:
+
+- **S** ≈ 1–2 credits
+- **M** ≈ 3–5 credits
+- **L** ≈ 6–10 credits
+- **XL** ≈ 10+ credits
+
+Confidence means confidence in the effort estimate:
+
+- **High**
+- **Medium**
+- **Low**
+
+Every new or re-scoped detailed plan contains:
+
+- Effort
+- Confidence (in estimate)
+- Scope
+- Major steps
+- Dependencies
+- Unknowns
+- Complexity drivers
+- Acceptance criteria
+- Filed date
+
+Fields may explicitly say `none`, `not applicable`, `missing`, or equivalent when appropriate.
+
+## Plan-file organization
+
+`.lovable/plan/` may contain multiple active grouped plan files.
+
+Group related pass IDs by conceptual initiative rather than by individual pass or filing date.
+
+Each roadmap `Plan:` field identifies the relevant file and pass section.
+
+Use the pass ID as the primary retrieval key inside a grouped plan file.
+
+Do not read unrelated plan files merely because they exist.
+
+`.lovable/plan/archive/` contains historical plan material. Read it only when the current task
+explicitly requires historical context.
+
+## Verification conventions
+
+A pass is **VERIFIED** only when its stated acceptance criteria have actually been verified.
+
+Verification evidence should identify the relevant environment and, where applicable, viewport.
+
+When a verification blocker is environmental (for example, an admin-only UI cannot be exercised because the preview is not authenticated), record the blocker explicitly rather than silently treating the pass as verified.
+A verification blocker remains a blocker until actually resolved.
+
+## Approval convention
+
+Implementation and verification do not imply human approval.
+
+The human may approve one or multiple passes in a later bulk message. Approval should be recorded
+without rewriting the implementation or verification history.
 
 ## Credit ceiling keyword (added 2026-09-14)
 
@@ -24,25 +144,6 @@ A credit band on its own is not an estimate. Every new or re-scoped pass records
 ## Timestamp rule (added 2026-09-14)
 
 All dates in this file are **America/Los_Angeles** (PDT/PST) calendar dates, converted from UTC tool timestamps before writing. Existing dates stay as-is unless an audit is requested.
-
-## Roadmap status conventions
-
-Use status labels precisely:
-
-- **SHIPPED / VERIFIED** — implementation is complete and the stated acceptance criteria have been verified.
-- **IMPLEMENTED, NOT VERIFIED** — code has been implemented, but one or more acceptance criteria could not be verified.
-- **NEEDS FOLLOW-UP** — a known issue, verification gap, or correctness concern remains.
-- **NEEDS DESIGN / PLAN** — planning or design must happen before implementation.
-- **HELD** — intentionally paused by the user; do not resume without authorization.
-- **DEFERRED** — intentionally postponed in favor of other work.
-
-* **UNAPPROVED IMPLEMENTATION, FROZEN** — product code exists from an implementation that was not authorized by the user for that pass; the code must not be extended, polished, verified/promoted, or treated as shipped until the user explicitly decides whether to keep, modify, or revert it.
-
-Do not describe a pass as SHIPPED when its own acceptance section says it is not verified.
-
-When a verification blocker is environmental (for example, an admin-only UI cannot be exercised because the preview is not authenticated), record the blocker explicitly rather than silently treating the pass as verified.
-
-The roadmap is the source of truth for current pass status. Historical plan files remain historical.
 
 ## Verification workflow keywords (added 2026-09-09)
 
@@ -55,10 +156,6 @@ Use `BUILD` only when product code is expected to change. Expect `VERIFY SWEEP` 
 
 ---
 
-# Not yet done
-
-## Do next
-
 ### Pass U90 — Episode-view list state preserved across list → detail → list — S — SHIPPED 2026-09-19, VERIFIED (preview, 390px + 1280px)
 
 Effort: S; Confidence in estimate: High. Scope was the Podcast Show Details Episodes feed only; no new roadmap ownership taken from H5 (Movies/Tonight filter split) or G4 (saveable Tonight defaults), which still own their surfaces.
@@ -68,7 +165,6 @@ Problem: the Episodes feed on `/podcasts/$slug` held search, match filter, revie
 Fix (`src/routes/podcasts.$slug.tsx` only): those fields moved to TanStack Router search params via a hand-rolled `validateSearch` (no zod adapter available at the installed router version), with defaults stripped from the URL. `PodcastDetailPage` reads `Route.useSearch()` and writes through one `setSearch` patch helper using `navigate({ replace: true, resetScroll: false })`, so filter edits do not add history entries and the existing BackLink history behaviour is unchanged. `EpisodeFeed` is now driven by `listState` / `setListState` props; transient UI state stayed local. No storage-based persistence, no global cross-surface filter persistence.
 
 Verified 2026-09-19 on Messed Up Movies at 390px and 1280px: search "scream" + Matched + Unreviewed + Title A–Z produced `?q=scream&match=matched&review=unreviewed&sort=title-asc` showing 6 of 871; opening a movie page and returning via back restored the identical filtered list; hard refresh of that URL preserved it; opening the show with no params gave defaults and a clean URL; tab and loaded limit preserved the same way. Typecheck clean, no console errors, no unrelated navigation or filtering change.
-
 
 ### Pass U88 — Confirm + Mark reviewed appeared not to stick — S — SHIPPED 2026-09-14, VERIFIED (preview, 390px)
 
@@ -1630,7 +1726,7 @@ Residual risk left over from the 2026-09-17 index fix (which removed the whole-t
 
 Umbrella pass extending the pattern shipped in U90 to the other list/detail surfaces. Filed as one pass because all remaining surfaces share a single architecture (global `usePrefs` filter object + local `useState` for term/mode/limit/tab), so the work is one shared search-param convention applied four times, not four designs.
 
-Existing-roadmap ownership / related passes: U90 (shipped pattern and precedent); H5 (splitting Movies filters from Tonight — still owns per-surface filter *state separation*, which this pass must not pre-empt); G4 (saveable Tonight defaults — owns durable defaults, a different concern from per-navigation list state); U82 (filter within a watchlist — if it lands first, its filter fields join this convention); G3 (no mid-interaction re-sorting).
+Existing-roadmap ownership / related passes: U90 (shipped pattern and precedent); H5 (splitting Movies filters from Tonight — still owns per-surface filter _state separation_, which this pass must not pre-empt); G4 (saveable Tonight defaults — owns durable defaults, a different concern from per-navigation list state); U82 (filter within a watchlist — if it lands first, its filter fields join this convention); G3 (no mid-interaction re-sorting).
 
 Affected surfaces (inventory 2026-09-19): `/movies` (`term`, `limit`, plus prefs-backed filters/sort), `/` Tonight (`visibleCount`, prefs-backed filters/sort), `/podcasts` (`term`, `mode`, `limit`), `/lists` (`tab`, plus per-list filters once U82 lands). Not applicable: movie detail and settings (no list state).
 
