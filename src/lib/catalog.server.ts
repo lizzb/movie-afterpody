@@ -101,6 +101,37 @@ async function fetchAllRows<T>(
  * episodes separately restores the source-side active-show filter, is fully
  * parallelisable, and completes in ~3s.
  */
+/**
+ * One show's episodes, read sequentially page by page.
+ *
+ * Pass U89: `fetchAllRows` fires a wave of 6 parallel 1000-row windows, but no
+ * show has more than ~900 episodes, so 5 of every 6 queries returned nothing.
+ * Reading the first window and continuing only while it comes back full keeps
+ * the result identical and cuts the episode query count ~6x.
+ */
+async function fetchEpisodesForPodcast(
+  db: ReturnType<typeof client>,
+  podcastId: string,
+): Promise<Episode[]> {
+  const out: Episode[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const rows = await readWindow<Episode>(
+      (a, b) =>
+        db
+          .from("podcast_episodes")
+          .select("id, podcast_id, slug, title, released_at, duration_seconds, episode_number")
+          .eq("podcast_id", podcastId)
+          .order("id")
+          .range(a, b)
+          .returns<Episode[]>(),
+      from,
+      from + PAGE - 1,
+    );
+    out.push(...rows);
+    if (rows.length < PAGE) return out;
+  }
+}
+
 async function fetchEpisodesByPodcast(
   db: ReturnType<typeof client>,
   podcastIds: string[],
@@ -109,23 +140,12 @@ async function fetchEpisodesByPodcast(
   const out: Episode[] = [];
   for (let i = 0; i < podcastIds.length; i += CONCURRENCY) {
     const chunk = podcastIds.slice(i, i + CONCURRENCY);
-    const waves = await Promise.all(
-      chunk.map((podcastId) =>
-        fetchAllRows<Episode>((from, to) =>
-          db
-            .from("podcast_episodes")
-            .select("id, podcast_id, slug, title, released_at, duration_seconds, episode_number")
-            .eq("podcast_id", podcastId)
-            .order("id")
-            .range(from, to)
-            .returns<Episode[]>(),
-        ),
-      ),
-    );
+    const waves = await Promise.all(chunk.map((podcastId) => fetchEpisodesForPodcast(db, podcastId)));
     for (const rows of waves) out.push(...rows);
   }
   return out;
 }
+
 
 
 
